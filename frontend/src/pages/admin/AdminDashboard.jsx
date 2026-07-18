@@ -44,7 +44,7 @@ export default function AdminDashboard() {
       {
         label: 'XP Activity',
         data: data.engagement.map((item) => Number(item.activity_count)),
-        borderColor: '#0F766E',
+        borderColor: '#2563EB',
         tension: 0.35,
       },
     ],

@@ -13,6 +13,16 @@ const authService = {
   updateProfile(payload) {
     return api.put('/auth/profile', payload);
   },
+  uploadAvatar(file) {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    return api.post('/auth/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  removeAvatar() {
+    return api.delete('/auth/avatar');
+  },
 };
 
 export default authService;

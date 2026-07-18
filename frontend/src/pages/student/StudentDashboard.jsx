@@ -87,8 +87,8 @@ export default function StudentDashboard() {
       {
         label: 'XP earned',
         data: analytics.xpTrend.map((item) => Number(item.xp)),
-        borderColor: '#0F766E',
-        backgroundColor: 'rgba(15,118,110,0.2)',
+        borderColor: '#2563EB',
+        backgroundColor: 'rgba(37,99,235,0.2)',
         tension: 0.35,
       },
     ],
@@ -115,26 +115,27 @@ export default function StudentDashboard() {
           <StatCard label="Level" value={profile.level} icon={<SchoolIcon />} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Badges" value={analytics.badges} icon={<EmojiEventsIcon />} />
+          <StatCard label="Badges" value={analytics.badges} icon={<EmojiEventsIcon />} color="#FACC15" />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Quizzes Passed" value={analytics.quizzesPassed} icon={<QuizIcon />} />
+          <StatCard label="Quizzes Passed" value={analytics.quizzesPassed} icon={<QuizIcon />} color="#7C3AED" />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Medals" value={analytics.medals} icon={<WorkspacePremiumIcon />} />
+          <StatCard label="Medals" value={analytics.medals} icon={<WorkspacePremiumIcon />} color="#FACC15" />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Certificates" value={analytics.certificates} icon={<WorkspacePremiumIcon />} />
+          <StatCard label="Certificates" value={analytics.certificates} icon={<WorkspacePremiumIcon />} color="#FACC15" />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             label="Daily Streak"
             value={`${profile.current_streak || 0} days`}
             icon={<LocalFireDepartmentIcon />}
+            color="#F59E0B"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Leaderboard Rank" value={rank ? `#${rank}` : '—'} icon={<EmojiEventsIcon />} />
+          <StatCard label="Leaderboard Rank" value={rank ? `#${rank}` : '—'} icon={<EmojiEventsIcon />} color="#7C3AED" />
         </Grid>
       </Grid>
 

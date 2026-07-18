@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Avatar,
@@ -9,6 +9,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import XpBar from '../../components/gamification/XpBar';
@@ -21,8 +23,19 @@ import authService from '../../services/authService';
 import { getErrorMessage } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
+const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || 'http://localhost:4000';
+
+function resolveAvatarUrl(url) {
+  if (!url) return undefined;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+    return url;
+  }
+  return `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`;
+}
+
 export default function StudentProfilePage() {
-  const { user, profile, updateProfile } = useAuth();
+  const { user, updateProfile } = useAuth();
+  const fileInputRef = useRef(null);
   const [data, setData] = useState(null);
   const [courses, setCourses] = useState([]);
   const [form, setForm] = useState({
@@ -30,12 +43,13 @@ export default function StudentProfilePage() {
     lastName: '',
     gradeLevel: '',
     schoolName: '',
-    avatarUrl: '',
   });
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -54,8 +68,8 @@ export default function StudentProfilePage() {
           lastName: user?.lastName || '',
           gradeLevel: gamification.profile?.grade_level || '',
           schoolName: gamification.profile?.school_name || '',
-          avatarUrl: user?.avatarUrl || '',
         });
+        setAvatarUrl(user?.avatarUrl || '');
       } catch (err) {
         setError(getErrorMessage(err));
       } finally {
@@ -71,13 +85,53 @@ export default function StudentProfilePage() {
     setError('');
     setMessage('');
     try {
-      const response = await authService.updateProfile(form);
+      const response = await authService.updateProfile({
+        ...form,
+        avatarUrl: avatarUrl || null,
+      });
       updateProfile(response.data.data.profile, response.data.data.user);
+      setAvatarUrl(response.data.data.user?.avatarUrl || '');
       setMessage('Profile updated.');
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleAvatarChange(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setError('');
+    setMessage('');
+    try {
+      const response = await authService.uploadAvatar(file);
+      updateProfile(response.data.data.profile, response.data.data.user);
+      setAvatarUrl(response.data.data.user?.avatarUrl || '');
+      setMessage('Profile picture updated.');
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    setUploadingAvatar(true);
+    setError('');
+    setMessage('');
+    try {
+      const response = await authService.removeAvatar();
+      updateProfile(response.data.data.profile, response.data.data.user);
+      setAvatarUrl('');
+      setMessage('Profile picture removed.');
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setUploadingAvatar(false);
     }
   }
 
@@ -97,11 +151,42 @@ export default function StudentProfilePage() {
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper sx={{ p: 3, textAlign: 'center' }}>
             <Avatar
-              src={form.avatarUrl || undefined}
-              sx={{ width: 96, height: 96, mx: 'auto', mb: 2, bgcolor: 'primary.main' }}
+              src={resolveAvatarUrl(avatarUrl)}
+              sx={{ width: 112, height: 112, mx: 'auto', mb: 2, bgcolor: 'primary.main' }}
             >
               {(form.firstName || 'S')[0]}
             </Avatar>
+            <Stack spacing={1} sx={{ mb: 2 }}>
+              <Button
+                variant="contained"
+                startIcon={<PhotoCameraIcon />}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+              >
+                {uploadingAvatar ? 'Uploading...' : 'Upload photo'}
+              </Button>
+              {avatarUrl ? (
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  startIcon={<CancelRoundedIcon />}
+                  onClick={handleRemoveAvatar}
+                  disabled={uploadingAvatar}
+                >
+                  Remove photo
+                </Button>
+              ) : null}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                hidden
+                onChange={handleAvatarChange}
+              />
+              <Typography variant="caption" color="text.secondary">
+                PNG, JPG, or WEBP up to 5MB
+              </Typography>
+            </Stack>
             <Typography variant="h5">{form.firstName} {form.lastName}</Typography>
             <Typography color="text.secondary">{user?.email}</Typography>
             <Typography sx={{ mt: 1 }}>Grade: {studentProfile.grade_level || '—'}</Typography>
@@ -137,12 +222,6 @@ export default function StudentProfilePage() {
                 label="School"
                 value={form.schoolName}
                 onChange={(e) => setForm((p) => ({ ...p, schoolName: e.target.value }))}
-              />
-              <TextField
-                label="Photo URL"
-                value={form.avatarUrl}
-                onChange={(e) => setForm((p) => ({ ...p, avatarUrl: e.target.value }))}
-                helperText="Paste an image URL for your profile photo"
               />
               <Button type="submit" variant="contained" disabled={saving}>
                 {saving ? 'Saving...' : 'Save Profile'}

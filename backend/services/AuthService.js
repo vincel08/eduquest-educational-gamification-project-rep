@@ -1,10 +1,25 @@
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
 import UserModel from '../models/UserModel.js';
 import StudentProfileModel from '../models/StudentProfileModel.js';
 import AppError from '../utils/AppError.js';
 import { query } from '../config/db.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, '../uploads');
+
+function removeLocalAvatar(avatarUrl) {
+  if (!avatarUrl || !avatarUrl.startsWith('/uploads/')) return;
+  const filePath = path.join(uploadsDir, path.basename(avatarUrl));
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+}
 
 function sanitizeUser(user) {
   return {
@@ -105,6 +120,38 @@ const AuthService = {
       );
       profile = await StudentProfileModel.findByUserId(userId);
     }
+
+    return { user: sanitizeUser(updatedUser), profile };
+  },
+
+  async uploadAvatar(userId, file) {
+    if (!file) throw new AppError('No profile picture uploaded', 400);
+
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+    if (user.role !== 'student') {
+      throw new AppError('Only students can update a profile picture here', 403);
+    }
+
+    const avatarUrl = `/uploads/${file.filename}`;
+    removeLocalAvatar(user.avatar_url);
+
+    const updatedUser = await UserModel.update(userId, { avatar_url: avatarUrl });
+    const profile = await StudentProfileModel.findByUserId(userId);
+
+    return { user: sanitizeUser(updatedUser), profile };
+  },
+
+  async removeAvatar(userId) {
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+    if (user.role !== 'student') {
+      throw new AppError('Only students can update a profile picture here', 403);
+    }
+
+    removeLocalAvatar(user.avatar_url);
+    const updatedUser = await UserModel.update(userId, { avatar_url: null });
+    const profile = await StudentProfileModel.findByUserId(userId);
 
     return { user: sanitizeUser(updatedUser), profile };
   },

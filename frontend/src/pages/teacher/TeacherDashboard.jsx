@@ -50,7 +50,7 @@ export default function TeacherDashboard() {
       {
         label: 'Average Score',
         data: data.quizStats.map((item) => Number(item.average_score || 0)),
-        backgroundColor: '#0F766E',
+        backgroundColor: '#7C3AED',
       },
     ],
   };

@@ -4,9 +4,11 @@ import { motion } from 'framer-motion';
 export default function PageHeader({ title, subtitle, action }) {
   return (
     <Stack
+      className="page-hero"
       component={motion.div}
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: 'easeOut' }}
       direction={{ xs: 'column', md: 'row' }}
       spacing={2}
       sx={{
@@ -15,15 +17,19 @@ export default function PageHeader({ title, subtitle, action }) {
         alignItems: { xs: 'flex-start', md: 'center' },
       }}
     >
-      <Box>
-        <Typography variant="h4" gutterBottom>
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <Typography variant="h4" gutterBottom sx={{ color: '#fff', fontWeight: 900 }}>
           {title}
         </Typography>
         {subtitle ? (
-          <Typography color="text.secondary">{subtitle}</Typography>
+          <Typography sx={{ color: 'rgba(255,255,255,0.9)', maxWidth: 560 }}>
+            {subtitle}
+          </Typography>
         ) : null}
       </Box>
-      {action}
+      {action ? (
+        <Box sx={{ position: 'relative', zIndex: 1 }}>{action}</Box>
+      ) : null}
     </Stack>
   );
 }

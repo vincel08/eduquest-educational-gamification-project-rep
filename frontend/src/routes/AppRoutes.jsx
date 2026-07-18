@@ -30,7 +30,6 @@ import AdminUsersPage from '../pages/admin/AdminUsersPage';
 import AdminCoursesPage from '../pages/admin/AdminCoursesPage';
 import AdminLeaderboardPage from '../pages/admin/AdminLeaderboardPage';
 import AdminCertificatesPage from '../pages/admin/AdminCertificatesPage';
-import AdminAnalyticsPage from '../pages/admin/AdminAnalyticsPage';
 import AdminBadgesPage from '../pages/admin/AdminBadgesPage';
 import StudentProfilePage from '../pages/student/StudentProfilePage';
 import { useAuth } from '../contexts/AuthContext';
@@ -92,7 +91,6 @@ export default function AppRoutes() {
           <Route path="leaderboard" element={<AdminLeaderboardPage />} />
           <Route path="certificates" element={<AdminCertificatesPage />} />
           <Route path="badges" element={<AdminBadgesPage />} />
-          <Route path="analytics" element={<AdminAnalyticsPage />} />
         </Route>
       </Route>
 

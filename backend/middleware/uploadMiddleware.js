@@ -86,4 +86,29 @@ export const documentUpload = multer({
   },
 });
 
+const avatarMimeTypes = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+]);
+
+const avatarExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+
+function avatarFileFilter(_req, file, cb) {
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  if (!avatarMimeTypes.has(file.mimetype) || !avatarExtensions.has(ext)) {
+    return cb(new AppError('Profile picture must be PNG, JPG, or WEBP', 400));
+  }
+  return cb(null, true);
+}
+
+export const avatarUpload = multer({
+  storage,
+  fileFilter: avatarFileFilter,
+  limits: {
+    fileSize: Math.min(env.uploadMaxSizeMb, 5) * 1024 * 1024,
+  },
+});
+
 export default upload;

@@ -5,13 +5,13 @@ export function celebrate() {
     particleCount: 120,
     spread: 70,
     origin: { y: 0.7 },
-    colors: ['#0F766E', '#F59E0B', '#22C55E', '#0EA5E9'],
+    colors: ['#2563EB', '#7C3AED', '#FACC15', '#FFFFFF'],
   });
 }
 
 export function celebrateAchievement() {
   const end = Date.now() + 1200;
-  const colors = ['#F59E0B', '#0F766E', '#AB47BC'];
+  const colors = ['#FACC15', '#2563EB', '#7C3AED', '#FFFFFF'];
 
   (function frame() {
     confetti({

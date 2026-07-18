@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   AppBar,
   Box,
@@ -10,7 +10,6 @@ import {
   ListItemIcon,
   ListItemText,
   Toolbar,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -18,15 +17,13 @@ import MenuIcon from '@mui/icons-material/Menu';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import LogoutIcon from '@mui/icons-material/Logout';
-import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useThemeMode } from '../contexts/ThemeModeContext';
 import NotificationBell from '../components/common/NotificationBell';
-import { isSoundsMuted, toggleSoundsMuted } from '../utils/gameSounds';
 
-const drawerWidth = 260;
+const drawerWidth = 268;
 
 export default function DashboardLayout({ title, navItems }) {
   const { user, logout } = useAuth();
@@ -35,28 +32,27 @@ export default function DashboardLayout({ title, navItems }) {
   const location = useLocation();
   const isMobile = useMediaQuery('(max-width:900px)');
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [soundsMuted, setSoundsMutedState] = useState(() => isSoundsMuted());
-
-  useEffect(() => {
-    function syncMute(event) {
-      setSoundsMutedState(Boolean(event.detail?.muted));
-    }
-    window.addEventListener('eduquest-sounds-muted', syncMute);
-    return () => window.removeEventListener('eduquest-sounds-muted', syncMute);
-  }, []);
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: 3 }}>
-        <Typography variant="h5" color="primary" fontWeight={900}>
+        <Typography
+          variant="h5"
+          fontWeight={900}
+          sx={{
+            background: 'linear-gradient(90deg, #2563EB, #7C3AED)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
           EduQuest
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" fontWeight={700}>
           {title}
         </Typography>
       </Box>
       <Divider />
-      <List sx={{ px: 1, flex: 1 }}>
+      <List sx={{ px: 1.25, flex: 1 }}>
         {navItems.map((item) => (
           <ListItemButton
             key={item.path}
@@ -65,15 +61,18 @@ export default function DashboardLayout({ title, navItems }) {
               navigate(item.path);
               setMobileOpen(false);
             }}
-            sx={{ borderRadius: 3, mb: 0.5 }}
+            sx={{ borderRadius: 3, mb: 0.75 }}
           >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.label} />
+            <ListItemIcon sx={{ color: 'primary.main', minWidth: 42 }}>{item.icon}</ListItemIcon>
+            <ListItemText
+              primary={item.label}
+              primaryTypographyProps={{ fontWeight: 700 }}
+            />
           </ListItemButton>
         ))}
       </List>
       <Divider />
-      <List sx={{ px: 1 }}>
+      <List sx={{ px: 1.25 }}>
         <ListItemButton
           onClick={() => {
             logout();
@@ -81,10 +80,10 @@ export default function DashboardLayout({ title, navItems }) {
           }}
           sx={{ borderRadius: 3 }}
         >
-          <ListItemIcon>
+          <ListItemIcon sx={{ minWidth: 42 }}>
             <LogoutIcon />
           </ListItemIcon>
-          <ListItemText primary="Logout" />
+          <ListItemText primary="Logout" primaryTypographyProps={{ fontWeight: 700 }} />
         </ListItemButton>
       </List>
     </Box>
@@ -99,9 +98,7 @@ export default function DashboardLayout({ title, navItems }) {
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
+          borderBottom: '1px solid rgba(37,99,235,0.12)',
         }}
       >
         <Toolbar>
@@ -111,22 +108,17 @@ export default function DashboardLayout({ title, navItems }) {
             </IconButton>
           ) : null}
           <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6">
+            <Typography variant="h6" fontWeight={900}>
               Hello, {user?.firstName}
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+            <Typography
+              variant="caption"
+              color="secondary.main"
+              sx={{ textTransform: 'capitalize', fontWeight: 800 }}
+            >
               {user?.role}
             </Typography>
           </Box>
-          <Tooltip title={soundsMuted ? 'Unmute game sounds' : 'Mute game sounds'}>
-            <IconButton
-              onClick={() => setSoundsMutedState(toggleSoundsMuted())}
-              sx={{ mr: 1 }}
-              aria-label={soundsMuted ? 'Unmute sounds' : 'Mute sounds'}
-            >
-              {soundsMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
-            </IconButton>
-          </Tooltip>
           <IconButton onClick={toggleMode} sx={{ mr: 1 }}>
             {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
           </IconButton>
@@ -144,8 +136,7 @@ export default function DashboardLayout({ title, navItems }) {
             '& .MuiDrawer-paper': {
               width: drawerWidth,
               boxSizing: 'border-box',
-              borderRight: '1px solid',
-              borderColor: 'divider',
+              borderRight: '1px solid rgba(124,58,237,0.14)',
               backgroundImage: 'none',
             },
           }}
@@ -155,7 +146,10 @@ export default function DashboardLayout({ title, navItems }) {
       </Box>
 
       <Box
-        component="main"
+        component={motion.main}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
         sx={{
           flexGrow: 1,
           p: { xs: 2, md: 3 },
