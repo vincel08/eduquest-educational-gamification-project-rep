@@ -39,6 +39,8 @@ const LessonService = {
       courseId,
       summary,
       learningObjectives,
+      createdBy: user.id,
+      updatedBy: user.id,
     });
   },
 
@@ -94,7 +96,7 @@ const LessonService = {
       throw new AppError('Access denied', 403);
     }
 
-    return LessonModel.update(id, data);
+    return LessonModel.update(id, { ...data, updatedBy: user.id });
   },
 
   async deleteLesson(id, user) {

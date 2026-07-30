@@ -7,6 +7,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
 import GamePreview from '../../components/games/GamePreview';
 import FinalScore from '../../components/games/FinalScore';
 import gameService from '../../services/gameService';
@@ -91,6 +92,7 @@ export default function StudentGamePage() {
   return (
     <>
       <PageHeader title={game.title} subtitle={game.description} />
+      <ContentTimestamp item={game} variant="date" showUpdated={false} sx={{ mb: 2, mt: 0 }} />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
       <Paper sx={{ p: 3 }}>

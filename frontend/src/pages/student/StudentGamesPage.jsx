@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -11,13 +11,18 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
+import ContentTimestampToolbar from '../../components/common/ContentTimestampToolbar';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
+import { applyTimestampControls } from '../../utils/contentTimestamps';
 
 export default function StudentGamesPage() {
   const [games, setGames] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sort, setSort] = useState('newest');
+  const [filters, setFilters] = useState({});
 
   useEffect(() => {
     async function load() {
@@ -43,14 +48,26 @@ export default function StudentGamesPage() {
     load();
   }, []);
 
+  const visibleGames = useMemo(
+    () => applyTimestampControls(games, { sort, filters }),
+    [games, sort, filters]
+  );
+
   if (loading) return <LoadingScreen />;
 
   return (
     <>
       <PageHeader title="Educational Games" subtitle="Play, learn, and earn bonus XP." />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+      <ContentTimestampToolbar
+        sort={sort}
+        onSortChange={setSort}
+        filters={filters}
+        onFiltersChange={setFilters}
+        showUpdatedFilters={false}
+      />
       <Grid container spacing={2}>
-        {games.map((game) => (
+        {visibleGames.map((game) => (
           <Grid key={game.id} size={{ xs: 12, md: 4 }}>
             <Card sx={{ height: '100%' }}>
               <CardContent>
@@ -59,8 +76,9 @@ export default function StudentGamesPage() {
                   {game.courseTitle}
                 </Typography>
                 <Typography variant="body2" sx={{ mt: 1, textTransform: 'capitalize' }}>
-                  {game.game_type.replace(/_/g, ' ')} · {game.xp_reward} XP
+                  {String(game.game_type || '').replace(/_/g, ' ')} · {game.xp_reward} XP
                 </Typography>
+                <ContentTimestamp item={game} variant="date" showUpdated={false} dense />
               </CardContent>
               <CardActions>
                 <Button component={RouterLink} to={`/student/games/${game.id}`}>

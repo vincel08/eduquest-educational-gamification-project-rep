@@ -56,6 +56,7 @@ const QuizModel = {
       passingScore: 'passing_score',
       xpReward: 'xp_reward',
       isPublished: 'is_published',
+      updatedBy: 'updated_by',
     };
 
     const sets = [];

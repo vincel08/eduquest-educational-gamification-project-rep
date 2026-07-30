@@ -6,6 +6,7 @@ import {
   ListItem,
   ListItemText,
   Paper,
+  Stack,
   Typography,
 } from '@mui/material';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
@@ -24,6 +25,7 @@ import { Bar } from 'react-chartjs-2';
 import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
 import analyticsService from '../../services/analyticsService';
 import { getErrorMessage } from '../../services/api';
 
@@ -86,6 +88,26 @@ export default function TeacherDashboard() {
             {data.quizStats.length ? <Bar data={chartData} /> : (
               <Typography color="text.secondary">Create quizzes to see analytics here.</Typography>
             )}
+            {data.quizStats.length ? (
+              <List dense sx={{ mt: 2 }}>
+                {data.quizStats.slice(0, 6).map((quiz) => (
+                  <ListItem key={quiz.id} alignItems="flex-start" disableGutters>
+                    <ListItemText
+                      primary={quiz.title}
+                      secondary={(
+                        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {quiz.attempts || 0} attempts · avg {Number(quiz.average_score || 0).toFixed(1)}%
+                          </Typography>
+                          <ContentTimestamp item={quiz} dense />
+                        </Stack>
+                      )}
+                      secondaryTypographyProps={{ component: 'div' }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            ) : null}
           </Paper>
         </Grid>
         <Grid size={{ xs: 12, md: 5 }}>

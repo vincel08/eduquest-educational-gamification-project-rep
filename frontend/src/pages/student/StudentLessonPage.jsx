@@ -12,6 +12,7 @@ import {
 import { useParams } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
 import lessonService from '../../services/lessonService';
 import { getErrorMessage } from '../../services/api';
 import { celebrate } from '../../utils/confetti';
@@ -77,6 +78,7 @@ export default function StudentLessonPage() {
   return (
     <>
       <PageHeader title={lesson.title} subtitle={lesson.summary} />
+      <ContentTimestamp item={lesson} variant="date" showUpdated={false} sx={{ mb: 2, mt: 0 }} />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
 

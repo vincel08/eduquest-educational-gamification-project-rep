@@ -80,6 +80,7 @@ const CourseModel = {
       gradeLevel: 'grade_level',
       coverImage: 'cover_image',
       isPublished: 'is_published',
+      updatedBy: 'updated_by',
     };
 
     const sets = [];

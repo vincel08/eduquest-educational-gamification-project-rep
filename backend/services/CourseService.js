@@ -28,7 +28,7 @@ const CourseService = {
       throw new AppError('You can only update your own courses', 403);
     }
 
-    return CourseModel.update(id, data);
+    return CourseModel.update(id, { ...data, updatedBy: user.id });
   },
 
   async deleteCourse(id, user) {

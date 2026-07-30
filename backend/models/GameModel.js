@@ -72,6 +72,7 @@ const GameModel = {
       gameData: 'game_data',
       xpReward: 'xp_reward',
       isPublished: 'is_published',
+      updatedBy: 'updated_by',
     };
 
     const sets = [];

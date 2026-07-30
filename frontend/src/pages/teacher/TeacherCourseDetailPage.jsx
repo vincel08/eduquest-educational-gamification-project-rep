@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -17,14 +18,19 @@ import {
 import { useParams } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
+import ContentTimestampToolbar from '../../components/common/ContentTimestampToolbar';
 import courseService from '../../services/courseService';
 import lessonService from '../../services/lessonService';
 import { getErrorMessage } from '../../services/api';
+import { applyTimestampControls } from '../../utils/contentTimestamps';
 
 export default function TeacherCourseDetailPage() {
   const { courseId } = useParams();
   const [course, setCourse] = useState(null);
   const [lessons, setLessons] = useState([]);
+  const [quizzes, setQuizzes] = useState([]);
+  const [games, setGames] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -37,16 +43,22 @@ export default function TeacherCourseDetailPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sort, setSort] = useState('newest');
+  const [filters, setFilters] = useState({});
 
   async function load() {
     try {
-      const [courseRes, lessonsRes, enrollmentsRes] = await Promise.all([
+      const [courseRes, lessonsRes, quizzesRes, gamesRes, enrollmentsRes] = await Promise.all([
         courseService.getById(courseId),
         courseService.lessons(courseId),
+        courseService.quizzes(courseId),
+        courseService.games(courseId),
         courseService.enrollments(courseId),
       ]);
       setCourse(courseRes.data.data);
       setLessons(lessonsRes.data.data || []);
+      setQuizzes(quizzesRes.data.data || []);
+      setGames(gamesRes.data.data || []);
       setEnrollments(enrollmentsRes.data.data || []);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -58,6 +70,19 @@ export default function TeacherCourseDetailPage() {
   useEffect(() => {
     load();
   }, [courseId]);
+
+  const visibleLessons = useMemo(
+    () => applyTimestampControls(lessons, { sort, filters }),
+    [lessons, sort, filters]
+  );
+  const visibleQuizzes = useMemo(
+    () => applyTimestampControls(quizzes, { sort, filters }),
+    [quizzes, sort, filters]
+  );
+  const visibleGames = useMemo(
+    () => applyTimestampControls(games, { sort, filters }),
+    [games, sort, filters]
+  );
 
   async function handleCreateLesson() {
     setError('');
@@ -89,15 +114,23 @@ export default function TeacherCourseDetailPage() {
     <>
       <PageHeader
         title={course.title}
-        subtitle="Manage lessons, materials, and enrollments."
+        subtitle="Manage lessons, quizzes, games, and enrollments."
         action={(
           <Button variant="contained" onClick={() => setOpen(true)}>
             Add Lesson
           </Button>
         )}
       />
+      <ContentTimestamp item={course} dense sx={{ mb: 2, mt: 0 }} />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
+
+      <ContentTimestampToolbar
+        sort={sort}
+        onSortChange={setSort}
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
 
       <Stack spacing={2}>
         <Paper sx={{ p: 3 }}>
@@ -105,9 +138,10 @@ export default function TeacherCourseDetailPage() {
             Lessons
           </Typography>
           <List>
-            {lessons.map((lesson) => (
+            {visibleLessons.map((lesson) => (
               <ListItem
                 key={lesson.id}
+                alignItems="flex-start"
                 secondaryAction={(
                   <Button component="label" size="small">
                     Upload Material
@@ -121,11 +155,89 @@ export default function TeacherCourseDetailPage() {
               >
                 <ListItemText
                   primary={`${lesson.order_index}. ${lesson.title}`}
-                  secondary={`${lesson.xp_reward} XP`}
+                  secondary={(
+                    <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {lesson.xp_reward} XP
+                        {lesson.is_published ? ' · Published' : ' · Draft'}
+                      </Typography>
+                      <ContentTimestamp item={lesson} dense />
+                    </Stack>
+                  )}
+                  secondaryTypographyProps={{ component: 'div' }}
                 />
               </ListItem>
             ))}
           </List>
+          {!visibleLessons.length ? (
+            <Typography color="text.secondary">No lessons match the current filters.</Typography>
+          ) : null}
+        </Paper>
+
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Quizzes
+          </Typography>
+          <List>
+            {visibleQuizzes.map((quiz) => (
+              <ListItem key={quiz.id} alignItems="flex-start">
+                <ListItemText
+                  primary={(
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <Typography fontWeight={700}>{quiz.title}</Typography>
+                      <Chip size="small" label={quiz.is_published ? 'Published' : 'Draft'} />
+                      {quiz.is_ai_generated ? <Chip size="small" label="AI" color="secondary" variant="outlined" /> : null}
+                    </Stack>
+                  )}
+                  secondary={(
+                    <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {quiz.question_count || 0} questions · {quiz.xp_reward} XP
+                      </Typography>
+                      <ContentTimestamp item={quiz} dense />
+                    </Stack>
+                  )}
+                  secondaryTypographyProps={{ component: 'div' }}
+                />
+              </ListItem>
+            ))}
+          </List>
+          {!visibleQuizzes.length ? (
+            <Typography color="text.secondary">No quizzes match the current filters.</Typography>
+          ) : null}
+        </Paper>
+
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Educational Games
+          </Typography>
+          <List>
+            {visibleGames.map((game) => (
+              <ListItem key={game.id} alignItems="flex-start">
+                <ListItemText
+                  primary={(
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <Typography fontWeight={700}>{game.title}</Typography>
+                      <Chip size="small" label={game.is_published ? 'Published' : 'Draft'} />
+                      {game.is_ai_generated ? <Chip size="small" label="AI" color="secondary" variant="outlined" /> : null}
+                    </Stack>
+                  )}
+                  secondary={(
+                    <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+                        {(game.game_type || '').replace(/_/g, ' ')} · {game.xp_reward} XP
+                      </Typography>
+                      <ContentTimestamp item={game} dense />
+                    </Stack>
+                  )}
+                  secondaryTypographyProps={{ component: 'div' }}
+                />
+              </ListItem>
+            ))}
+          </List>
+          {!visibleGames.length ? (
+            <Typography color="text.secondary">No games match the current filters.</Typography>
+          ) : null}
         </Paper>
 
         <Paper sx={{ p: 3 }}>

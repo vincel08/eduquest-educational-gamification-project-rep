@@ -925,6 +925,21 @@ Return JSON with keys: summary (string), learningObjectives (array of 3-5 string
 
     return { hint: data.hint, source };
   },
+
+  async rewriteText({ text, instruction }) {
+    const provider = getActiveProvider();
+    if (!provider) {
+      return { text: String(text || '').trim(), source: 'fallback' };
+    }
+
+    const { data, source } = await chatJson(
+      `You are an education editor for high school content. ${instruction}
+Return JSON with key: text.`,
+      String(text || '')
+    );
+
+    return { text: data.text || text, source };
+  },
 };
 
 export default AiService;

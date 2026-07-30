@@ -42,10 +42,12 @@ CREATE TABLE IF NOT EXISTS courses (
   grade_level VARCHAR(50) NULL,
   cover_image VARCHAR(500) NULL,
   teacher_id INT UNSIGNED NOT NULL,
+  updated_by INT UNSIGNED NULL,
   is_published TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_courses_teacher FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_courses_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_courses_teacher (teacher_id),
   INDEX idx_courses_published (is_published),
   INDEX idx_courses_subject (subject)
@@ -75,9 +77,13 @@ CREATE TABLE IF NOT EXISTS lessons (
   xp_reward INT UNSIGNED NOT NULL DEFAULT 25,
   estimated_minutes INT UNSIGNED NULL,
   is_published TINYINT(1) NOT NULL DEFAULT 1,
+  created_by INT UNSIGNED NULL,
+  updated_by INT UNSIGNED NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_lessons_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+  CONSTRAINT fk_lessons_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_lessons_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_lessons_course_order (course_id, order_index)
 ) ENGINE=InnoDB;
 
@@ -122,11 +128,13 @@ CREATE TABLE IF NOT EXISTS quizzes (
   is_ai_generated TINYINT(1) NOT NULL DEFAULT 0,
   is_published TINYINT(1) NOT NULL DEFAULT 0,
   created_by INT UNSIGNED NOT NULL,
+  updated_by INT UNSIGNED NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_quizzes_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
   CONSTRAINT fk_quizzes_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE SET NULL,
   CONSTRAINT fk_quizzes_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_quizzes_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_quizzes_course (course_id)
 ) ENGINE=InnoDB;
 
@@ -307,11 +315,13 @@ CREATE TABLE IF NOT EXISTS educational_games (
   is_ai_generated TINYINT(1) NOT NULL DEFAULT 0,
   is_published TINYINT(1) NOT NULL DEFAULT 0,
   created_by INT UNSIGNED NOT NULL,
+  updated_by INT UNSIGNED NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_games_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
   CONSTRAINT fk_games_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE SET NULL,
-  CONSTRAINT fk_games_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
+  CONSTRAINT fk_games_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_games_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS game_scores (
@@ -390,4 +400,39 @@ CREATE TABLE IF NOT EXISTS ai_content_generations (
   INDEX idx_ai_content_teacher (teacher_id),
   INDEX idx_ai_content_course (course_id),
   INDEX idx_ai_content_created (created_at DESC)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS ai_review_drafts (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  teacher_id INT UNSIGNED NOT NULL,
+  course_id INT UNSIGNED NOT NULL,
+  lesson_id INT UNSIGNED NULL,
+  source_type ENUM('ai_quiz', 'ai_game', 'ai_content', 'lesson_extras', 'manual') NOT NULL DEFAULT 'manual',
+  status ENUM('draft', 'published', 'archived', 'discarded') NOT NULL DEFAULT 'draft',
+  title VARCHAR(255) NULL,
+  source_text MEDIUMTEXT NULL,
+  quiz_json JSON NULL,
+  game_json JSON NULL,
+  learning_objectives_json JSON NULL,
+  lesson_summary_json JSON NULL,
+  generation_meta JSON NULL,
+  quiz_id INT UNSIGNED NULL,
+  game_id INT UNSIGNED NULL,
+  ai_generated TINYINT(1) NOT NULL DEFAULT 1,
+  teacher_edited TINYINT(1) NOT NULL DEFAULT 0,
+  generated_by INT UNSIGNED NULL,
+  updated_by INT UNSIGNED NULL,
+  published_by INT UNSIGNED NULL,
+  published_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ai_review_teacher FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ai_review_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ai_review_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE SET NULL,
+  CONSTRAINT fk_ai_review_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE SET NULL,
+  CONSTRAINT fk_ai_review_game FOREIGN KEY (game_id) REFERENCES educational_games(id) ON DELETE SET NULL,
+  CONSTRAINT fk_ai_review_generated_by FOREIGN KEY (generated_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_ai_review_published_by FOREIGN KEY (published_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_ai_review_teacher_status (teacher_id, status),
+  INDEX idx_ai_review_course (course_id)
 ) ENGINE=InnoDB;

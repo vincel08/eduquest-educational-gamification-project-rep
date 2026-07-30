@@ -12,6 +12,7 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
 
@@ -81,6 +82,7 @@ export default function StudentCoursesPage() {
                 <Typography variant="body2">
                   Progress: {Number(course.progress_percent || 0)}%
                 </Typography>
+                <ContentTimestamp item={course} variant="date" showUpdated={false} dense />
               </CardContent>
               <CardActions>
                 <Button component={RouterLink} to={`/student/courses/${course.id}`}>
@@ -111,6 +113,7 @@ export default function StudentCoursesPage() {
                 <Typography variant="body2">
                   {course.description}
                 </Typography>
+                <ContentTimestamp item={course} variant="date" showUpdated={false} dense />
               </CardContent>
               <CardActions>
                 {enrolledIds.has(course.id) ? (

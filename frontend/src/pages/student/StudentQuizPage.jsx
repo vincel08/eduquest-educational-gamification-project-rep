@@ -15,6 +15,7 @@ import {
 import { useParams } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
 import quizService from '../../services/quizService';
 import { getErrorMessage } from '../../services/api';
 import { celebrate, celebrateAchievement } from '../../utils/confetti';
@@ -237,6 +238,7 @@ export default function StudentQuizPage() {
   return (
     <>
       <PageHeader title={quiz.title} subtitle={quiz.description} />
+      <ContentTimestamp item={quiz} variant="date" showUpdated={false} sx={{ mb: 2, mt: 0 }} />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {hint ? <Alert severity="info" sx={{ mb: 2 }}>{hint}</Alert> : null}
 

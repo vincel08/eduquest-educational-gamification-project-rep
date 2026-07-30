@@ -2,17 +2,15 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
-  Chip,
   MenuItem,
   Paper,
   Stack,
   TextField,
-  Typography,
 } from '@mui/material';
 import PageHeader from '../../components/common/PageHeader';
-import GamePreview from '../../components/games/GamePreview';
+import AiGeneratedReviewPanel from '../../components/ai-review/AiGeneratedReviewPanel';
 import courseService from '../../services/courseService';
-import gameService from '../../services/gameService';
+import aiReviewService from '../../services/aiReviewService';
 import { getErrorMessage } from '../../services/api';
 
 const GAME_TYPE_OPTIONS = [
@@ -41,10 +39,8 @@ export default function TeacherAiGamePage() {
   });
   const [draft, setDraft] = useState(null);
   const [error, setError] = useState('');
-  const [warning, setWarning] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     courseService.list({ limit: 50 })
@@ -80,23 +76,18 @@ export default function TeacherAiGamePage() {
     event.preventDefault();
     setLoading(true);
     setError('');
-    setWarning('');
     setMessage('');
     setDraft(null);
 
     try {
-      const response = await gameService.generate({
+      const response = await aiReviewService.createFromGame({
         courseId: Number(form.courseId),
         lessonId: form.lessonId ? Number(form.lessonId) : null,
         gameType: form.gameType,
       });
       const data = response.data.data;
-      setDraft(data);
-      if (data.warning || data.source === 'fallback') {
-        setWarning(data.warning || 'Sample fallback game content was used.');
-      } else {
-        setMessage('Game generated. Preview below, then save to publish.');
-      }
+      setDraft(data.draft);
+      setMessage(data.warning || 'Game generated. Review and edit below before publishing.');
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -104,41 +95,13 @@ export default function TeacherAiGamePage() {
     }
   }
 
-  async function handleSave() {
-    if (!draft) return;
-    setSaving(true);
-    setError('');
-    setMessage('');
-    try {
-      const response = await gameService.create({
-        courseId: draft.courseId,
-        lessonId: draft.lessonId,
-        title: draft.title,
-        description: draft.description,
-        gameType: draft.gameType,
-        difficulty: draft.difficulty,
-        estimatedTime: draft.estimatedTime,
-        xpReward: draft.xpReward,
-        gameData: draft.gameData,
-        isAiGenerated: true,
-        isPublished: true,
-      });
-      setMessage(`Saved "${response.data.data.title}" to the course games library.`);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <>
       <PageHeader
         title="AI Game Generator"
-        subtitle="Generate educational games from lesson content, then preview and save."
+        subtitle="Generate an educational game, then review, preview, and publish."
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-      {warning ? <Alert severity="warning" sx={{ mb: 2 }}>{warning}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
 
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -189,31 +152,19 @@ export default function TeacherAiGamePage() {
       </Paper>
 
       {draft ? (
-        <Paper sx={{ p: 3 }}>
-          <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
-            <Chip label={draft.gameType} />
-            <Chip label={draft.difficulty || 'medium'} />
-            <Chip label={`${draft.estimatedTime || 10} min`} />
-            <Chip label={`${draft.xpReward || 100} XP`} color="secondary" />
-          </Stack>
-          <Typography variant="h6">{draft.title}</Typography>
-          <Typography color="text.secondary" sx={{ mb: 2 }}>
-            {draft.description}
-          </Typography>
-
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>Live Preview</Typography>
-          <GamePreview
-            gameType={draft.gameType}
-            gameData={draft.gameData}
-            onComplete={(score) => setMessage(`Preview finished with score ${score}.`)}
-          />
-
-          <Stack direction="row" spacing={1} sx={{ mt: 3 }}>
-            <Button variant="contained" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Game'}
-            </Button>
-          </Stack>
-        </Paper>
+        <AiGeneratedReviewPanel
+          key={draft.id}
+          initialDraft={draft}
+          mode="game"
+          onCleared={() => {
+            setDraft(null);
+            setMessage('');
+          }}
+          onPublished={() => {
+            setDraft(null);
+            setMessage('Game published successfully.');
+          }}
+        />
       ) : null}
     </>
   );

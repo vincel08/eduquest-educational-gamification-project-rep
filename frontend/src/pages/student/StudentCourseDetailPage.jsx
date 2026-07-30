@@ -13,6 +13,7 @@ import {
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
 
@@ -56,6 +57,7 @@ export default function StudentCourseDetailPage() {
         title={course.title}
         subtitle={course.description}
       />
+      <ContentTimestamp item={course} variant="date" showUpdated={false} sx={{ mb: 2, mt: 0 }} />
 
       <Stack spacing={2}>
         <Paper sx={{ p: 3 }}>
@@ -66,6 +68,7 @@ export default function StudentCourseDetailPage() {
             {lessons.map((lesson) => (
               <ListItem
                 key={lesson.id}
+                alignItems="flex-start"
                 secondaryAction={(
                   <Button component={RouterLink} to={`/student/lessons/${lesson.id}`}>
                     Open
@@ -74,7 +77,15 @@ export default function StudentCourseDetailPage() {
               >
                 <ListItemText
                   primary={lesson.title}
-                  secondary={`XP reward: ${lesson.xp_reward || 25}`}
+                  secondary={(
+                    <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        XP reward: {lesson.xp_reward || 25}
+                      </Typography>
+                      <ContentTimestamp item={lesson} variant="date" showUpdated={false} dense />
+                    </Stack>
+                  )}
+                  secondaryTypographyProps={{ component: 'div' }}
                 />
                 <Chip
                   size="small"
@@ -94,6 +105,7 @@ export default function StudentCourseDetailPage() {
             {quizzes.map((quiz) => (
               <ListItem
                 key={quiz.id}
+                alignItems="flex-start"
                 secondaryAction={(
                   <Button component={RouterLink} to={`/student/quizzes/${quiz.id}`}>
                     Take Quiz
@@ -102,7 +114,15 @@ export default function StudentCourseDetailPage() {
               >
                 <ListItemText
                   primary={quiz.title}
-                  secondary={`${quiz.question_count || 0} questions · ${quiz.xp_reward} XP`}
+                  secondary={(
+                    <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {quiz.question_count || 0} questions · {quiz.xp_reward} XP
+                      </Typography>
+                      <ContentTimestamp item={quiz} variant="date" showUpdated={false} dense />
+                    </Stack>
+                  )}
+                  secondaryTypographyProps={{ component: 'div' }}
                 />
               </ListItem>
             ))}
@@ -117,6 +137,7 @@ export default function StudentCourseDetailPage() {
             {games.map((game) => (
               <ListItem
                 key={game.id}
+                alignItems="flex-start"
                 secondaryAction={(
                   <Button component={RouterLink} to={`/student/games/${game.id}`}>
                     Play
@@ -125,7 +146,15 @@ export default function StudentCourseDetailPage() {
               >
                 <ListItemText
                   primary={game.title}
-                  secondary={game.game_type.replace(/_/g, ' ')}
+                  secondary={(
+                    <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+                        {String(game.game_type || '').replace(/_/g, ' ')}
+                      </Typography>
+                      <ContentTimestamp item={game} variant="date" showUpdated={false} dense />
+                    </Stack>
+                  )}
+                  secondaryTypographyProps={{ component: 'div' }}
                 />
               </ListItem>
             ))}

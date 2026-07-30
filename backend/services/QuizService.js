@@ -220,7 +220,7 @@ const QuizService = {
 
   async updateQuiz(id, data, user) {
     await assertTeacherOwnsQuiz(id, user);
-    return QuizModel.update(id, data);
+    return QuizModel.update(id, { ...data, updatedBy: user.id });
   },
 
   async deleteQuiz(id, user) {

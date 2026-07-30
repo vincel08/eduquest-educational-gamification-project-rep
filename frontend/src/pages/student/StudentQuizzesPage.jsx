@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -11,13 +11,18 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
+import ContentTimestampToolbar from '../../components/common/ContentTimestampToolbar';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
+import { applyTimestampControls } from '../../utils/contentTimestamps';
 
 export default function StudentQuizzesPage() {
   const [quizzes, setQuizzes] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sort, setSort] = useState('newest');
+  const [filters, setFilters] = useState({});
 
   useEffect(() => {
     async function load() {
@@ -43,14 +48,26 @@ export default function StudentQuizzesPage() {
     load();
   }, []);
 
+  const visibleQuizzes = useMemo(
+    () => applyTimestampControls(quizzes, { sort, filters }),
+    [quizzes, sort, filters]
+  );
+
   if (loading) return <LoadingScreen />;
 
   return (
     <>
       <PageHeader title="Quizzes" subtitle="Test your knowledge and earn XP." />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+      <ContentTimestampToolbar
+        sort={sort}
+        onSortChange={setSort}
+        filters={filters}
+        onFiltersChange={setFilters}
+        showUpdatedFilters={false}
+      />
       <Grid container spacing={2}>
-        {quizzes.map((quiz) => (
+        {visibleQuizzes.map((quiz) => (
           <Grid key={quiz.id} size={{ xs: 12, md: 4 }}>
             <Card sx={{ height: '100%' }}>
               <CardContent>
@@ -61,6 +78,7 @@ export default function StudentQuizzesPage() {
                 <Typography variant="body2" sx={{ mt: 1 }}>
                   {quiz.question_count || 0} questions · {quiz.xp_reward} XP
                 </Typography>
+                <ContentTimestamp item={quiz} variant="date" showUpdated={false} dense />
               </CardContent>
               <CardActions>
                 <Button component={RouterLink} to={`/student/quizzes/${quiz.id}`}>
@@ -71,7 +89,7 @@ export default function StudentQuizzesPage() {
           </Grid>
         ))}
       </Grid>
-      {!quizzes.length && !error ? (
+      {!visibleQuizzes.length && !error ? (
         <Typography color="text.secondary">No quizzes available yet. Enroll in a course first.</Typography>
       ) : null}
     </>

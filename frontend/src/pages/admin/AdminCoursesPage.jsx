@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -11,13 +11,18 @@ import {
 } from '@mui/material';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
+import ContentTimestampToolbar from '../../components/common/ContentTimestampToolbar';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
+import { applyTimestampControls } from '../../utils/contentTimestamps';
 
 export default function AdminCoursesPage() {
   const [courses, setCourses] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sort, setSort] = useState('newest');
+  const [filters, setFilters] = useState({});
 
   async function load() {
     setLoading(true);
@@ -34,6 +39,11 @@ export default function AdminCoursesPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const visibleCourses = useMemo(
+    () => applyTimestampControls(courses, { sort, filters }),
+    [courses, sort, filters]
+  );
 
   async function togglePublish(course) {
     try {
@@ -62,6 +72,14 @@ export default function AdminCoursesPage() {
         subtitle="Publish, unpublish, and remove courses across the platform."
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+
+      <ContentTimestampToolbar
+        sort={sort}
+        onSortChange={setSort}
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
+
       <Paper sx={{ p: 2, overflowX: 'auto' }}>
         <Table>
           <TableHead>
@@ -70,11 +88,12 @@ export default function AdminCoursesPage() {
               <TableCell>Subject</TableCell>
               <TableCell>Teacher</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Timestamps</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {courses.map((course) => (
+            {visibleCourses.map((course) => (
               <TableRow key={course.id}>
                 <TableCell>{course.title}</TableCell>
                 <TableCell>{course.subject}</TableCell>
@@ -82,6 +101,9 @@ export default function AdminCoursesPage() {
                   {course.teacher_first_name} {course.teacher_last_name}
                 </TableCell>
                 <TableCell>{course.is_published ? 'Published' : 'Draft'}</TableCell>
+                <TableCell>
+                  <ContentTimestamp item={course} dense />
+                </TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => togglePublish(course)}>
                     {course.is_published ? 'Unpublish' : 'Publish'}

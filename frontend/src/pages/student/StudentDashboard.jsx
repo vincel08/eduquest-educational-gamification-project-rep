@@ -25,7 +25,6 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { Link as RouterLink } from 'react-router-dom';
-import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import XpBar from '../../components/gamification/XpBar';
 import LeaderboardCard from '../../components/gamification/LeaderboardCard';
@@ -104,8 +103,6 @@ export default function StudentDashboard() {
           Keep your {profile.current_streak || 0}-day streak going and climb the leaderboard.
         </Typography>
       </div>
-
-      <PageHeader title="Student Dashboard" subtitle="Your learning progress at a glance" />
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>

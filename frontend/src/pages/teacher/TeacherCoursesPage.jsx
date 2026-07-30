@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -19,8 +19,11 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ContentTimestamp from '../../components/common/ContentTimestamp';
+import ContentTimestampToolbar from '../../components/common/ContentTimestampToolbar';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
+import { applyTimestampControls } from '../../utils/contentTimestamps';
 
 const emptyForm = {
   title: '',
@@ -37,6 +40,8 @@ export default function TeacherCoursesPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sort, setSort] = useState('newest');
+  const [filters, setFilters] = useState({});
 
   async function load() {
     setLoading(true);
@@ -69,6 +74,11 @@ export default function TeacherCoursesPage() {
     }
   }
 
+  const visibleCourses = useMemo(
+    () => applyTimestampControls(courses, { sort, filters }),
+    [courses, sort, filters]
+  );
+
   if (loading) return <LoadingScreen />;
 
   return (
@@ -84,8 +94,15 @@ export default function TeacherCoursesPage() {
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
+      <ContentTimestampToolbar
+        sort={sort}
+        onSortChange={setSort}
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
+
       <Grid container spacing={2}>
-        {courses.map((course) => (
+        {visibleCourses.map((course) => (
           <Grid key={course.id} size={{ xs: 12, md: 4 }}>
             <Card sx={{ height: '100%' }}>
               <CardContent>
@@ -96,6 +113,7 @@ export default function TeacherCoursesPage() {
                 <Typography variant="body2" sx={{ mt: 1 }}>
                   {course.lesson_count || 0} lessons
                 </Typography>
+                <ContentTimestamp item={course} dense />
               </CardContent>
               <CardActions>
                 <Button component={RouterLink} to={`/teacher/courses/${course.id}`}>

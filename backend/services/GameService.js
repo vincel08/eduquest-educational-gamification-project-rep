@@ -151,7 +151,7 @@ const GameService = {
       data.gameType = validateGamePayload({ ...data, title: data.title || game.title, gameData: data.gameData || game.game_data });
     }
 
-    return GameModel.update(id, data);
+    return GameModel.update(id, { ...data, updatedBy: user.id });
   },
 
   async deleteGame(id, user) {
