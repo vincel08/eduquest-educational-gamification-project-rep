@@ -1,17 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Button,
-  Card,
-  CardActions,
-  CardContent,
-  Grid,
-  Typography,
-} from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Alert, Grid } from '@mui/material';
+import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
-import ContentTimestamp from '../../components/common/ContentTimestamp';
+import QuestCard from '../../components/common/QuestCard';
+import EmptyState from '../../components/common/EmptyState';
 import ContentTimestampToolbar from '../../components/common/ContentTimestampToolbar';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
@@ -57,7 +50,10 @@ export default function StudentGamesPage() {
 
   return (
     <>
-      <PageHeader title="Educational Games" subtitle="Play, learn, and earn bonus XP." />
+      <PageHeader
+        title="Game Zone"
+        subtitle="Play, learn, and stack bonus XP."
+      />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       <ContentTimestampToolbar
         sort={sort}
@@ -66,29 +62,39 @@ export default function StudentGamesPage() {
         onFiltersChange={setFilters}
         showUpdatedFilters={false}
       />
-      <Grid container spacing={2}>
-        {visibleGames.map((game) => (
-          <Grid key={game.id} size={{ xs: 12, md: 4 }}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="h6">{game.title}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {game.courseTitle}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 1, textTransform: 'capitalize' }}>
-                  {String(game.game_type || '').replace(/_/g, ' ')} · {game.xp_reward} XP
-                </Typography>
-                <ContentTimestamp item={game} variant="date" showUpdated={false} dense />
-              </CardContent>
-              <CardActions>
-                <Button component={RouterLink} to={`/student/games/${game.id}`}>
-                  Play
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      {visibleGames.length ? (
+        <Grid container spacing={2}>
+          {visibleGames.map((game) => (
+            <Grid key={game.id} size={{ xs: 12, sm: 6, md: 4 }}>
+              <QuestCard
+                title={game.title}
+                description={game.courseTitle || game.description}
+                icon={<SportsEsportsIcon />}
+                accent="orange"
+                difficulty={game.difficulty || game.game_type}
+                xpReward={game.xp_reward}
+                estimatedTime={game.estimated_time}
+                status="Playable"
+                statusColor="success"
+                meta={String(game.game_type || '').replace(/_/g, ' ')}
+                showTimestamp
+                item={game}
+                to={`/student/games/${game.id}`}
+                actionLabel="Play Now"
+              />
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <EmptyState
+          icon={<SportsEsportsIcon sx={{ fontSize: 36 }} />}
+          title="No games unlocked yet"
+          description="Games appear when teachers publish them to your courses."
+          actionLabel="View courses"
+          to="/student/courses"
+          color="#F97316"
+        />
+      )}
     </>
   );
 }

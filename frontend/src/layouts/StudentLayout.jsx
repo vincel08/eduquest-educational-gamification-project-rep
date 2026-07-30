@@ -20,5 +20,5 @@ const navItems = [
 ];
 
 export default function StudentLayout() {
-  return <DashboardLayout title="Student Quest" navItems={navItems} />;
+  return <DashboardLayout title="Learner Quest" navItems={navItems} />;
 }

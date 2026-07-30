@@ -1,18 +1,12 @@
 import { useEffect, useState } from 'react';
-import {
-  Alert,
-  Button,
-  Card,
-  CardActions,
-  CardContent,
-  Grid,
-  Stack,
-  Typography,
-} from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Alert, Grid, Typography } from '@mui/material';
+import SchoolIcon from '@mui/icons-material/School';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
-import ContentTimestamp from '../../components/common/ContentTimestamp';
+import QuestCard from '../../components/common/QuestCard';
+import EmptyState from '../../components/common/EmptyState';
+import SectionHeader from '../../components/common/SectionHeader';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
 
@@ -62,77 +56,76 @@ export default function StudentCoursesPage() {
   return (
     <>
       <PageHeader
-        title="Learning Modules"
-        subtitle="Browse courses and continue your enrolled quests."
+        title="Learning Quests"
+        subtitle="Browse modules and continue your adventure."
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        My Courses
-      </Typography>
+      <SectionHeader
+        title="My Courses"
+        subtitle="Pick up where you left off"
+        icon={<SchoolIcon color="primary" />}
+      />
       <Grid container spacing={2} sx={{ mb: 4 }}>
         {enrolled.length ? enrolled.map((course) => (
-          <Grid key={course.id} size={{ xs: 12, md: 4 }}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="h6">{course.title}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  {course.subject} · {course.grade_level}
-                </Typography>
-                <Typography variant="body2">
-                  Progress: {Number(course.progress_percent || 0)}%
-                </Typography>
-                <ContentTimestamp item={course} variant="date" showUpdated={false} dense />
-              </CardContent>
-              <CardActions>
-                <Button component={RouterLink} to={`/student/courses/${course.id}`}>
-                  Continue
-                </Button>
-              </CardActions>
-            </Card>
+          <Grid key={course.id} size={{ xs: 12, sm: 6, md: 4 }}>
+            <QuestCard
+              title={course.title}
+              description={`${course.subject || ''} · ${course.grade_level || ''}`.trim()}
+              icon={<SchoolIcon />}
+              accent="blue"
+              status={`${Number(course.progress_percent || 0)}% done`}
+              statusColor={Number(course.progress_percent || 0) >= 100 ? 'success' : 'primary'}
+              showTimestamp
+              item={course}
+              to={`/student/courses/${course.id}`}
+              actionLabel="Continue Quest"
+            />
           </Grid>
         )) : (
           <Grid size={12}>
-            <Typography color="text.secondary">You are not enrolled in any courses yet.</Typography>
+            <EmptyState
+              icon={<MenuBookIcon sx={{ fontSize: 36 }} />}
+              title="No enrolled courses yet"
+              description="Browse the catalog below and join your first learning quest!"
+              color="#3B82F6"
+            />
           </Grid>
         )}
       </Grid>
 
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Course Catalog
-      </Typography>
+      <SectionHeader
+        title="Course Catalog"
+        subtitle="Discover new subjects to master"
+        icon={<MenuBookIcon color="secondary" />}
+      />
       <Grid container spacing={2}>
-        {catalog.map((course) => (
-          <Grid key={course.id} size={{ xs: 12, md: 4 }}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="h6">{course.title}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  {course.subject}
-                </Typography>
-                <Typography variant="body2">
-                  {course.description}
-                </Typography>
-                <ContentTimestamp item={course} variant="date" showUpdated={false} dense />
-              </CardContent>
-              <CardActions>
-                {enrolledIds.has(course.id) ? (
-                  <Button component={RouterLink} to={`/student/courses/${course.id}`}>
-                    Open
-                  </Button>
-                ) : (
-                  <Button
-                    variant="contained"
-                    disabled={enrollingId === course.id}
-                    onClick={() => handleEnroll(course.id)}
-                  >
-                    {enrollingId === course.id ? 'Enrolling...' : 'Enroll'}
-                  </Button>
-                )}
-              </CardActions>
-            </Card>
+        {catalog.length ? catalog.map((course) => (
+          <Grid key={course.id} size={{ xs: 12, sm: 6, md: 4 }}>
+            <QuestCard
+              title={course.title}
+              description={course.description || course.subject}
+              icon={<MenuBookIcon />}
+              accent={enrolledIds.has(course.id) ? 'green' : 'purple'}
+              difficulty={course.grade_level}
+              status={enrolledIds.has(course.id) ? 'Enrolled' : 'Available'}
+              statusColor={enrolledIds.has(course.id) ? 'success' : 'secondary'}
+              showTimestamp
+              item={course}
+              to={enrolledIds.has(course.id) ? `/student/courses/${course.id}` : undefined}
+              onAction={enrolledIds.has(course.id) ? undefined : () => handleEnroll(course.id)}
+              actionLabel={
+                enrolledIds.has(course.id)
+                  ? 'Open'
+                  : (enrollingId === course.id ? 'Enrolling...' : 'Enroll')
+              }
+            />
           </Grid>
-        ))}
+        )) : (
+          <Grid size={12}>
+            <Typography color="text.secondary">No courses published yet.</Typography>
+          </Grid>
+        )}
       </Grid>
     </>
   );

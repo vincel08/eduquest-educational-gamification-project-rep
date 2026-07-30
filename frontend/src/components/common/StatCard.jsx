@@ -2,7 +2,7 @@ import { Box, Card, CardContent, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 
 export default function StatCard({ label, value, icon, color }) {
-  const iconBg = color || 'linear-gradient(135deg, #2563EB, #7C3AED)';
+  const iconBg = color || 'linear-gradient(135deg, #3B82F6, #8B5CF6)';
   const isYellow = typeof color === 'string' && /#(FACC15|FDE047|F59E0B|FFB300)/i.test(color);
 
   return (

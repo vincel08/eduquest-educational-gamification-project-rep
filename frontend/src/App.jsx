@@ -1,6 +1,7 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeModeProvider } from './contexts/ThemeModeContext';
+import { RewardsProvider } from './contexts/RewardsContext';
 import AppRoutes from './routes/AppRoutes';
 import '@fontsource/nunito/400.css';
 import '@fontsource/nunito/700.css';
@@ -15,7 +16,9 @@ export default function App() {
     <ThemeModeProvider>
       <AuthProvider>
         <BrowserRouter>
-          <AppRoutes />
+          <RewardsProvider>
+            <AppRoutes />
+          </RewardsProvider>
         </BrowserRouter>
       </AuthProvider>
     </ThemeModeProvider>

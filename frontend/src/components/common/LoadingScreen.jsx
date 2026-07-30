@@ -1,7 +1,17 @@
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
+import SkeletonCards from './SkeletonCards';
 
-export default function LoadingScreen({ label = 'Loading EduQuest...' }) {
+export default function LoadingScreen({ label = 'Loading EduQuest...', showCards = false }) {
+  if (showCards) {
+    return (
+      <Box sx={{ py: 2 }}>
+        <Typography color="text.secondary" fontWeight={700} sx={{ mb: 2 }}>{label}</Typography>
+        <SkeletonCards count={3} />
+      </Box>
+    );
+  }
+
   return (
     <Box
       component={motion.div}
@@ -14,13 +24,12 @@ export default function LoadingScreen({ label = 'Loading EduQuest...' }) {
         gap: 2,
       }}
     >
-      <Box
-        className="glass-panel"
+      <Stack
+        className="quest-card"
         sx={{
           p: 4,
           borderRadius: 4,
-          display: 'grid',
-          placeItems: 'center',
+          alignItems: 'center',
           gap: 2,
           minWidth: 220,
         }}
@@ -36,7 +45,7 @@ export default function LoadingScreen({ label = 'Loading EduQuest...' }) {
           }}
         />
         <Typography color="text.secondary" fontWeight={700}>{label}</Typography>
-      </Box>
+      </Stack>
     </Box>
   );
 }

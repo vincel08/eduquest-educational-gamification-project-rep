@@ -15,12 +15,14 @@ import LoadingScreen from '../../components/common/LoadingScreen';
 import ContentTimestamp from '../../components/common/ContentTimestamp';
 import lessonService from '../../services/lessonService';
 import { getErrorMessage } from '../../services/api';
-import { celebrate } from '../../utils/confetti';
+import { pickMotivationalMessage } from '../../utils/feedbackMessages';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRewards } from '../../contexts/RewardsContext';
 
 export default function StudentLessonPage() {
   const { lessonId } = useParams();
-  const { updateProfile } = useAuth();
+  const { updateProfile, profile } = useAuth();
+  const { notifyReward } = useRewards();
   const [lesson, setLesson] = useState(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -49,11 +51,20 @@ export default function StudentLessonPage() {
       const response = await lessonService.complete(lessonId);
       const result = response.data.data;
       if (!result.alreadyCompleted) {
-        celebrate();
+        const previousLevel = profile?.level;
         if (result.xpAward?.profile) {
           updateProfile(result.xpAward.profile);
         }
-        let msg = `Lesson completed! +${result.progress.xp_earned} XP`;
+        notifyReward({
+          xpEarned: result.progress?.xp_earned || 0,
+          previousLevel,
+          nextProfile: result.xpAward?.profile,
+          badges: result.xpAward?.newlyUnlocked?.badges || [],
+          medals: result.xpAward?.newlyUnlocked?.medals || [],
+          certificate: result.certificate || null,
+          celebrateWin: true,
+        });
+        let msg = `${pickMotivationalMessage()} Lesson completed! +${result.progress.xp_earned} XP`;
         if (result.progressPercent != null) {
           msg += ` · Course progress ${result.progressPercent}%`;
         }

@@ -12,19 +12,23 @@ import GamePreview from '../../components/games/GamePreview';
 import FinalScore from '../../components/games/FinalScore';
 import gameService from '../../services/gameService';
 import { getErrorMessage } from '../../services/api';
-import { celebrate } from '../../utils/confetti';
+import { pickMotivationalMessage } from '../../utils/feedbackMessages';
+import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRewards } from '../../contexts/RewardsContext';
 
 export default function StudentGamePage() {
   const { gameId } = useParams();
   const navigate = useNavigate();
   const { updateProfile, profile } = useAuth();
+  const { notifyReward } = useRewards();
   const [game, setGame] = useState(null);
   const [finished, setFinished] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [sessionKey, setSessionKey] = useState(0);
+  const [motivation, setMotivation] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -49,21 +53,33 @@ export default function StudentGamePage() {
         durationSeconds: 60,
       });
       const payload = response.data.data;
+      const previousLevel = profile?.level;
       const nextProfile = payload.xpAward?.profile || profile;
       if (payload.xpAward?.profile) {
         updateProfile(payload.xpAward.profile);
       }
+      const xpEarned = payload.score?.xp_earned || 0;
+      setMotivation(pickMotivationalMessage());
+      playSound(SOUND_KEYS.gameComplete);
+      notifyReward({
+        xpEarned,
+        previousLevel,
+        nextProfile: payload.xpAward?.profile,
+        badges: payload.xpAward?.newlyUnlocked?.badges || [],
+        medals: payload.xpAward?.newlyUnlocked?.medals || [],
+        celebrateWin: finalScore >= 70,
+      });
       setResult({
         score: finalScore,
         percentage: Math.max(0, Math.min(100, Number(finalScore) || 0)),
-        xpEarned: payload.score?.xp_earned || 0,
+        xpEarned,
         level: nextProfile?.level ?? null,
         xpInLevel: nextProfile?.xpInLevel ?? nextProfile?.xp_in_level ?? null,
         xpToNextLevel: nextProfile?.xpToNextLevel ?? nextProfile?.xp_to_next_level ?? null,
         badges: payload.xpAward?.newlyUnlocked?.badges || [],
         medals: payload.xpAward?.newlyUnlocked?.medals || [],
+        motivation: pickMotivationalMessage(),
       });
-      if (finalScore >= 70) celebrate();
     } catch (err) {
       setError(getErrorMessage(err));
       setResult({
@@ -118,9 +134,11 @@ export default function StudentGamePage() {
             xpToNextLevel={result.xpToNextLevel}
             badges={result.badges}
             medals={result.medals}
+            motivation={motivation || result.motivation}
             onPlayAgain={playAgain}
             onDashboard={() => navigate('/student/dashboard')}
             onLeaderboard={() => navigate('/student/leaderboard')}
+            onContinue={() => navigate('/student/games')}
           />
         ) : (
           <Typography>Finishing game...</Typography>

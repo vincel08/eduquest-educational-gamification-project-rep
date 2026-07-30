@@ -63,8 +63,8 @@ export default function AdminDashboard() {
   return (
     <>
       <PageHeader
-        title="Admin Dashboard"
-        subtitle="System-wide engagement and platform health."
+        title="Control Center"
+        subtitle="Platform health, engagement trends, and recent learning content."
       />
 
       <Grid container spacing={2} sx={{ mb: 2 }}>

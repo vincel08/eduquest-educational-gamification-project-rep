@@ -10,56 +10,84 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 
-const rankGlow = [
-  'linear-gradient(135deg, #FACC15, #F59E0B)',
-  'linear-gradient(135deg, #E2E8F0, #94A3B8)',
-  'linear-gradient(135deg, #FDBA74, #EA580C)',
+const RANK_STYLES = [
+  {
+    background: 'linear-gradient(135deg, #FACC15, #F59E0B)',
+    color: '#1E293B',
+    border: '1px solid rgba(250,204,21,0.55)',
+    bgcolor: 'rgba(250, 204, 21, 0.14)',
+    label: 'Gold',
+  },
+  {
+    background: 'linear-gradient(135deg, #E2E8F0, #94A3B8)',
+    color: '#0F172A',
+    border: '1px solid rgba(148,163,184,0.55)',
+    bgcolor: 'rgba(226, 232, 240, 0.35)',
+    label: 'Silver',
+  },
+  {
+    background: 'linear-gradient(135deg, #FDBA74, #EA580C)',
+    color: '#fff',
+    border: '1px solid rgba(249,115,22,0.45)',
+    bgcolor: 'rgba(249, 115, 22, 0.12)',
+    label: 'Bronze',
+  },
 ];
 
-export default function LeaderboardCard({ entries = [] }) {
+export default function LeaderboardCard({ entries = [], title = 'Leaderboard' }) {
   return (
-    <Paper className="glass-panel" sx={{ p: 2.5 }}>
+    <Paper className="quest-card" sx={{ p: 2.5 }}>
       <Typography variant="h6" sx={{ mb: 2 }} fontWeight={900}>
-        Leaderboard
+        {title}
       </Typography>
       <List>
-        {entries.map((entry, index) => (
-          <ListItem
-            key={entry.userId}
-            component={motion.div}
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.05 }}
-            whileHover={{ scale: 1.01, x: 4 }}
-            sx={{
-              mb: 1,
-              borderRadius: 3,
-              border: '1px solid',
-              borderColor: index < 3 ? 'rgba(250,204,21,0.35)' : 'rgba(37,99,235,0.1)',
-              bgcolor: index < 3 ? 'rgba(250, 204, 21, 0.12)' : 'rgba(255,255,255,0.35)',
-            }}
-          >
-            <ListItemAvatar>
-              <Avatar
-                sx={{
-                  background: rankGlow[index] || 'linear-gradient(135deg, #2563EB, #7C3AED)',
-                  color: index === 0 ? '#1E1B4B' : '#fff',
-                  fontWeight: 900,
-                }}
-              >
-                {entry.rank || index + 1}
-              </Avatar>
-            </ListItemAvatar>
-            <ListItemText
-              primary={`${entry.firstName} ${entry.lastName}`}
-              secondary={`Level ${entry.level} · ${entry.badgeCount} badges`}
-              primaryTypographyProps={{ fontWeight: 800 }}
-            />
-            <Stack sx={{ alignItems: 'flex-end' }}>
-              <Typography fontWeight={900} color="secondary.main">{entry.xp} XP</Typography>
-            </Stack>
-          </ListItem>
-        ))}
+        {entries.map((entry, index) => {
+          const style = RANK_STYLES[index];
+          return (
+            <ListItem
+              key={entry.userId || entry.id || index}
+              component={motion.div}
+              layout
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.05 }}
+              whileHover={{ scale: 1.03, x: 4 }}
+              sx={{
+                mb: 1,
+                borderRadius: 3,
+                border: style?.border || '1px solid rgba(59,130,246,0.12)',
+                bgcolor: style?.bgcolor || 'rgba(255,255,255,0.55)',
+                cursor: 'pointer',
+                boxShadow: index < 3 ? '0 10px 24px rgba(15,23,42,0.08)' : 'none',
+                transition: 'box-shadow 0.2s ease, transform 0.2s ease',
+              }}
+            >
+              <ListItemAvatar>
+                <Avatar
+                  sx={{
+                    background: style?.background || 'linear-gradient(135deg, #3B82F6, #8B5CF6)',
+                    color: style?.color || '#fff',
+                    fontWeight: 900,
+                  }}
+                >
+                  {entry.rank || index + 1}
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText
+                primary={`${entry.firstName || entry.first_name} ${entry.lastName || entry.last_name}`}
+                secondary={
+                  index < 3
+                    ? `${style.label} · Level ${entry.level} · ${entry.badgeCount ?? entry.badge_count ?? 0} badges`
+                    : `Level ${entry.level} · ${entry.badgeCount ?? entry.badge_count ?? 0} badges`
+                }
+                primaryTypographyProps={{ fontWeight: 800 }}
+              />
+              <Stack sx={{ alignItems: 'flex-end' }}>
+                <Typography fontWeight={900} color="secondary.main">{entry.xp} XP</Typography>
+              </Stack>
+            </ListItem>
+          );
+        })}
       </List>
     </Paper>
   );

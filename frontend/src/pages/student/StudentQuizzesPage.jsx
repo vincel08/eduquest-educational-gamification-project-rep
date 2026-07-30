@@ -1,17 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Button,
-  Card,
-  CardActions,
-  CardContent,
-  Grid,
-  Typography,
-} from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Alert, Grid } from '@mui/material';
+import QuizIcon from '@mui/icons-material/Quiz';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
-import ContentTimestamp from '../../components/common/ContentTimestamp';
+import QuestCard from '../../components/common/QuestCard';
+import EmptyState from '../../components/common/EmptyState';
 import ContentTimestampToolbar from '../../components/common/ContentTimestampToolbar';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
@@ -57,7 +50,10 @@ export default function StudentQuizzesPage() {
 
   return (
     <>
-      <PageHeader title="Quizzes" subtitle="Test your knowledge and earn XP." />
+      <PageHeader
+        title="Quiz Arena"
+        subtitle="Test your knowledge, earn XP, and level up."
+      />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       <ContentTimestampToolbar
         sort={sort}
@@ -66,32 +62,38 @@ export default function StudentQuizzesPage() {
         onFiltersChange={setFilters}
         showUpdatedFilters={false}
       />
-      <Grid container spacing={2}>
-        {visibleQuizzes.map((quiz) => (
-          <Grid key={quiz.id} size={{ xs: 12, md: 4 }}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="h6">{quiz.title}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {quiz.courseTitle}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {quiz.question_count || 0} questions · {quiz.xp_reward} XP
-                </Typography>
-                <ContentTimestamp item={quiz} variant="date" showUpdated={false} dense />
-              </CardContent>
-              <CardActions>
-                <Button component={RouterLink} to={`/student/quizzes/${quiz.id}`}>
-                  Start
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-      {!visibleQuizzes.length && !error ? (
-        <Typography color="text.secondary">No quizzes available yet. Enroll in a course first.</Typography>
-      ) : null}
+      {visibleQuizzes.length ? (
+        <Grid container spacing={2}>
+          {visibleQuizzes.map((quiz) => (
+            <Grid key={quiz.id} size={{ xs: 12, sm: 6, md: 4 }}>
+              <QuestCard
+                title={quiz.title}
+                description={quiz.courseTitle || quiz.description}
+                icon={<QuizIcon />}
+                accent="purple"
+                difficulty={quiz.difficulty || 'Challenge'}
+                xpReward={quiz.xp_reward}
+                estimatedTime={quiz.time_limit_minutes}
+                status={`${quiz.question_count || 0} Qs`}
+                statusColor="secondary"
+                showTimestamp
+                item={quiz}
+                to={`/student/quizzes/${quiz.id}`}
+                actionLabel="Start Challenge"
+              />
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <EmptyState
+          icon={<QuizIcon sx={{ fontSize: 36 }} />}
+          title="No quizzes yet"
+          description="Enroll in a course first — new challenges will appear here."
+          actionLabel="Browse courses"
+          to="/student/courses"
+          color="#8B5CF6"
+        />
+      )}
     </>
   );
 }

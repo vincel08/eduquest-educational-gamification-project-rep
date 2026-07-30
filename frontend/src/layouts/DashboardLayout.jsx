@@ -40,14 +40,14 @@ export default function DashboardLayout({ title, navItems }) {
           variant="h5"
           fontWeight={900}
           sx={{
-            background: 'linear-gradient(90deg, #2563EB, #7C3AED)',
+            background: 'linear-gradient(90deg, #3B82F6, #8B5CF6)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}
         >
           EduQuest
         </Typography>
-        <Typography variant="body2" color="text.secondary" fontWeight={700}>
+        <Typography variant="body2" color="text.secondary" fontWeight={800}>
           {title}
         </Typography>
       </Box>
@@ -98,25 +98,25 @@ export default function DashboardLayout({ title, navItems }) {
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
-          borderBottom: '1px solid rgba(37,99,235,0.12)',
+          borderBottom: '1px solid rgba(59,130,246,0.12)',
         }}
       >
         <Toolbar>
           {isMobile ? (
-            <IconButton edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 1 }}>
+            <IconButton edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 1 }} aria-label="Open navigation">
               <MenuIcon />
             </IconButton>
           ) : null}
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h6" fontWeight={900}>
-              Hello, {user?.firstName}
+              Hey, {user?.firstName}!
             </Typography>
             <Typography
               variant="caption"
               color="secondary.main"
               sx={{ textTransform: 'capitalize', fontWeight: 800 }}
             >
-              {user?.role}
+              {user?.role === 'student' ? 'Learner' : user?.role}
             </Typography>
           </Box>
           <IconButton onClick={toggleMode} sx={{ mr: 1 }}>
