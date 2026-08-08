@@ -1,24 +1,20 @@
 import bcrypt from 'bcryptjs';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
 import UserModel from '../models/UserModel.js';
 import StudentProfileModel from '../models/StudentProfileModel.js';
 import AppError from '../utils/AppError.js';
 import { query } from '../config/db.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, '../uploads');
+import { validateNewPassword } from '../utils/passwordPolicy.js';
+import {
+  avatarFileApiPath,
+  publicUploadUrl,
+  safeUnlinkUpload,
+} from '../utils/uploadPaths.js';
 
 function removeLocalAvatar(avatarUrl) {
-  if (!avatarUrl || !avatarUrl.startsWith('/uploads/')) return;
-  const filePath = path.join(uploadsDir, path.basename(avatarUrl));
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-  }
+  if (!avatarUrl) return;
+  safeUnlinkUpload(avatarUrl);
 }
 
 function sanitizeUser(user) {
@@ -28,7 +24,7 @@ function sanitizeUser(user) {
     firstName: user.first_name,
     lastName: user.last_name,
     role: user.role,
-    avatarUrl: user.avatar_url,
+    avatarUrl: user.avatar_url ? avatarFileApiPath(user.id) : null,
     isActive: Boolean(user.is_active),
     createdAt: user.created_at,
   };
@@ -38,7 +34,7 @@ function signToken(user) {
   return jwt.sign(
     { id: user.id, role: user.role, email: user.email },
     env.jwt.secret,
-    { expiresIn: env.jwt.expiresIn }
+    { algorithm: 'HS256', expiresIn: env.jwt.expiresIn }
   );
 }
 
@@ -56,16 +52,32 @@ async function buildAuthPayload(user) {
 
 const AuthService = {
   async register({ email, password, firstName, lastName, role, gradeLevel, schoolName }) {
-    const allowedRoles = ['student', 'teacher'];
     const selectedRole = role || 'student';
 
-    if (!allowedRoles.includes(selectedRole)) {
+    // Public self-registration is student-only. Teachers must be created by an administrator.
+    if (selectedRole === 'teacher') {
+      throw new AppError(
+        'Teacher accounts must be created by an administrator.',
+        403
+      );
+    }
+
+    if (selectedRole !== 'student') {
       throw new AppError('Invalid registration role', 400);
+    }
+
+    const passwordError = validateNewPassword(password);
+    if (passwordError) {
+      throw new AppError(passwordError, 400);
     }
 
     const existing = await UserModel.findByEmail(email.toLowerCase());
     if (existing) {
-      throw new AppError('Email is already registered', 409);
+      // Avoid confirming whether a specific email is already registered.
+      throw new AppError(
+        'Unable to create account. If you already have an account, please sign in.',
+        409
+      );
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -74,12 +86,10 @@ const AuthService = {
       passwordHash,
       firstName,
       lastName,
-      role: selectedRole,
+      role: 'student',
     });
 
-    if (selectedRole === 'student') {
-      await StudentProfileModel.create(user.id, { gradeLevel, schoolName });
-    }
+    await StudentProfileModel.create(user.id, { gradeLevel, schoolName });
 
     return buildAuthPayload(user);
   },
@@ -99,14 +109,16 @@ const AuthService = {
     return buildAuthPayload(user);
   },
 
-  async updateProfile(userId, { firstName, lastName, gradeLevel, schoolName, avatarUrl }) {
+  async updateProfile(userId, { firstName, lastName, gradeLevel, schoolName }) {
     const user = await UserModel.findById(userId);
     if (!user) throw new AppError('User not found', 404);
 
+    // Avatar is managed only via uploadAvatar/removeAvatar.
+    // Never persist display URLs like /api/files/avatars/:id into avatar_url.
     const updatedUser = await UserModel.update(userId, {
       first_name: firstName ?? user.first_name,
       last_name: lastName ?? user.last_name,
-      avatar_url: avatarUrl ?? user.avatar_url,
+      avatar_url: user.avatar_url,
     });
 
     let profile = null;
@@ -133,7 +145,7 @@ const AuthService = {
       throw new AppError('Only students can update a profile picture here', 403);
     }
 
-    const avatarUrl = `/uploads/${file.filename}`;
+    const avatarUrl = publicUploadUrl(file.filename);
     removeLocalAvatar(user.avatar_url);
 
     const updatedUser = await UserModel.update(userId, { avatar_url: avatarUrl });

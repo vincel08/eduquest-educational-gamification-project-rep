@@ -14,9 +14,14 @@ export default function MedalCard({ medal }) {
     <Card
       className="glass-panel"
       component={motion.div}
-      whileHover={{ scale: 1.04, y: -4 }}
+      whileHover={{ scale: 1.03, y: -4 }}
       transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-      sx={{ height: '100%' }}
+      sx={{
+        height: '100%',
+        cursor: 'pointer',
+        transition: 'box-shadow 0.25s ease',
+        '&:hover': { boxShadow: '0 18px 40px rgba(139,92,246,0.2)' },
+      }}
     >
       <CardContent>
         <Stack spacing={1.5} sx={{ alignItems: 'center', textAlign: 'center' }}>

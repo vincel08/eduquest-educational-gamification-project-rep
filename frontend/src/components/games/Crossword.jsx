@@ -41,7 +41,7 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
         setChecked(nextChecked);
         setCorrectCount(nextCorrect);
         if (Object.keys(nextChecked).length >= clues.length) {
-          onComplete?.(score);
+          onComplete?.({ score, answers: { answers: { ...answers } } });
         }
       },
     });
@@ -78,7 +78,7 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
       onNext: () => {
         setChecked(nextChecked);
         setCorrectCount(nextCorrect);
-        onComplete?.(score);
+        onComplete?.({ score, answers: { answers: { ...answers } } });
       },
     });
   }

@@ -1,11 +1,18 @@
+import crypto from 'crypto';
 import CourseModel from '../models/CourseModel.js';
 import LessonModel from '../models/LessonModel.js';
 import AiReviewDraftModel from '../models/AiReviewDraftModel.js';
 import AiService from './AiService.js';
 import QuizService from './QuizService.js';
 import GameService from './GameService.js';
+import AiUsageService from './AiUsageService.js';
 import AppError from '../utils/AppError.js';
 import { normalizeGameType } from '../utils/gameTypes.js';
+import {
+  assertInputTextSize,
+  assertQuestionCount,
+  buildIdempotencyKey,
+} from '../utils/aiLimits.js';
 
 function assertCourseAccess(course, user) {
   if (!course) throw new AppError('Course not found', 404);
@@ -269,92 +276,158 @@ const AiReviewService = {
     const course = await CourseModel.findById(payload.courseId);
     assertCourseAccess(course, user);
 
-    const generated = await AiService.generateQuiz({
-      topic: payload.topic,
-      difficulty: payload.difficulty,
-      questionCount: payload.questionCount,
-      questionType: payload.questionType || 'multiple_choice',
-      gradeLevel: payload.gradeLevel || course.grade_level || 'high school',
-      lessonContent: payload.lessonContent || '',
-    });
-
-    const quiz = normalizeQuiz({
-      title: payload.title || generated.title,
-      description: payload.description || generated.description,
-      difficulty: payload.difficulty || 'medium',
-      timeLimitMinutes: payload.timeLimitMinutes || 15,
-      passingScore: payload.passingScore || 60,
-      xpReward: payload.xpReward || 50,
-      questions: generated.questions,
-    });
-
-    let lessonSummary = null;
-    let learningObjectives = null;
+    const questionCount = assertQuestionCount(payload.questionCount ?? 5);
     const sourceText = payload.lessonContent
       || await lessonSourceText(payload.courseId, payload.lessonId);
+    if (sourceText) assertInputTextSize(sourceText, { label: 'Lesson content' });
 
-    if (sourceText && sourceText.length > 40) {
-      const extras = await AiService.summarizeLesson(sourceText);
-      lessonSummary = normalizeSummary(extras.summary);
-      learningObjectives = normalizeObjectives(extras.learningObjectives);
+    const textFingerprint = crypto.createHash('sha256')
+      .update(String(sourceText || payload.topic || ''))
+      .digest('hex')
+      .slice(0, 16);
+    const usageEvent = await AiUsageService.beginOperation({
+      userId: user.id,
+      operationType: 'review_quiz',
+      inputChars: String(sourceText || '').length,
+      requestedQuantity: questionCount,
+      idempotencyKey: buildIdempotencyKey([
+        'from-quiz',
+        user.id,
+        payload.courseId,
+        payload.lessonId,
+        payload.topic,
+        questionCount,
+        payload.questionType || 'multiple_choice',
+        textFingerprint,
+      ]),
+    });
+
+    try {
+      const generated = await AiService.generateQuiz({
+        topic: payload.topic,
+        difficulty: payload.difficulty,
+        questionCount,
+        questionType: payload.questionType || 'multiple_choice',
+        gradeLevel: payload.gradeLevel || course.grade_level || 'high school',
+        lessonContent: sourceText || '',
+      });
+
+      if (!generated?.questions?.length) {
+        throw new AppError('AI returned invalid content. Please try generating again.', 502);
+      }
+
+      const quiz = normalizeQuiz({
+        title: payload.title || generated.title,
+        description: payload.description || generated.description,
+        difficulty: payload.difficulty || 'medium',
+        timeLimitMinutes: payload.timeLimitMinutes || 15,
+        passingScore: payload.passingScore || 60,
+        xpReward: payload.xpReward || 50,
+        questions: generated.questions,
+      });
+
+      let lessonSummary = null;
+      let learningObjectives = null;
+
+      if (sourceText && sourceText.length > 40) {
+        const extras = await AiService.summarizeLesson(sourceText);
+        lessonSummary = normalizeSummary(extras.summary);
+        learningObjectives = normalizeObjectives(extras.learningObjectives);
+      }
+
+      const draft = await this.createDraft({
+        courseId: payload.courseId,
+        lessonId: payload.lessonId || null,
+        sourceType: 'ai_quiz',
+        title: quiz.title,
+        sourceText,
+        quiz,
+        lessonSummary,
+        learningObjectives,
+        source: generated.source,
+        warning: generated.warning,
+      }, user);
+
+      await AiUsageService.completeOperation(usageEvent?.id, { provider: generated.source });
+
+      return {
+        draftId: draft.id,
+        draft,
+        source: generated.source,
+        warning: generated.warning || null,
+      };
+    } catch (error) {
+      await AiUsageService.failOperation(usageEvent?.id, error);
+      throw error;
     }
-
-    const draft = await this.createDraft({
-      courseId: payload.courseId,
-      lessonId: payload.lessonId || null,
-      sourceType: 'ai_quiz',
-      title: quiz.title,
-      sourceText,
-      quiz,
-      lessonSummary,
-      learningObjectives,
-      source: generated.source,
-      warning: generated.warning,
-    }, user);
-
-    return {
-      draftId: draft.id,
-      draft,
-      source: generated.source,
-      warning: generated.warning || null,
-    };
   },
 
   async createFromGameGenerate(payload, user) {
-    const generated = await GameService.generateAiGame(payload, user);
-    const game = normalizeGame({
-      ...generated,
-      instructions: generated.description,
+    const course = await CourseModel.findById(payload.courseId);
+    assertCourseAccess(course, user);
+
+    const sourceText = await lessonSourceText(payload.courseId, payload.lessonId);
+    if (sourceText) assertInputTextSize(sourceText, { label: 'Lesson content' });
+
+    const usageEvent = await AiUsageService.beginOperation({
+      userId: user.id,
+      operationType: 'review_game',
+      inputChars: String(sourceText || '').length,
+      requestedQuantity: null,
+      idempotencyKey: buildIdempotencyKey([
+        'from-game',
+        user.id,
+        payload.courseId,
+        payload.lessonId,
+        payload.gameType || 'auto',
+        crypto.createHash('sha256').update(String(sourceText || '')).digest('hex').slice(0, 16),
+      ]),
     });
 
-    let lessonSummary = null;
-    let learningObjectives = null;
-    const sourceText = await lessonSourceText(payload.courseId, payload.lessonId);
-    if (sourceText && sourceText.length > 40) {
-      const extras = await AiService.summarizeLesson(sourceText);
-      lessonSummary = normalizeSummary(extras.summary);
-      learningObjectives = normalizeObjectives(extras.learningObjectives);
+    try {
+      const generated = await GameService.generateAiGame(payload, user);
+      if (!generated?.title) {
+        throw new AppError('AI returned invalid content. Please try generating again.', 502);
+      }
+
+      const game = normalizeGame({
+        ...generated,
+        instructions: generated.description,
+      });
+
+      let lessonSummary = null;
+      let learningObjectives = null;
+      if (sourceText && sourceText.length > 40) {
+        const extras = await AiService.summarizeLesson(sourceText);
+        lessonSummary = normalizeSummary(extras.summary);
+        learningObjectives = normalizeObjectives(extras.learningObjectives);
+      }
+
+      const draft = await this.createDraft({
+        courseId: payload.courseId,
+        lessonId: payload.lessonId || null,
+        sourceType: 'ai_game',
+        title: game.title,
+        sourceText,
+        game,
+        lessonSummary,
+        learningObjectives,
+        source: generated.source,
+        warning: generated.warning,
+      }, user);
+
+      await AiUsageService.completeOperation(usageEvent?.id, { provider: generated.source });
+
+      return {
+        draftId: draft.id,
+        draft,
+        source: generated.source,
+        warning: generated.warning || null,
+      };
+    } catch (error) {
+      await AiUsageService.failOperation(usageEvent?.id, error);
+      throw error;
     }
-
-    const draft = await this.createDraft({
-      courseId: payload.courseId,
-      lessonId: payload.lessonId || null,
-      sourceType: 'ai_game',
-      title: game.title,
-      sourceText,
-      game,
-      lessonSummary,
-      learningObjectives,
-      source: generated.source,
-      warning: generated.warning,
-    }, user);
-
-    return {
-      draftId: draft.id,
-      draft,
-      source: generated.source,
-      warning: generated.warning || null,
-    };
   },
 
   async createFromAiContent(payload, user) {
@@ -365,6 +438,9 @@ const AiReviewService = {
     let sourceText = String(payload.extractedText || '').trim();
     let lessonId = payload.lessonId || null;
     let topic = payload.topic || course.title;
+    const questionCount = ['quiz', 'all'].includes(contentType)
+      ? assertQuestionCount(payload.questionCount ?? 5)
+      : null;
 
     if (String(payload.sourceType || 'lesson').toLowerCase() === 'lesson') {
       if (!payload.lessonId) {
@@ -383,6 +459,8 @@ const AiReviewService = {
       throw new AppError('Not enough content to generate from. Provide a richer lesson or document.', 400);
     }
 
+    assertInputTextSize(sourceText, { label: 'Document' });
+
     let quiz = null;
     let game = null;
     let lessonSummary = null;
@@ -400,15 +478,36 @@ const AiReviewService = {
       throw new AppError('contentType must be quiz, game, objectives, summary, or all', 400);
     }
 
+    const textFingerprint = crypto.createHash('sha256').update(sourceText).digest('hex').slice(0, 16);
+    const usageEvent = await AiUsageService.beginOperation({
+      userId: user.id,
+      operationType: 'review_content',
+      inputChars: sourceText.length,
+      requestedQuantity: questionCount,
+      idempotencyKey: buildIdempotencyKey([
+        'from-content',
+        user.id,
+        payload.courseId,
+        contentType,
+        payload.sourceType,
+        lessonId,
+        questionCount,
+        payload.gameType || '',
+        textFingerprint,
+      ]),
+    });
+
+    try {
     if (needsQuiz || needsGame) {
       const AiContentService = (await import('./AiContentService.js')).default;
       const generated = await AiContentService.generate({
         ...payload,
         contentType: needsQuiz ? 'quiz' : 'game',
+        questionCount,
         extractedText: sourceText,
         lessonId,
         topic,
-      }, user);
+      }, user, { skipUsageTracking: true });
       generationId = generated.generationId;
       source = generated.source;
       warning = generated.warning || null;
@@ -424,7 +523,7 @@ const AiReviewService = {
         extractedText: sourceText,
         lessonId,
         topic,
-      }, user);
+      }, user, { skipUsageTracking: true });
       game = normalizeGame(gameGenerated.generated);
       source = source || gameGenerated.source;
       warning = warning || gameGenerated.warning || null;
@@ -455,6 +554,8 @@ const AiReviewService = {
       warning,
     }, user);
 
+    await AiUsageService.completeOperation(usageEvent?.id, { provider: source });
+
     return {
       draftId: draft.id,
       draft,
@@ -462,6 +563,10 @@ const AiReviewService = {
       source,
       warning: warning || null,
     };
+    } catch (error) {
+      await AiUsageService.failOperation(usageEvent?.id, error);
+      throw error;
+    }
   },
 
   async updateDraft(id, payload, user) {
@@ -600,16 +705,40 @@ const AiReviewService = {
 
     const target = payload.target || 'all';
     const sourceText = draft.sourceText || await lessonSourceText(draft.courseId, draft.lessonId);
+    if (sourceText) assertInputTextSize(sourceText, { label: 'Document' });
     const course = await CourseModel.findById(draft.courseId);
     const updates = { teacherEdited: true, updatedBy: user.id };
 
+    // Intentional regenerate uses a distinct key so it is not blocked by the original generate.
+    const usageEvent = await AiUsageService.beginOperation({
+      userId: user.id,
+      operationType: 'regenerate',
+      inputChars: String(sourceText || '').length,
+      requestedQuantity: payload.questionCount || null,
+      // Distinct from initial generate keys; windowed so double-clicks are blocked
+      // but intentional regenerates after the window still work.
+      idempotencyKey: buildIdempotencyKey([
+        'regenerate',
+        user.id,
+        id,
+        target,
+        payload.questionIndex,
+        payload.itemIndex,
+        payload.count,
+      ]),
+    });
+
+    try {
     if (target === 'all' || target === 'quiz') {
       if (draft.quiz || target === 'quiz') {
+        const questionCount = assertQuestionCount(
+          payload.questionCount || draft.quiz?.questions?.length || 5
+        );
         const generated = await AiService.generateContentQuiz({
           topic: draft.quiz?.title || course.title,
           lessonContent: sourceText || draft.quiz?.title || course.title,
           difficulty: draft.quiz?.difficulty || 'medium',
-          questionCount: payload.questionCount || draft.quiz?.questions?.length || 5,
+          questionCount,
           gradeLevel: course.grade_level || 'high school',
         });
         updates.quiz = normalizeQuiz(generated);
@@ -725,7 +854,13 @@ const AiReviewService = {
       regeneratedAt: new Date().toISOString(),
     };
 
-    return AiReviewDraftModel.update(id, updates);
+    const updated = await AiReviewDraftModel.update(id, updates);
+    await AiUsageService.completeOperation(usageEvent?.id);
+    return updated;
+    } catch (error) {
+      await AiUsageService.failOperation(usageEvent?.id, error);
+      throw error;
+    }
   },
 
   async transform(id, payload, user) {

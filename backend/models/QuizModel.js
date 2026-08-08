@@ -140,6 +140,104 @@ const QuizModel = {
     return this.getQuestionWithOptions(questionId);
   },
 
+  async updateQuestion(questionId, question) {
+    const connection = await getConnection();
+    try {
+      await connection.beginTransaction();
+
+      const imageUrl = question.imageUrl ?? question.image_url;
+      if (imageUrl !== undefined) {
+        await connection.execute(
+          `UPDATE quiz_questions
+           SET question_text = ?, question_type = ?, points = ?, explanation = ?,
+               image_url = ?, order_index = ?
+           WHERE id = ?`,
+          [
+            question.questionText ?? question.question_text ?? '',
+            question.questionType || question.question_type || 'multiple_choice',
+            question.points || 1,
+            question.explanation ?? null,
+            imageUrl,
+            question.orderIndex || question.order_index || 1,
+            questionId,
+          ]
+        );
+      } else {
+        await connection.execute(
+          `UPDATE quiz_questions
+           SET question_text = ?, question_type = ?, points = ?, explanation = ?, order_index = ?
+           WHERE id = ?`,
+          [
+            question.questionText ?? question.question_text ?? '',
+            question.questionType || question.question_type || 'multiple_choice',
+            question.points || 1,
+            question.explanation ?? null,
+            question.orderIndex || question.order_index || 1,
+            questionId,
+          ]
+        );
+      }
+
+      await connection.execute('DELETE FROM quiz_options WHERE question_id = ?', [questionId]);
+
+      const options = Array.isArray(question.options) ? question.options : [];
+      for (let i = 0; i < options.length; i += 1) {
+        const option = options[i];
+        await connection.execute(
+          `INSERT INTO quiz_options
+           (question_id, option_text, is_correct, match_key, side, order_index)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            questionId,
+            option.optionText ?? option.option_text ?? option.text ?? '',
+            option.isCorrect || option.is_correct ? 1 : 0,
+            option.matchKey ?? option.match_key ?? null,
+            option.side || 'none',
+            i + 1,
+          ]
+        );
+      }
+
+      await connection.commit();
+      return this.getQuestionWithOptions(questionId);
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  },
+
+  async deleteQuestion(questionId) {
+    await query('DELETE FROM quiz_questions WHERE id = :questionId', { questionId });
+    return true;
+  },
+
+  async deleteQuestionsByQuizId(quizId) {
+    await query('DELETE FROM quiz_questions WHERE quiz_id = :quizId', { quizId });
+    return true;
+  },
+
+  async reorderQuestions(quizId, orderedIds) {
+    const connection = await getConnection();
+    try {
+      await connection.beginTransaction();
+      for (let i = 0; i < orderedIds.length; i += 1) {
+        await connection.execute(
+          'UPDATE quiz_questions SET order_index = ? WHERE id = ? AND quiz_id = ?',
+          [i + 1, orderedIds[i], quizId]
+        );
+      }
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  },
+
   async getQuestionWithOptions(questionId) {
     const questions = await query(
       'SELECT * FROM quiz_questions WHERE id = :questionId LIMIT 1',
@@ -290,6 +388,18 @@ const QuizModel = {
       { studentId }
     );
     return rows[0].total;
+  },
+
+  async hasPassedQuiz(studentId, quizId) {
+    const rows = await query(
+      `SELECT id FROM quiz_attempts
+       WHERE student_id = :studentId
+         AND quiz_id = :quizId
+         AND is_passed = 1
+       LIMIT 1`,
+      { studentId, quizId }
+    );
+    return Boolean(rows[0]);
   },
 };
 

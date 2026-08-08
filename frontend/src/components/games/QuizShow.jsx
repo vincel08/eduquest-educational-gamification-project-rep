@@ -16,6 +16,7 @@ export default function QuizShow({ gameData, onComplete, xpReward = 50 }) {
 
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [choices, setChoices] = useState([]);
   const [locked, setLocked] = useState(false);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
 
@@ -45,10 +46,12 @@ export default function QuizShow({ gameData, onComplete, xpReward = 50 }) {
       score: nextScore,
       progress: (index + 1) / rounds.length,
       onNext: () => {
+        const nextChoices = [...choices, choiceIndex];
+        setChoices(nextChoices);
         setScore(nextScore);
         setLocked(false);
         if (index + 1 >= rounds.length) {
-          onComplete?.(nextScore);
+          onComplete?.({ score: nextScore, answers: { choices: nextChoices } });
           return;
         }
         setIndex((prev) => prev + 1);

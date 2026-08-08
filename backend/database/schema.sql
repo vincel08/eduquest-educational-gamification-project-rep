@@ -277,6 +277,8 @@ CREATE TABLE IF NOT EXISTS student_certificates (
   certificate_code VARCHAR(50) NOT NULL UNIQUE,
   issued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   issued_by INT UNSIGNED NULL,
+  is_override TINYINT(1) NOT NULL DEFAULT 0,
+  issue_reason VARCHAR(500) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_student_certificate (certificate_id, student_id),
@@ -363,7 +365,8 @@ CREATE TABLE IF NOT EXISTS xp_transactions (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_xp_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_xp_student (student_id)
+  INDEX idx_xp_student (student_id),
+  UNIQUE KEY uq_xp_student_source (student_id, source_type, source_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -376,6 +379,25 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   CONSTRAINT fk_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_reset_token (token),
   INDEX idx_reset_expires (expires_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS ai_usage_events (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  teacher_id INT UNSIGNED NOT NULL,
+  operation_type VARCHAR(64) NOT NULL,
+  status ENUM('pending', 'completed', 'failed') NOT NULL DEFAULT 'pending',
+  input_chars INT UNSIGNED NOT NULL DEFAULT 0,
+  requested_quantity INT UNSIGNED NULL,
+  provider VARCHAR(32) NULL,
+  model VARCHAR(100) NULL,
+  idempotency_key VARCHAR(128) NULL,
+  error_code VARCHAR(64) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP NULL,
+  CONSTRAINT fk_ai_usage_teacher FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_ai_usage_teacher_created (teacher_id, created_at),
+  INDEX idx_ai_usage_teacher_status (teacher_id, status),
+  INDEX idx_ai_usage_idempotency (teacher_id, idempotency_key, created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS ai_content_generations (

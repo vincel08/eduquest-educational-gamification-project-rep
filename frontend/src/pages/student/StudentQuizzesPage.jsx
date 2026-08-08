@@ -46,7 +46,7 @@ export default function StudentQuizzesPage() {
     [quizzes, sort, filters]
   );
 
-  if (loading) return <LoadingScreen />;
+  if (loading) return <LoadingScreen label="Loading quizzes..." showCards />;
 
   return (
     <>

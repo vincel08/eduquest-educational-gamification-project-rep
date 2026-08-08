@@ -52,7 +52,7 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
         setChecked(nextChecked);
         setCorrectCount(nextCorrect);
         if (Object.keys(nextChecked).length >= items.length) {
-          onComplete?.(score);
+          onComplete?.({ score, answers: { matches: { ...matches } } });
         }
       },
     });
@@ -86,7 +86,7 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
       onNext: () => {
         setChecked(nextChecked);
         setCorrectCount(nextCorrect);
-        onComplete?.(score);
+        onComplete?.({ score, answers: { matches: { ...matches } } });
       },
     });
   }

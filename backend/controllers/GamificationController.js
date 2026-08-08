@@ -129,8 +129,29 @@ const GamificationController = {
         certificateId: Number(req.body.certificateId),
         studentId: Number(req.body.studentId),
         issuedBy: req.user.id,
+        actorRole: req.user.role,
+        forceOverride: Boolean(req.body.forceOverride),
+        overrideReason: req.body.overrideReason || null,
       });
-      return successResponse(res, 'Certificate issued', data, 201);
+      const status = data.alreadyIssued ? 200 : 201;
+      const message = data.alreadyIssued
+        ? 'Certificate already issued'
+        : data.overridden
+          ? 'Certificate issued with administrative override'
+          : 'Certificate issued';
+      return successResponse(res, message, data, status);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async courseEligibility(req, res, next) {
+    try {
+      const data = await GamificationService.getCourseCertificateEligibility(
+        Number(req.params.courseId),
+        req.user.id
+      );
+      return successResponse(res, 'Certificate eligibility retrieved', data);
     } catch (error) {
       return next(error);
     }
@@ -147,7 +168,10 @@ const GamificationController = {
 
   async getIssuedCertificate(req, res, next) {
     try {
-      const data = await GamificationService.getCertificateById(Number(req.params.id));
+      const data = await GamificationService.getCertificateById(
+        Number(req.params.id),
+        req.user
+      );
       return successResponse(res, 'Certificate retrieved', data);
     } catch (error) {
       return next(error);

@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Link,
-  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -29,7 +28,7 @@ export default function RegisterPage() {
     lastName: '',
     email: '',
     password: '',
-    role: 'student',
+    role: 'student', // Public registration is student-only.
     gradeLevel: 'Grade 10',
     schoolName: '',
   });
@@ -72,8 +71,8 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const user = await register(form);
-      navigate(user.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard');
+      await register({ ...form, role: 'student' });
+      navigate('/student/dashboard');
     } catch (err) {
       const message = getErrorMessage(err, 'Unable to register');
       setError(message);
@@ -146,20 +145,15 @@ export default function RegisterPage() {
                 error={Boolean(fieldErrors.password)}
                 helperText={
                   fieldErrors.password
-                  || `Password must be at least ${MIN_PASSWORD_LENGTH} characters`
+                  || `At least ${MIN_PASSWORD_LENGTH} characters with uppercase, lowercase, and a number`
                 }
                 slotProps={{ htmlInput: { minLength: MIN_PASSWORD_LENGTH } }}
               />
-              <TextField select label="Role" value={form.role} onChange={updateField('role')}>
-                <MenuItem value="student">Student</MenuItem>
-                <MenuItem value="teacher">Teacher</MenuItem>
-              </TextField>
-              {form.role === 'student' ? (
-                <>
-                  <TextField label="Grade level" value={form.gradeLevel} onChange={updateField('gradeLevel')} />
-                  <TextField label="School name" value={form.schoolName} onChange={updateField('schoolName')} />
-                </>
-              ) : null}
+              <Alert severity="info">
+                Student registration only. Teacher accounts must be created by an administrator.
+              </Alert>
+              <TextField label="Grade level" value={form.gradeLevel} onChange={updateField('gradeLevel')} />
+              <TextField label="School name" value={form.schoolName} onChange={updateField('schoolName')} />
               <Button type="submit" variant="contained" size="large" disabled={loading}>
                 {loading ? 'Creating account...' : 'Register'}
               </Button>

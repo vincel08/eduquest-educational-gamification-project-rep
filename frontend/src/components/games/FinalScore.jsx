@@ -42,6 +42,8 @@ export default function FinalScore({
   onDashboard,
   onLeaderboard,
   onContinue,
+  nextGame = null,
+  onNextGame,
   title = 'Game Complete!',
 }) {
   const percent = percentage == null ? Math.max(0, Math.min(100, Number(score) || 0)) : percentage;
@@ -134,6 +136,20 @@ export default function FinalScore({
         </Stack>
       ) : null}
 
+      {nextGame ? (
+        <Box sx={{ mt: 3, p: 2, borderRadius: 3, bgcolor: 'rgba(59,130,246,0.08)', textAlign: 'center' }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={800}>
+            Next recommended game
+          </Typography>
+          <Typography fontWeight={900}>{nextGame.title}</Typography>
+          {onNextGame ? (
+            <Button sx={{ mt: 1 }} variant="contained" color="secondary" onClick={onNextGame}>
+              Play Next
+            </Button>
+          ) : null}
+        </Box>
+      ) : null}
+
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1}
@@ -143,8 +159,8 @@ export default function FinalScore({
           <Button variant="contained" onClick={onPlayAgain}>Play Again</Button>
         ) : null}
         {onContinue ? (
-          <Button variant="contained" color="secondary" onClick={onContinue}>
-            Next Game
+          <Button variant="outlined" color="secondary" onClick={onContinue}>
+            Browse Games
           </Button>
         ) : null}
         {onLeaderboard ? (

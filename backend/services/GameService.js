@@ -5,6 +5,7 @@ import AiService from './AiService.js';
 import GamificationService from './GamificationService.js';
 import AppError from '../utils/AppError.js';
 import { ALL_GAME_TYPES, GAME_TYPES, normalizeGameType } from '../utils/gameTypes.js';
+import { calculateGameScore, calculateGameXp } from '../utils/gameScoring.js';
 
 function assertCourseAccess(course, user) {
   if (!course) throw new AppError('Course not found', 404);
@@ -166,7 +167,7 @@ const GameService = {
     return true;
   },
 
-  async submitScore({ gameId, studentId, score, durationSeconds }) {
+  async submitScore({ gameId, studentId, score, answers, durationSeconds }) {
     const game = await GameModel.findById(gameId);
     if (!game || !game.is_published) {
       throw new AppError('Game not available', 404);
@@ -175,10 +176,33 @@ const GameService = {
     const enrolled = await CourseModel.isEnrolled(game.course_id, studentId);
     if (!enrolled) throw new AppError('Enroll in the course first', 403);
 
-    const normalizedScore = Math.max(0, Number(score) || 0);
-    const xpEarned = normalizedScore >= 70
-      ? game.xp_reward
-      : Math.floor(game.xp_reward * (normalizedScore / 100));
+    // Reject absurd client scores even before answer validation.
+    if (score != null && Number(score) > 100) {
+      throw new AppError('Invalid score', 400);
+    }
+
+    // Server recomputes score from answers + authoritative game_data.
+    const normalizedScore = calculateGameScore(game.game_type, game.game_data, answers);
+    const computedXp = calculateGameXp(normalizedScore, game.xp_reward);
+
+    let xpAward = null;
+    let xpEarned = 0;
+    let xpAlreadyAwarded = false;
+
+    if (computedXp > 0) {
+      const xpResult = await GamificationService.awardXpOnce({
+        studentId,
+        amount: computedXp,
+        sourceType: 'game',
+        sourceId: gameId,
+        description: `Played game: ${game.title}`,
+      });
+      xpAlreadyAwarded = Boolean(xpResult.alreadyAwarded);
+      if (!xpResult.alreadyAwarded) {
+        xpAward = xpResult.xpAward;
+        xpEarned = computedXp;
+      }
+    }
 
     const saved = await GameModel.saveScore({
       gameId,
@@ -188,18 +212,13 @@ const GameService = {
       durationSeconds: durationSeconds || null,
     });
 
-    let xpAward = null;
-    if (xpEarned > 0) {
-      xpAward = await GamificationService.awardXp({
-        studentId,
-        amount: xpEarned,
-        sourceType: 'game',
-        sourceId: gameId,
-        description: `Played game: ${game.title}`,
-      });
-    }
-
-    return { score: saved, xpAward };
+    return {
+      score: saved,
+      xpAward,
+      xpAlreadyAwarded,
+      computedXp,
+      serverScore: normalizedScore,
+    };
   },
 
   async getStudentScores(studentId, gameId = null) {

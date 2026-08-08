@@ -44,13 +44,17 @@ export default function QuestCard({
     <Card
       className="quest-card"
       component={motion.div}
-      whileHover={{ y: -8, scale: 1.015 }}
+      whileHover={{ y: -8, scale: 1.03 }}
       transition={{ type: 'spring', stiffness: 320, damping: 22 }}
       sx={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         cursor: to || onAction ? 'pointer' : 'default',
+        transition: 'box-shadow 0.25s ease',
+        '&:hover': {
+          boxShadow: '0 18px 40px rgba(59,130,246,0.18)',
+        },
       }}
     >
       <CardContent sx={{ flex: 1 }}>
@@ -59,7 +63,7 @@ export default function QuestCard({
             sx={{
               width: 56,
               height: 56,
-              borderRadius: '18px',
+              borderRadius: 3,
               display: 'grid',
               placeItems: 'center',
               background: ACCENT_MAP[accent] || ACCENT_MAP.blue,

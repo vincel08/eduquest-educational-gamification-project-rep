@@ -36,10 +36,11 @@ const LessonModel = {
     return rows[0] || null;
   },
 
-  async findByCourse(courseId) {
+  async findByCourse(courseId, { publishedOnly = false } = {}) {
+    const publishedFilter = publishedOnly ? 'AND is_published = 1' : '';
     return query(
       `SELECT * FROM lessons
-       WHERE course_id = :courseId
+       WHERE course_id = :courseId ${publishedFilter}
        ORDER BY order_index ASC, id ASC`,
       { courseId }
     );
@@ -114,6 +115,7 @@ const LessonModel = {
        LEFT JOIN lesson_progress lp
          ON lp.lesson_id = l.id AND lp.student_id = :studentId
        WHERE l.course_id = :courseId
+         AND l.is_published = 1
        ORDER BY l.order_index ASC`,
       { courseId, studentId }
     );
@@ -125,7 +127,10 @@ const LessonModel = {
          (SELECT COUNT(*) FROM lessons WHERE course_id = :courseId AND is_published = 1) AS total,
          (SELECT COUNT(*) FROM lesson_progress lp
           INNER JOIN lessons l ON l.id = lp.lesson_id
-          WHERE l.course_id = :courseId AND lp.student_id = :studentId AND lp.status = 'completed') AS completed`,
+          WHERE l.course_id = :courseId
+            AND l.is_published = 1
+            AND lp.student_id = :studentId
+            AND lp.status = 'completed') AS completed`,
       { courseId, studentId }
     );
     return rows[0];

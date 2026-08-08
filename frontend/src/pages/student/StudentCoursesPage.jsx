@@ -15,7 +15,6 @@ export default function StudentCoursesPage() {
   const [enrolled, setEnrolled] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [enrollingId, setEnrollingId] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -37,19 +36,7 @@ export default function StudentCoursesPage() {
     load();
   }, []);
 
-  async function handleEnroll(courseId) {
-    setEnrollingId(courseId);
-    try {
-      await courseService.enroll(courseId);
-      await load();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setEnrollingId(null);
-    }
-  }
-
-  if (loading) return <LoadingScreen />;
+  if (loading) return <LoadingScreen label="Loading courses..." showCards />;
 
   const enrolledIds = new Set(enrolled.map((course) => course.id));
 
@@ -74,7 +61,7 @@ export default function StudentCoursesPage() {
               description={`${course.subject || ''} · ${course.grade_level || ''}`.trim()}
               icon={<SchoolIcon />}
               accent="blue"
-              status={`${Number(course.progress_percent || 0)}% done`}
+              status={`${Number(course.progress_percent || 0)}% lessons`}
               statusColor={Number(course.progress_percent || 0) >= 100 ? 'success' : 'primary'}
               showTimestamp
               item={course}
@@ -112,13 +99,8 @@ export default function StudentCoursesPage() {
               statusColor={enrolledIds.has(course.id) ? 'success' : 'secondary'}
               showTimestamp
               item={course}
-              to={enrolledIds.has(course.id) ? `/student/courses/${course.id}` : undefined}
-              onAction={enrolledIds.has(course.id) ? undefined : () => handleEnroll(course.id)}
-              actionLabel={
-                enrolledIds.has(course.id)
-                  ? 'Open'
-                  : (enrollingId === course.id ? 'Enrolling...' : 'Enroll')
-              }
+              to={`/student/courses/${course.id}`}
+              actionLabel={enrolledIds.has(course.id) ? 'Open' : 'View Course'}
             />
           </Grid>
         )) : (

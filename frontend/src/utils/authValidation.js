@@ -5,8 +5,18 @@ export function getPasswordError(password) {
     return 'Password is required';
   }
 
-  if (String(password).length < MIN_PASSWORD_LENGTH) {
+  const value = String(password);
+  if (value.length < MIN_PASSWORD_LENGTH) {
     return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+  }
+  if (!/[a-z]/.test(value)) {
+    return 'Password must include a lowercase letter';
+  }
+  if (!/[A-Z]/.test(value)) {
+    return 'Password must include an uppercase letter';
+  }
+  if (!/[0-9]/.test(value)) {
+    return 'Password must include a number';
   }
 
   return '';

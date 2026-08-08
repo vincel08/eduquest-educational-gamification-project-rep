@@ -1,5 +1,6 @@
 import { errorResponse } from '../utils/apiResponse.js';
 import AppError from '../utils/AppError.js';
+import env from '../config/env.js';
 
 export function notFoundHandler(req, res) {
   return errorResponse(res, `Route not found: ${req.originalUrl}`, 404);
@@ -26,6 +27,11 @@ export function errorHandler(err, req, res, next) {
     return errorResponse(res, 'File size exceeds the allowed limit', 400);
   }
 
-  console.error(err);
+  if (env.isProduction) {
+    console.error(err?.message || err);
+  } else {
+    console.error(err);
+  }
+
   return errorResponse(res, 'Internal server error', 500);
 }

@@ -46,7 +46,7 @@ export default function StudentGamesPage() {
     [games, sort, filters]
   );
 
-  if (loading) return <LoadingScreen />;
+  if (loading) return <LoadingScreen label="Loading games..." showCards />;
 
   return (
     <>

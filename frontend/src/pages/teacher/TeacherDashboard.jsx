@@ -27,6 +27,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 import { Link as RouterLink } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
+import PageContainer from '../../components/common/PageContainer';
 import StatCard from '../../components/common/StatCard';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import ContentTimestamp from '../../components/common/ContentTimestamp';
@@ -65,16 +66,19 @@ export default function TeacherDashboard() {
   };
 
   return (
-    <>
+    <PageContainer>
       <PageHeader
         title="Teacher Studio"
         subtitle="Track courses, motivate learners, and launch AI content."
         action={(
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button component={RouterLink} to="/teacher/ai-quiz" variant="contained" startIcon={<AutoAwesomeIcon />}>
+            <Button component={RouterLink} to="/teacher/quizzes/new" variant="contained" sx={{ bgcolor: '#FACC15', color: '#1E293B' }}>
+              Create Quiz
+            </Button>
+            <Button component={RouterLink} to="/teacher/ai-quiz" variant="outlined" startIcon={<AutoAwesomeIcon />} sx={{ borderColor: '#fff', color: '#fff' }}>
               AI Quiz
             </Button>
-            <Button component={RouterLink} to="/teacher/ai-game" variant="outlined" startIcon={<SportsEsportsIcon />}>
+            <Button component={RouterLink} to="/teacher/ai-game" variant="outlined" startIcon={<SportsEsportsIcon />} sx={{ borderColor: '#fff', color: '#fff' }}>
               AI Game
             </Button>
           </Stack>
@@ -155,11 +159,22 @@ export default function TeacherDashboard() {
             </List>
           </Paper>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" fontWeight={900} gutterBottom>Quick Actions</Typography>
+            <Typography variant="h6" fontWeight={800} gutterBottom>Quick Actions</Typography>
             <Stack spacing={1}>
-              <Button component={RouterLink} to="/teacher/courses" variant="contained">Manage Courses</Button>
-              <Button component={RouterLink} to="/teacher/ai-content" variant="outlined" color="secondary">
-                AI Content Generator
+              <Button component={RouterLink} to="/teacher/courses" variant="contained">
+                Manage Courses
+              </Button>
+              <Button component={RouterLink} to="/teacher/quizzes/new" variant="contained" color="secondary">
+                Create Quiz
+              </Button>
+              <Button component={RouterLink} to="/teacher/ai-quiz" variant="outlined" startIcon={<AutoAwesomeIcon />}>
+                Generate AI Quiz
+              </Button>
+              <Button component={RouterLink} to="/teacher/ai-game" variant="outlined" startIcon={<SportsEsportsIcon />}>
+                Generate AI Game
+              </Button>
+              <Button component={RouterLink} to="/teacher/ai-content" variant="outlined">
+                AI Content / Upload Material
               </Button>
               <Button component={RouterLink} to="/teacher/awards" variant="outlined">
                 Award Badges
@@ -168,6 +183,6 @@ export default function TeacherDashboard() {
           </Paper>
         </Grid>
       </Grid>
-    </>
+    </PageContainer>
   );
 }

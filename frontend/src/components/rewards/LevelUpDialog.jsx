@@ -24,13 +24,13 @@ export default function LevelUpDialog({ open, data, onClose }) {
         >
           <CelebrationIcon sx={{ fontSize: 56, color: '#FACC15' }} />
           <Typography variant="h4" fontWeight={900}>
-            Level Up!
+            🎉 Level Up!
           </Typography>
           <Typography color="text.secondary">
-            You advanced from Level {data.previousLevel} to Level {data.newLevel}
+            Previous Level {data.previousLevel} → New Level {data.newLevel}
           </Typography>
           <Typography variant="h5" fontWeight={900} color="primary.main">
-            Level {data.newLevel}
+            Current Level {data.newLevel}
           </Typography>
           {data.xpEarned ? (
             <Typography fontWeight={800} sx={{ color: '#F97316' }}>

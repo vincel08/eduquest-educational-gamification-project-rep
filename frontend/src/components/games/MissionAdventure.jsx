@@ -7,6 +7,7 @@ export default function MissionAdventure({ gameData, onComplete, xpReward = 50 }
   const missions = useMemo(() => gameData?.missions || [], [gameData]);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [choices, setChoices] = useState([]);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
 
   if (!missions.length) {
@@ -30,9 +31,11 @@ export default function MissionAdventure({ gameData, onComplete, xpReward = 50 }
       score: nextScore,
       progress: (index + 1) / missions.length,
       onNext: () => {
+        const nextChoices = [...choices, choiceIndex];
+        setChoices(nextChoices);
         setScore(nextScore);
         if (index + 1 >= missions.length) {
-          onComplete?.(nextScore);
+          onComplete?.({ score: nextScore, answers: { choices: nextChoices } });
           return;
         }
         setIndex((prev) => prev + 1);

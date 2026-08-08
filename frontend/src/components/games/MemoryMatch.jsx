@@ -69,7 +69,14 @@ export default function MemoryMatch({ gameData, onComplete, xpReward = 50 }) {
           setFlipped([]);
           setLock(false);
           if (nextMatched.length === cards.length) {
-            onComplete?.(Math.max(40, 100 - nextMoves * 3));
+            const finalScore = Math.max(40, 100 - nextMoves * 3);
+            onComplete?.({
+              score: finalScore,
+              answers: {
+                moves: nextMoves,
+                matchedPairs: nextMatched.length / 2,
+              },
+            });
           }
           return;
         }

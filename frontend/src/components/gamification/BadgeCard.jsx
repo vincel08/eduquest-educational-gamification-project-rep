@@ -7,9 +7,14 @@ export default function BadgeCard({ badge }) {
     <Card
       className="glass-panel eq-achievement-glow"
       component={motion.div}
-      whileHover={{ scale: 1.04, y: -4 }}
+      whileHover={{ scale: 1.03, y: -4 }}
       transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-      sx={{ height: '100%' }}
+      sx={{
+        height: '100%',
+        cursor: 'pointer',
+        transition: 'box-shadow 0.25s ease',
+        '&:hover': { boxShadow: '0 18px 40px rgba(250,204,21,0.22)' },
+      }}
     >
       <CardContent>
         <Stack spacing={1.5} sx={{ alignItems: 'center', textAlign: 'center' }}>

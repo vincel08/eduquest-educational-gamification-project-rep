@@ -25,6 +25,8 @@ import TeacherAiQuizPage from '../pages/teacher/TeacherAiQuizPage';
 import TeacherAiGamePage from '../pages/teacher/TeacherAiGamePage';
 import TeacherAiContentPage from '../pages/teacher/TeacherAiContentPage';
 import TeacherAwardsPage from '../pages/teacher/TeacherAwardsPage';
+import TeacherQuizzesPage from '../pages/teacher/TeacherQuizzesPage';
+import TeacherQuizEditorPage from '../pages/teacher/TeacherQuizEditorPage';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
 import AdminCoursesPage from '../pages/admin/AdminCoursesPage';
@@ -76,6 +78,9 @@ export default function AppRoutes() {
           <Route path="dashboard" element={<TeacherDashboard />} />
           <Route path="courses" element={<TeacherCoursesPage />} />
           <Route path="courses/:courseId" element={<TeacherCourseDetailPage />} />
+          <Route path="quizzes" element={<TeacherQuizzesPage />} />
+          <Route path="quizzes/new" element={<TeacherQuizEditorPage />} />
+          <Route path="quizzes/:quizId/edit" element={<TeacherQuizEditorPage />} />
           <Route path="ai-content" element={<TeacherAiContentPage />} />
           <Route path="ai-quiz" element={<TeacherAiQuizPage />} />
           <Route path="ai-game" element={<TeacherAiGamePage />} />

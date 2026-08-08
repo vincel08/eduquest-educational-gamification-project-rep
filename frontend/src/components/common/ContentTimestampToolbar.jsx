@@ -25,8 +25,14 @@ function yearOptions() {
   return years;
 }
 
+const dateFieldSx = {
+  minWidth: { xs: '100%', sm: 168 },
+  flex: { xs: '1 1 100%', sm: '0 0 auto' },
+};
+
 /**
  * Sort + date filters for content lists.
+ * Date labels must stay shrunk so they do not collide with browser mm/dd/yyyy UI.
  */
 export default function ContentTimestampToolbar({
   sort = 'newest',
@@ -39,12 +45,32 @@ export default function ContentTimestampToolbar({
     onFiltersChange?.({ ...filters, ...partial });
   }
 
+  function dateFieldProps(label, value, onChange) {
+    return {
+      size: 'small',
+      type: 'date',
+      label,
+      value: value || '',
+      onChange,
+      sx: dateFieldSx,
+      // MUI v9 uses slotProps; keep InputLabelProps as a safe fallback.
+      InputLabelProps: { shrink: true },
+      slotProps: {
+        inputLabel: { shrink: true },
+        htmlInput: {
+          'aria-label': label,
+        },
+      },
+    };
+  }
+
   return (
     <Stack
       direction={{ xs: 'column', md: 'row' }}
       spacing={1.5}
       useFlexGap
       flexWrap="wrap"
+      alignItems={{ xs: 'stretch', md: 'flex-start' }}
       sx={{ mb: 2 }}
     >
       <TextField
@@ -53,7 +79,7 @@ export default function ContentTimestampToolbar({
         label="Sort"
         value={sort}
         onChange={(e) => onSortChange?.(e.target.value)}
-        sx={{ minWidth: 180 }}
+        sx={{ minWidth: { xs: '100%', sm: 180 } }}
       >
         <MenuItem value="newest">Newest First</MenuItem>
         <MenuItem value="oldest">Oldest First</MenuItem>
@@ -61,39 +87,35 @@ export default function ContentTimestampToolbar({
       </TextField>
 
       <TextField
-        size="small"
-        type="date"
-        label="Created from"
-        InputLabelProps={{ shrink: true }}
-        value={filters.createdFrom || ''}
-        onChange={(e) => patchFilters({ createdFrom: e.target.value })}
+        {...dateFieldProps(
+          'Created from',
+          filters.createdFrom,
+          (e) => patchFilters({ createdFrom: e.target.value })
+        )}
       />
       <TextField
-        size="small"
-        type="date"
-        label="Created to"
-        InputLabelProps={{ shrink: true }}
-        value={filters.createdTo || ''}
-        onChange={(e) => patchFilters({ createdTo: e.target.value })}
+        {...dateFieldProps(
+          'Created to',
+          filters.createdTo,
+          (e) => patchFilters({ createdTo: e.target.value })
+        )}
       />
 
       {showUpdatedFilters ? (
         <>
           <TextField
-            size="small"
-            type="date"
-            label="Updated from"
-            InputLabelProps={{ shrink: true }}
-            value={filters.updatedFrom || ''}
-            onChange={(e) => patchFilters({ updatedFrom: e.target.value })}
+            {...dateFieldProps(
+              'Updated from',
+              filters.updatedFrom,
+              (e) => patchFilters({ updatedFrom: e.target.value })
+            )}
           />
           <TextField
-            size="small"
-            type="date"
-            label="Updated to"
-            InputLabelProps={{ shrink: true }}
-            value={filters.updatedTo || ''}
-            onChange={(e) => patchFilters({ updatedTo: e.target.value })}
+            {...dateFieldProps(
+              'Updated to',
+              filters.updatedTo,
+              (e) => patchFilters({ updatedTo: e.target.value })
+            )}
           />
         </>
       ) : null}
@@ -106,7 +128,7 @@ export default function ContentTimestampToolbar({
         onChange={(e) => patchFilters({
           month: e.target.value === '' ? '' : Number(e.target.value),
         })}
-        sx={{ minWidth: 140 }}
+        sx={{ minWidth: { xs: '100%', sm: 140 } }}
       >
         {MONTHS.map((m) => (
           <MenuItem key={String(m.value)} value={m.value}>{m.label}</MenuItem>
@@ -119,7 +141,7 @@ export default function ContentTimestampToolbar({
         label="Year"
         value={filters.year || ''}
         onChange={(e) => patchFilters({ year: e.target.value })}
-        sx={{ minWidth: 120 }}
+        sx={{ minWidth: { xs: '100%', sm: 120 } }}
       >
         {yearOptions().map((y) => (
           <MenuItem key={y.value || 'all'} value={y.value}>{y.label}</MenuItem>

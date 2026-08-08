@@ -12,6 +12,11 @@ router.get('/badges', GamificationController.listBadges);
 router.get('/medals', GamificationController.listMedals);
 router.get('/certificates', GamificationController.listCertificates);
 router.get('/certificates/mine', authorize('student'), GamificationController.myCertificates);
+router.get(
+  '/certificates/eligibility/:courseId',
+  authorize('student'),
+  GamificationController.courseEligibility
+);
 router.get('/certificates/issued/:id', GamificationController.getIssuedCertificate);
 
 router.post('/badges', authorize('administrator'), GamificationController.createBadge);

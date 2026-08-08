@@ -4,6 +4,10 @@ import mammoth from 'mammoth';
 import JSZip from 'jszip';
 import { PDFParse } from 'pdf-parse';
 import AppError from '../utils/AppError.js';
+import {
+  assertExtractedTextSize,
+  assertUploadFileSize,
+} from '../utils/aiLimits.js';
 
 const SUPPORTED_EXTENSIONS = new Set(['.pdf', '.docx', '.pptx', '.ppt', '.txt']);
 const MIN_TEXT_LENGTH = 40;
@@ -116,6 +120,8 @@ const DocumentExtractService = {
       throw new AppError('No file uploaded', 400);
     }
 
+    assertUploadFileSize(file);
+
     const originalName = file.originalname || path.basename(file.path);
     const ext = path.extname(originalName).toLowerCase();
 
@@ -142,16 +148,19 @@ const DocumentExtractService = {
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError(
-        `Failed to extract text from ${originalName}: ${error.message}`,
+        'Uploaded content could not be processed. Please upload a smaller or clearer document.',
         400
       );
     }
 
     const extractedText = assertReadableText(rawText, originalName);
+    assertExtractedTextSize(extractedText);
 
     return {
-      originalFileName: originalName,
-      uploadedFilePath: file.path,
+      originalFileName: path.basename(originalName),
+      // Return basename only — never expose absolute server paths to clients.
+      uploadedFilePath: file.filename || path.basename(file.path),
+      uploadedFileName: file.filename || path.basename(file.path),
       mimeType: file.mimetype || null,
       size: file.size || null,
       extractedText,

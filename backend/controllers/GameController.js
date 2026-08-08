@@ -71,6 +71,7 @@ const GameController = {
         gameId: Number(req.params.id),
         studentId: req.user.id,
         score: req.body.score,
+        answers: req.body.answers,
         durationSeconds: req.body.durationSeconds,
       });
       return successResponse(res, 'Score submitted', data);

@@ -21,16 +21,15 @@ import analyticsService from '../../services/analyticsService';
 import courseService from '../../services/courseService';
 import authService from '../../services/authService';
 import { getErrorMessage } from '../../services/api';
+import { buildAuthenticatedFileUrl } from '../../utils/fileUrls';
 import { useAuth } from '../../contexts/AuthContext';
-
-const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || 'http://localhost:4000';
 
 function resolveAvatarUrl(url) {
   if (!url) return undefined;
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+  if (url.startsWith('blob:')) {
     return url;
   }
-  return `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`;
+  return buildAuthenticatedFileUrl(url) || undefined;
 }
 
 export default function StudentProfilePage() {
@@ -85,9 +84,9 @@ export default function StudentProfilePage() {
     setError('');
     setMessage('');
     try {
+      // Avatar is updated only via upload/remove endpoints — never send display URLs here.
       const response = await authService.updateProfile({
         ...form,
-        avatarUrl: avatarUrl || null,
       });
       updateProfile(response.data.data.profile, response.data.data.user);
       setAvatarUrl(response.data.data.user?.avatarUrl || '');

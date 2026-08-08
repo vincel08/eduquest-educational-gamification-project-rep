@@ -23,3 +23,9 @@ export const generateGameValidation = [
     .withMessage('Invalid game type'),
   body('gradeLevel').optional().isString(),
 ];
+
+export const submitGameScoreValidation = [
+  body('answers').isObject().withMessage('answers object is required for score validation'),
+  body('score').optional({ nullable: true }).isFloat({ min: 0, max: 100 }),
+  body('durationSeconds').optional({ nullable: true }).isInt({ min: 0, max: 86400 }),
+];

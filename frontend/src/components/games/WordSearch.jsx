@@ -82,7 +82,7 @@ export default function WordSearch({ gameData, onComplete, xpReward = 50 }) {
           setFound(nextFound);
           setDraft('');
           if (nextFound.length === placed.length) {
-            onComplete?.(100);
+            onComplete?.({ score: 100, answers: { foundWords: nextFound } });
           }
           return;
         }

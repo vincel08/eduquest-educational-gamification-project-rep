@@ -11,6 +11,7 @@ export default function Flashcards({ gameData, onComplete, xpReward = 50 }) {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [known, setKnown] = useState(0);
+  const [remembered, setRemembered] = useState([]);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
 
   if (!items.length) {
@@ -20,25 +21,27 @@ export default function Flashcards({ gameData, onComplete, xpReward = 50 }) {
   const current = items[index];
   const perCardXp = Math.max(5, Math.round(Number(xpReward) / items.length));
 
-  function next(remembered) {
+  function next(gotIt) {
     if (feedback?.open) return;
-    const nextKnown = remembered ? known + 1 : known;
+    const nextKnown = gotIt ? known + 1 : known;
     const nextScore = Math.round((nextKnown / items.length) * 100);
     const definition = current.definition || current.back || '';
 
     showFeedback({
-      isCorrect: remembered,
-      userAnswer: remembered ? 'Got it' : 'Still learning',
+      isCorrect: gotIt,
+      userAnswer: gotIt ? 'Got it' : 'Still learning',
       correctAnswer: definition,
-      explanation: remembered
+      explanation: gotIt
         ? null
         : `Review this concept: ${current.term || current.front} — ${definition}`,
-      xpEarned: remembered ? perCardXp : 0,
+      xpEarned: gotIt ? perCardXp : 0,
       score: nextScore,
       progress: (index + 1) / items.length,
       onNext: () => {
+        const nextRemembered = [...remembered, Boolean(gotIt)];
+        setRemembered(nextRemembered);
         if (index + 1 >= items.length) {
-          onComplete?.(nextScore);
+          onComplete?.({ score: nextScore, answers: { remembered: nextRemembered } });
           return;
         }
         setKnown(nextKnown);

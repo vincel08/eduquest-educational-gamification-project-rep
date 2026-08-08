@@ -9,6 +9,7 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
   const items = useMemo(() => gameData?.items || [], [gameData]);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [choices, setChoices] = useState([]);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
 
   if (!items.length) {
@@ -33,8 +34,11 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
       score: nextScore,
       progress: (index + 1) / items.length,
       onNext: () => {
+        const nextChoices = [...choices, choiceIndex];
+        setChoices(nextChoices);
         if (!isCorrect || index + 1 >= items.length) {
-          onComplete?.(isCorrect ? nextScore : Math.max(0, score));
+          const finalScore = isCorrect ? nextScore : Math.max(0, score);
+          onComplete?.({ score: finalScore, answers: { choices: nextChoices } });
           return;
         }
         setScore(nextScore);

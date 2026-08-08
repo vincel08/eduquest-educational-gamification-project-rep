@@ -48,14 +48,39 @@ export function pickMotivationalMessage() {
   return pick(MOTIVATIONAL_MESSAGES);
 }
 
-export function pickMascotMessage({ xpInLevel, xpToNextLevel, streak } = {}) {
-  if (xpToNextLevel && xpInLevel != null && xpToNextLevel - xpInLevel <= 20) {
-    return 'One more quiz to level up!';
+/**
+ * Pick a mascot tip. Contextual tips are candidates, not hard locks,
+ * so messages keep rotating every few seconds.
+ */
+export function pickMascotMessage({
+  xpInLevel,
+  xpToNextLevel,
+  streak,
+  previousMessage = null,
+} = {}) {
+  const candidates = [...MASCOT_MESSAGES];
+  const inLevel = Number(xpInLevel);
+  const perLevel = Number(xpToNextLevel) > 0 && Number(xpToNextLevel) <= 100
+    ? Number(xpToNextLevel)
+    : 100;
+
+  if (Number.isFinite(inLevel)) {
+    const remaining = perLevel - inLevel;
+    if (remaining > 0 && remaining <= 20) {
+      candidates.push('One more quiz to level up!', "You're almost there!");
+    }
   }
+
   if (streak && streak >= 3) {
-    return `Amazing ${streak}-day streak!`;
+    candidates.push(`Amazing ${streak}-day streak!`, 'Your streak is awesome!');
   }
-  return pick(MASCOT_MESSAGES);
+
+  const unique = [...new Set(candidates)];
+  const pool = previousMessage
+    ? unique.filter((item) => item !== previousMessage)
+    : unique;
+
+  return pick(pool.length ? pool : unique);
 }
 
 export {

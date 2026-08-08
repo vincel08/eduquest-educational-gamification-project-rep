@@ -8,6 +8,7 @@ export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
   const [index, setIndex] = useState(null);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState(0);
+  const [roundsPlayed, setRoundsPlayed] = useState([]);
   const [spinning, setSpinning] = useState(false);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
 
@@ -46,11 +47,13 @@ export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
       score: nextScore,
       progress: nextAnswered / totalRounds,
       onNext: () => {
+        const nextRounds = [...roundsPlayed, { itemIndex: index, choiceIndex }];
+        setRoundsPlayed(nextRounds);
         setScore(nextScore);
         setAnswered(nextAnswered);
         setIndex(null);
         if (nextAnswered >= totalRounds) {
-          onComplete?.(nextScore);
+          onComplete?.({ score: nextScore, answers: { rounds: nextRounds } });
         }
       },
     });

@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Box,
   Button,
   MenuItem,
   Paper,
   Stack,
   TextField,
+  Typography,
 } from '@mui/material';
 import PageHeader from '../../components/common/PageHeader';
+import PageContainer from '../../components/common/PageContainer';
 import AiGeneratedReviewPanel from '../../components/ai-review/AiGeneratedReviewPanel';
 import courseService from '../../services/courseService';
 import aiReviewService from '../../services/aiReviewService';
 import { getErrorMessage } from '../../services/api';
+
+const STEPS = ['Configure', 'AI Generation', 'Review & Edit', 'Save / Publish'];
 
 export default function TeacherAiQuizPage() {
   const [courses, setCourses] = useState([]);
@@ -81,16 +86,31 @@ export default function TeacherAiQuizPage() {
     }
   }
 
+  const activeStep = draft ? 2 : loading ? 1 : 0;
+
   return (
-    <>
+    <PageContainer>
       <PageHeader
         title="AI Quiz Generator"
-        subtitle="Generate a quiz, then review and edit it before publishing."
+        subtitle="Generate a quiz, then review and edit it before publishing. AI is optional — you can also create quizzes manually."
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Box className="eq-stepper" sx={{ mb: 2 }}>
+        {STEPS.map((step, index) => (
+          <Box
+            key={step}
+            className={`eq-step${index === activeStep ? ' active' : ''}${draft && index < 2 ? ' done' : ''}`}
+          >
+            <Typography component="span" fontWeight={800}>{index + 1}</Typography>
+            {step}
+          </Box>
+        ))}
+      </Box>
+
+      <Paper sx={{ p: { xs: 2, md: 3 }, mb: 3 }}>
+        <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Quiz configuration</Typography>
         <Stack component="form" spacing={2} onSubmit={handleGenerate}>
           <TextField
             select
@@ -168,6 +188,6 @@ export default function TeacherAiQuizPage() {
           }}
         />
       ) : null}
-    </>
+    </PageContainer>
   );
 }

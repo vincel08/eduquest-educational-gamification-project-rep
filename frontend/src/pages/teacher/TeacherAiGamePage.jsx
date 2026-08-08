@@ -1,32 +1,45 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Box,
   Button,
+  Card,
+  CardActionArea,
+  CardContent,
+  Grid,
   MenuItem,
   Paper,
   Stack,
   TextField,
+  Typography,
 } from '@mui/material';
+import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
+import StyleIcon from '@mui/icons-material/Style';
+import ExtensionIcon from '@mui/icons-material/Extension';
+import CasinoIcon from '@mui/icons-material/Casino';
+import QuizIcon from '@mui/icons-material/Quiz';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import PageHeader from '../../components/common/PageHeader';
+import PageContainer from '../../components/common/PageContainer';
 import AiGeneratedReviewPanel from '../../components/ai-review/AiGeneratedReviewPanel';
 import courseService from '../../services/courseService';
 import aiReviewService from '../../services/aiReviewService';
 import { getErrorMessage } from '../../services/api';
 
 const GAME_TYPE_OPTIONS = [
-  { value: 'auto', label: 'Auto Select Best Game' },
-  { value: 'flashcards', label: 'Flashcards' },
-  { value: 'memory_match', label: 'Memory Match' },
-  { value: 'crossword', label: 'Crossword' },
-  { value: 'word_search', label: 'Word Search' },
-  { value: 'quiz_show', label: 'Quiz Show' },
-  { value: 'jeopardy', label: 'Jeopardy' },
-  { value: 'drag_drop', label: 'Drag and Drop' },
-  { value: 'spin_wheel', label: 'Spin Wheel' },
-  { value: 'millionaire', label: 'Who Wants To Be A Millionaire' },
-  { value: 'escape_room', label: 'Escape Room' },
-  { value: 'mission_adventure', label: 'Mission Adventure' },
-  { value: 'puzzle_challenge', label: 'Puzzle Challenge' },
+  { value: 'auto', label: 'Auto Select', icon: <AutoAwesomeIcon />, color: '#6366F1' },
+  { value: 'flashcards', label: 'Flashcards', icon: <StyleIcon />, color: '#3B82F6' },
+  { value: 'memory_match', label: 'Memory Match', icon: <ExtensionIcon />, color: '#8B5CF6' },
+  { value: 'crossword', label: 'Crossword', icon: <QuizIcon />, color: '#10B981' },
+  { value: 'word_search', label: 'Word Search', icon: <QuizIcon />, color: '#F59E0B' },
+  { value: 'quiz_show', label: 'Quiz Show', icon: <SportsEsportsIcon />, color: '#EF4444' },
+  { value: 'jeopardy', label: 'Jeopardy', icon: <SportsEsportsIcon />, color: '#7C3AED' },
+  { value: 'drag_drop', label: 'Drag and Drop', icon: <ExtensionIcon />, color: '#0EA5E9' },
+  { value: 'spin_wheel', label: 'Spin Wheel', icon: <CasinoIcon />, color: '#F97316' },
+  { value: 'millionaire', label: 'Millionaire', icon: <SportsEsportsIcon />, color: '#FACC15' },
+  { value: 'escape_room', label: 'Escape Room', icon: <ExtensionIcon />, color: '#64748B' },
+  { value: 'mission_adventure', label: 'Mission Adventure', icon: <SportsEsportsIcon />, color: '#22C55E' },
+  { value: 'puzzle_challenge', label: 'Puzzle Challenge', icon: <ExtensionIcon />, color: '#EC4899' },
 ];
 
 export default function TeacherAiGamePage() {
@@ -96,15 +109,63 @@ export default function TeacherAiGamePage() {
   }
 
   return (
-    <>
+    <PageContainer>
       <PageHeader
         title="AI Game Generator"
-        subtitle="Generate an educational game, then review, preview, and publish."
+        subtitle="Choose a game template, generate content, then review and publish."
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Typography variant="h6" fontWeight={800} sx={{ mb: 1.5 }}>
+        Game templates
+      </Typography>
+      <Grid container spacing={1.5} sx={{ mb: 3 }}>
+        {GAME_TYPE_OPTIONS.map((option) => {
+          const selected = form.gameType === option.value;
+          return (
+            <Grid key={option.value} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
+              <Card
+                variant="outlined"
+                sx={{
+                  height: '100%',
+                  borderColor: selected ? 'secondary.main' : 'divider',
+                  borderWidth: selected ? 2 : 1,
+                  bgcolor: selected ? 'rgba(139,92,246,0.06)' : 'background.paper',
+                }}
+              >
+                <CardActionArea
+                  onClick={() => setForm((prev) => ({ ...prev, gameType: option.value }))}
+                  sx={{ height: '100%' }}
+                >
+                  <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                    <Box
+                      sx={{
+                        width: 44,
+                        height: 44,
+                        mx: 'auto',
+                        mb: 1,
+                        borderRadius: 2.5,
+                        display: 'grid',
+                        placeItems: 'center',
+                        bgcolor: option.color,
+                        color: option.value === 'millionaire' ? '#1E293B' : '#fff',
+                      }}
+                    >
+                      {option.icon}
+                    </Box>
+                    <Typography variant="body2" fontWeight={800}>
+                      {option.label}
+                    </Typography>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            </Grid>
+          );
+        })}
+      </Grid>
+
+      <Paper sx={{ p: { xs: 2, md: 3 }, mb: 3 }}>
         <Stack component="form" spacing={2} onSubmit={handleGenerate}>
           <TextField
             select
@@ -130,23 +191,13 @@ export default function TeacherAiGamePage() {
             ))}
           </TextField>
 
-          <TextField
-            select
-            label="Game Type"
-            value={form.gameType}
-            onChange={(e) => setForm((p) => ({ ...p, gameType: e.target.value }))}
-          >
-            {GAME_TYPE_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-            ))}
-          </TextField>
-
           <Button
             type="submit"
             variant="contained"
+            size="large"
             disabled={loading || !form.courseId || !form.lessonId}
           >
-            {loading ? 'Generating...' : 'Generate'}
+            {loading ? 'Generating...' : 'Generate Game'}
           </Button>
         </Stack>
       </Paper>
@@ -166,6 +217,6 @@ export default function TeacherAiGamePage() {
           }}
         />
       ) : null}
-    </>
+    </PageContainer>
   );
 }

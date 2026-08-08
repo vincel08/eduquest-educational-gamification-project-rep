@@ -1,17 +1,8 @@
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
 import env from '../config/env.js';
 import AppError from '../utils/AppError.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadDir = path.join(__dirname, '../uploads');
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+import { UPLOADS_DIR, sanitizeOriginalName } from '../utils/uploadPaths.js';
 
 const allowedMimeTypes = new Set([
   'application/pdf',
@@ -23,6 +14,10 @@ const allowedMimeTypes = new Set([
   'image/png',
   'image/jpeg',
   'image/jpg',
+]);
+
+const allowedExtensions = new Set([
+  '.pdf', '.docx', '.pptx', '.ppt', '.doc', '.txt', '.png', '.jpg', '.jpeg',
 ]);
 
 const documentMimeTypes = new Set([
@@ -43,17 +38,19 @@ const documentExtensions = new Set([
 
 const storage = multer.diskStorage({
   destination(_req, _file, cb) {
-    cb(null, uploadDir);
+    cb(null, UPLOADS_DIR);
   },
   filename(_req, file, cb) {
     const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname).toLowerCase();
+    const safeOriginal = sanitizeOriginalName(file.originalname, 'upload.bin');
+    const ext = path.extname(safeOriginal).toLowerCase();
     cb(null, `${unique}${ext}`);
   },
 });
 
 function fileFilter(_req, file, cb) {
-  if (!allowedMimeTypes.has(file.mimetype)) {
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  if (!allowedMimeTypes.has(file.mimetype) || !allowedExtensions.has(ext)) {
     return cb(new AppError('Unsupported file type', 400));
   }
   return cb(null, true);
@@ -61,11 +58,8 @@ function fileFilter(_req, file, cb) {
 
 function documentFileFilter(_req, file, cb) {
   const ext = path.extname(file.originalname || '').toLowerCase();
-  if (!documentExtensions.has(ext) && !documentMimeTypes.has(file.mimetype)) {
+  if (!documentExtensions.has(ext) || !documentMimeTypes.has(file.mimetype)) {
     return cb(new AppError('Unsupported document type. Allowed: PDF, DOCX, PPTX, PPT, TXT.', 400));
-  }
-  if (!documentExtensions.has(ext)) {
-    return cb(new AppError('Unsupported document extension. Allowed: .pdf, .docx, .pptx, .ppt, .txt', 400));
   }
   return cb(null, true);
 }

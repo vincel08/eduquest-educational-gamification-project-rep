@@ -1,11 +1,17 @@
 import GamificationModel from '../models/GamificationModel.js';
 import StudentProfileModel from '../models/StudentProfileModel.js';
+import CourseModel from '../models/CourseModel.js';
 import QuizModel from '../models/QuizModel.js';
 import NotificationModel from '../models/NotificationModel.js';
 import StreakService from './StreakService.js';
+import CertificateEligibilityService from './CertificateEligibilityService.js';
 import AppError from '../utils/AppError.js';
 import { generateCertificateCode } from '../utils/generateCode.js';
 import { calculateLevel, xpForNextLevel, xpProgressInLevel } from '../utils/levelCalculator.js';
+
+function isDuplicateKeyError(error) {
+  return error?.code === 'ER_DUP_ENTRY' || Number(error?.errno) === 1062;
+}
 
 const GamificationService = {
   async awardXp({ studentId, amount, sourceType, sourceId = null, description }) {
@@ -48,6 +54,86 @@ const GamificationService = {
         xpInLevel: xpProgressInLevel(updated.xp),
       },
       newlyUnlocked,
+    };
+  },
+
+  /**
+   * Award XP at most once per (student, sourceType, sourceId).
+   * Inserts the XP ledger row first (unique constraint) so parallel
+   * requests cannot double-credit profile XP.
+   */
+  async awardXpOnce({ studentId, amount, sourceType, sourceId, description }) {
+    if (amount <= 0) {
+      throw new AppError('XP amount must be greater than zero', 400);
+    }
+    if (sourceId == null) {
+      throw new AppError('sourceId is required for one-time XP awards', 400);
+    }
+
+    const existing = await GamificationModel.findXpTransaction(studentId, sourceType, sourceId);
+    if (existing) {
+      return {
+        alreadyAwarded: true,
+        xpAward: null,
+        transaction: existing,
+      };
+    }
+
+    const previous = await StudentProfileModel.findByUserId(studentId);
+    if (!previous) {
+      throw new AppError('Student profile not found', 404);
+    }
+
+    try {
+      await GamificationModel.addXpTransaction({
+        studentId,
+        amount,
+        sourceType,
+        sourceId,
+        description,
+      });
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        const transaction = await GamificationModel.findXpTransaction(
+          studentId,
+          sourceType,
+          sourceId
+        );
+        return {
+          alreadyAwarded: true,
+          xpAward: null,
+          transaction,
+        };
+      }
+      throw error;
+    }
+
+    const updated = await StudentProfileModel.addXp(studentId, amount);
+    const newlyUnlocked = await this.evaluateAchievements(studentId);
+    await StreakService.recordActivity(studentId);
+
+    if (updated.level > previous.level) {
+      await NotificationModel.create({
+        userId: studentId,
+        title: 'Level Up!',
+        message: `Congratulations! You reached level ${updated.level}.`,
+        type: 'achievement',
+        link: '/student/achievements',
+      });
+    }
+
+    return {
+      alreadyAwarded: false,
+      xpAward: {
+        profile: {
+          ...updated,
+          level: calculateLevel(updated.xp),
+          xpToNextLevel: xpForNextLevel(updated.xp),
+          xpInLevel: xpProgressInLevel(updated.xp),
+        },
+        newlyUnlocked,
+      },
+      transaction: null,
     };
   },
 
@@ -115,6 +201,7 @@ const GamificationService = {
 
       if (qualifies) {
         const awarded = await GamificationModel.awardMedal({ studentId, medalId: medal.id });
+        if (!awarded?.isNew) continue;
         unlocked.medals.push(awarded);
         await NotificationModel.create({
           userId: studentId,
@@ -165,7 +252,7 @@ const GamificationService = {
       userId: row.user_id,
       firstName: row.first_name,
       lastName: row.last_name,
-      avatarUrl: row.avatar_url,
+      avatarUrl: row.avatar_url ? `/api/files/avatars/${row.user_id}` : null,
       xp: row.period_xp != null ? Number(row.period_xp) : row.xp,
       totalXp: row.xp,
       level: row.level,
@@ -216,6 +303,10 @@ const GamificationService = {
     if (!medal) throw new AppError('Medal not found', 404);
 
     const awarded = await GamificationModel.awardMedal({ studentId, medalId, awardedBy });
+    if (!awarded?.isNew) {
+      return { ...awarded, alreadyOwned: true };
+    }
+
     await NotificationModel.create({
       userId: studentId,
       title: 'Medal Awarded',
@@ -223,11 +314,24 @@ const GamificationService = {
       type: 'achievement',
       link: '/student/achievements',
     });
-    return awarded;
+    return { ...awarded, alreadyOwned: false };
   },
 
   async createCertificate(data) {
-    return GamificationModel.createCertificate(data);
+    const courseId = Number(data.courseId);
+    if (!Number.isInteger(courseId) || courseId < 1) {
+      throw new AppError('Please select a course for this certificate template.', 400);
+    }
+
+    const course = await CourseModel.findById(courseId);
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    return GamificationModel.createCertificate({
+      ...data,
+      courseId,
+    });
   },
 
   async listCertificates() {
@@ -237,26 +341,106 @@ const GamificationService = {
   async updateCertificate(id, data) {
     const certificate = await GamificationModel.findCertificateById(id);
     if (!certificate) throw new AppError('Certificate not found', 404);
-    return GamificationModel.updateCertificate(id, data);
+
+    const updates = { ...data };
+    if (Object.prototype.hasOwnProperty.call(data, 'courseId')) {
+      if (data.courseId === null || data.courseId === '') {
+        throw new AppError('Please select a course for this certificate template.', 400);
+      }
+      const courseId = Number(data.courseId);
+      if (!Number.isInteger(courseId) || courseId < 1) {
+        throw new AppError('Please select a course for this certificate template.', 400);
+      }
+      const course = await CourseModel.findById(courseId);
+      if (!course) {
+        throw new AppError('Course not found', 404);
+      }
+      updates.courseId = courseId;
+    }
+
+    return GamificationModel.updateCertificate(id, updates);
   },
 
-  async issueCertificate({ certificateId, studentId, issuedBy = null }) {
+  async getCourseCertificateEligibility(courseId, studentId) {
+    return CertificateEligibilityService.evaluateCourseEligibility(courseId, studentId);
+  },
+
+  async issueCertificate({
+    certificateId,
+    studentId,
+    issuedBy = null,
+    actorRole = null,
+    forceOverride = false,
+    overrideReason = null,
+  }) {
     const certificate = await GamificationModel.findCertificateById(certificateId);
     if (!certificate || !certificate.is_active) {
       throw new AppError('Certificate not found or inactive', 404);
     }
 
-    const existing = await GamificationModel.findStudentCertificate(certificateId, studentId);
-    if (existing) {
-      return existing;
+    if (!certificate.course_id) {
+      throw new AppError('Certificate template must be linked to a course', 400);
     }
 
-    const issued = await GamificationModel.issueCertificate({
+    const existingByTemplate = await GamificationModel.findStudentCertificate(
       certificateId,
-      studentId,
-      certificateCode: generateCertificateCode(),
-      issuedBy,
-    });
+      studentId
+    );
+    if (existingByTemplate) {
+      return {
+        ...await GamificationModel.findStudentCertificateById(existingByTemplate.id),
+        alreadyIssued: true,
+      };
+    }
+
+    const existingByCourse = await GamificationModel.findStudentCertificateByCourse(
+      certificate.course_id,
+      studentId
+    );
+    if (existingByCourse) {
+      return { ...existingByCourse, alreadyIssued: true };
+    }
+
+    const eligibility = await CertificateEligibilityService.evaluateCourseEligibility(
+      certificate.course_id,
+      studentId
+    );
+
+    const wantsOverride = Boolean(forceOverride);
+    if (wantsOverride) {
+      if (actorRole !== 'administrator') {
+        throw new AppError('Only administrators may override certificate eligibility', 403);
+      }
+      const reason = String(overrideReason || '').trim();
+      if (reason.length < 5) {
+        throw new AppError('overrideReason is required for administrative override (min 5 characters)', 400);
+      }
+    } else {
+      CertificateEligibilityService.assertEligible(eligibility);
+    }
+
+    let issued;
+    try {
+      issued = await GamificationModel.issueCertificate({
+        certificateId,
+        studentId,
+        certificateCode: generateCertificateCode(),
+        issuedBy,
+        isOverride: wantsOverride,
+        issueReason: wantsOverride ? String(overrideReason).trim() : null,
+      });
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        const raced = await GamificationModel.findStudentCertificateByCourse(
+          certificate.course_id,
+          studentId
+        );
+        if (raced) return { ...raced, alreadyIssued: true };
+      }
+      throw error;
+    }
+
+    await CourseModel.updateProgress(certificate.course_id, studentId, 100);
 
     await NotificationModel.create({
       userId: studentId,
@@ -266,20 +450,32 @@ const GamificationService = {
       link: '/student/certificates',
     });
 
-    return issued;
+    return {
+      ...issued,
+      alreadyIssued: false,
+      eligibility,
+      overridden: wantsOverride,
+    };
   },
 
   async autoIssueCourseCertificate({ courseId, studentId }) {
-    const certificates = await GamificationModel.findAllCertificates();
-    const courseCert = certificates.find(
-      (item) => Number(item.course_id) === Number(courseId) && item.is_active
-    );
+    const courseCert = await GamificationModel.findActiveCertificateTemplateByCourse(courseId);
     if (!courseCert) return null;
+
+    const eligibility = await CertificateEligibilityService.evaluateCourseEligibility(
+      courseId,
+      studentId
+    );
+    if (!eligibility.eligible) {
+      return null;
+    }
 
     return this.issueCertificate({
       certificateId: courseCert.id,
       studentId,
       issuedBy: null,
+      actorRole: null,
+      forceOverride: false,
     });
   },
 
@@ -287,10 +483,37 @@ const GamificationService = {
     return GamificationModel.getStudentCertificates(studentId);
   },
 
-  async getCertificateById(id) {
+  async getCertificateById(id, actor) {
     const certificate = await GamificationModel.findStudentCertificateById(id);
     if (!certificate) throw new AppError('Certificate not found', 404);
-    return certificate;
+
+    if (!actor) {
+      throw new AppError('Unauthorized', 401);
+    }
+
+    if (actor.role === 'administrator') {
+      return certificate;
+    }
+
+    if (actor.role === 'student') {
+      if (Number(certificate.student_id) !== Number(actor.id)) {
+        throw new AppError('Certificate not found', 404);
+      }
+      return certificate;
+    }
+
+    if (actor.role === 'teacher') {
+      if (!certificate.course_id) {
+        throw new AppError('Access denied', 403);
+      }
+      const course = await CourseModel.findById(certificate.course_id);
+      if (!course || Number(course.teacher_id) !== Number(actor.id)) {
+        throw new AppError('Access denied', 403);
+      }
+      return certificate;
+    }
+
+    throw new AppError('Access denied', 403);
   },
 };
 
