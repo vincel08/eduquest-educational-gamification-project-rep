@@ -3,6 +3,8 @@ import OpenAI from 'openai';
 import env from '../config/env.js';
 import AppError from '../utils/AppError.js';
 import { GAME_TYPES, normalizeGameType } from '../utils/gameTypes.js';
+import { assertGameDataMatchesType } from '../utils/gameDataValidation.js';
+import { ensureWordSearchData } from '../utils/wordSearchGrid.js';
 import {
   clampQuestionCount,
   sanitizeAiError,
@@ -479,11 +481,11 @@ function buildFallbackGame({ topic, gameType, warning = null }) {
         col: 0,
       })),
     },
-    word_search: {
+    word_search: ensureWordSearchData({
       words,
       gridSize: 10,
       items: pairs.map((item, index) => ({ term: words[index], definition: item.definition })),
-    },
+    }),
     quiz_show: {
       items: pairs.map((item) => ({
         question: `What best describes "${item.term}"?`,
@@ -565,12 +567,6 @@ function buildFallbackGame({ topic, gameType, warning = null }) {
         hint: item.definition,
       })),
     },
-    true_false_blitz: {
-      statements: pairs.flatMap((item) => [
-        { text: `${item.term} is related to ${item.definition}.`, isTrue: true },
-        { text: `${item.term} has no educational value.`, isTrue: false },
-      ]),
-    },
   };
 
   return {
@@ -593,7 +589,14 @@ function limitGameCollection(list) {
 }
 
 function normalizeGeneratedGame(raw, requestedType) {
-  const resolvedType = normalizeGameType(raw.gameType) || normalizeGameType(requestedType) || 'flashcards';
+  // When the teacher selected a concrete type, never let the model silently switch types.
+  const forcedType = requestedType && requestedType !== 'auto'
+    ? (normalizeGameType(requestedType) || requestedType)
+    : null;
+  const resolvedType = forcedType
+    || normalizeGameType(raw.gameType)
+    || normalizeGameType(requestedType)
+    || 'flashcards';
 
   let gameData = raw.gameData || raw.game_data || {};
   const items = raw.items || gameData.items || gameData.pairs || null;
@@ -627,6 +630,10 @@ function normalizeGeneratedGame(raw, requestedType) {
       ...category,
       clues: limitGameCollection(category.clues || []),
     }));
+  }
+
+  if (resolvedType === 'word_search' || resolvedType === 'word_scramble') {
+    gameData = ensureWordSearchData(gameData);
   }
 
   return {
@@ -850,7 +857,7 @@ Return ONLY valid JSON with this shape:
 gameData requirements by gameType:
 - flashcards / memory_match / drag_drop: items [{term, definition}] (at least 4)
 - crossword: gameData.items [{clue, answer, direction, row, col}] (at least 4 short answers)
-- word_search: gameData.words string[] and gameData.gridSize number (8-12), optional items
+- word_search: gameData.words string[] and gameData.gridSize number (8-12); optional gameData.grid 2D letter array and placements
 - quiz_show: gameData.items [{question, choices[4], correctIndex}] (at least 4)
 - jeopardy: gameData.categories [{name, clues:[{points, clue, answer}]}] (1-3 categories)
 - spin_wheel: gameData.items [{label, question, choices[4], correctIndex}] (at least 4)
@@ -867,20 +874,19 @@ ${contentSnippet}`
       );
 
       const normalized = normalizeGeneratedGame(data, resolvedFallbackType);
-      if (
-        !normalized.title
-        || !normalized.gameData
-        || (
-          !normalized.gameData.items
-          && !normalized.gameData.pairs
-          && !normalized.gameData.rounds
-          && !normalized.gameData.categories
-          && !normalized.gameData.words
-          && !normalized.gameData.stages
-          && !normalized.gameData.missions
-        )
-      ) {
+      if (!normalized.title || !normalized.gameData) {
         throw new AppError('AI returned invalid content. Please try generating again.', 502);
+      }
+
+      try {
+        assertGameDataMatchesType(normalized.gameType, normalized.gameData, {
+          asTypeMismatch: true,
+        });
+      } catch (error) {
+        throw new AppError(
+          error.message || 'AI generated content did not match the selected game type. Please regenerate.',
+          400
+        );
       }
 
       return { ...normalized, source, warning: null };

@@ -55,6 +55,24 @@ const AuthController = {
       return next(error);
     }
   },
+
+  async forgotPassword(req, res, next) {
+    try {
+      const data = await AuthService.requestPasswordReset(req.body);
+      return successResponse(res, data.message, {});
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async resetPassword(req, res, next) {
+    try {
+      const data = await AuthService.resetPassword(req.body);
+      return successResponse(res, data.message, {});
+    } catch (error) {
+      return next(error);
+    }
+  },
 };
 
 export default AuthController;

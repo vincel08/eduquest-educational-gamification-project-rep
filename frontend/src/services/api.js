@@ -22,7 +22,9 @@ api.interceptors.response.use(
       localStorage.removeItem('eduquest_token');
       localStorage.removeItem('eduquest_user');
       if (!window.location.pathname.startsWith('/login')
-        && !window.location.pathname.startsWith('/register')) {
+        && !window.location.pathname.startsWith('/register')
+        && !window.location.pathname.startsWith('/forgot-password')
+        && !window.location.pathname.startsWith('/reset-password')) {
         window.location.href = '/login';
       }
     }

@@ -4,8 +4,15 @@ import GameModel from '../models/GameModel.js';
 import AiService from './AiService.js';
 import GamificationService from './GamificationService.js';
 import AppError from '../utils/AppError.js';
-import { ALL_GAME_TYPES, GAME_TYPES, normalizeGameType } from '../utils/gameTypes.js';
+import {
+  ALL_GAME_TYPES,
+  GAME_TYPES,
+  isDeprecatedGameType,
+  normalizeGameType,
+} from '../utils/gameTypes.js';
+import { assertGameDataMatchesType } from '../utils/gameDataValidation.js';
 import { calculateGameScore, calculateGameXp } from '../utils/gameScoring.js';
+import { ensureWordSearchData } from '../utils/wordSearchGrid.js';
 
 function assertCourseAccess(course, user) {
   if (!course) throw new AppError('Course not found', 404);
@@ -15,6 +22,9 @@ function assertCourseAccess(course, user) {
 }
 
 function validateGamePayload(data) {
+  if (isDeprecatedGameType(data.gameType)) {
+    throw new AppError('This game type is deprecated and cannot be created or updated', 400);
+  }
   const gameType = normalizeGameType(data.gameType) || data.gameType;
   if (!ALL_GAME_TYPES.includes(gameType)) {
     throw new AppError('Invalid game type', 400);
@@ -25,6 +35,12 @@ function validateGamePayload(data) {
   if (!data.gameData || typeof data.gameData !== 'object') {
     throw new AppError('gameData is required', 400);
   }
+  let gameData = data.gameData;
+  if (gameType === 'word_search' || gameType === 'word_scramble') {
+    gameData = ensureWordSearchData(gameData);
+    data.gameData = gameData;
+  }
+  assertGameDataMatchesType(gameType, gameData);
   return gameType;
 }
 

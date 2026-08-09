@@ -2,136 +2,185 @@ import { useMemo, useState } from 'react';
 import { Box, Button, Chip, Stack, Typography } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
+import { resolveWordSearchPuzzle } from '../../utils/wordSearchGrid';
 
-function buildGrid(words, size = 10) {
-  const grid = Array.from({ length: size }, () => Array.from({ length: size }, () => ''));
-  const placed = [];
+function cellsToWord(path, grid) {
+  return path.map(([r, c]) => grid[r]?.[c] || '').join('');
+}
 
-  words.forEach((raw) => {
-    const word = String(raw).toUpperCase().replace(/[^A-Z]/g, '');
-    if (!word || word.length > size) return;
-    for (let attempt = 0; attempt < 40; attempt += 1) {
-      const row = Math.floor(Math.random() * size);
-      const col = Math.floor(Math.random() * (size - word.length + 1));
-      let fits = true;
-      for (let i = 0; i < word.length; i += 1) {
-        const cell = grid[row][col + i];
-        if (cell && cell !== word[i]) {
-          fits = false;
-          break;
-        }
-      }
-      if (!fits) continue;
-      for (let i = 0; i < word.length; i += 1) {
-        grid[row][col + i] = word[i];
-      }
-      placed.push(word);
-      break;
-    }
-  });
-
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  for (let r = 0; r < size; r += 1) {
-    for (let c = 0; c < size; c += 1) {
-      if (!grid[r][c]) grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
-    }
+function buildLinePath(start, end) {
+  if (!start || !end) return [];
+  const [r1, c1] = start;
+  const [r2, c2] = end;
+  const dr = Math.sign(r2 - r1);
+  const dc = Math.sign(c2 - c1);
+  const sameRow = r1 === r2;
+  const sameCol = c1 === c2;
+  if (!sameRow && !sameCol) return [];
+  const length = sameRow ? Math.abs(c2 - c1) : Math.abs(r2 - r1);
+  const path = [];
+  for (let i = 0; i <= length; i += 1) {
+    path.push([r1 + dr * i, c1 + dc * i]);
   }
-
-  return { grid, placed };
+  return path;
 }
 
 export default function WordSearch({ gameData, onComplete, xpReward = 50 }) {
-  const words = useMemo(() => {
-    if (Array.isArray(gameData?.words) && gameData.words.length) {
-      return gameData.words.map((word) => (typeof word === 'string' ? word : word.word));
-    }
-    return (gameData?.items || []).map((item) => item.term || item.answer).filter(Boolean);
-  }, [gameData]);
+  const puzzle = useMemo(() => resolveWordSearchPuzzle(gameData), [gameData]);
+  const { grid, words } = puzzle;
+  const size = grid.length;
 
-  const size = Math.min(12, Math.max(8, Number(gameData?.gridSize) || 10));
-  const { grid, placed } = useMemo(() => buildGrid(words, size), [words, size]);
   const [found, setFound] = useState([]);
-  const [draft, setDraft] = useState('');
+  const [selecting, setSelecting] = useState(false);
+  const [startCell, setStartCell] = useState(null);
+  const [hoverCell, setHoverCell] = useState(null);
+  const [activePath, setActivePath] = useState([]);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
 
-  const perWordXp = Math.max(5, Math.round(Number(xpReward) / Math.max(placed.length, 1)));
+  const perWordXp = Math.max(5, Math.round(Number(xpReward) / Math.max(words.length, 1)));
+  const pathSet = useMemo(
+    () => new Set(activePath.map(([r, c]) => `${r}:${c}`)),
+    [activePath]
+  );
 
-  function markFound() {
+  if (!words.length || !size) {
+    return <Typography color="text.secondary">No word search data available.</Typography>;
+  }
+
+  function beginSelect(row, col) {
     if (feedback?.open) return;
-    const normalized = draft.toUpperCase().replace(/[^A-Z]/g, '');
-    if (!normalized) return;
+    setSelecting(true);
+    setStartCell([row, col]);
+    setHoverCell([row, col]);
+    setActivePath([[row, col]]);
+  }
 
-    const isCorrect = placed.includes(normalized) && !found.includes(normalized);
-    const nextFound = isCorrect ? [...found, normalized] : found;
-    const score = Math.round((nextFound.length / placed.length) * 100);
+  function updateSelect(row, col) {
+    if (!selecting || !startCell) return;
+    const path = buildLinePath(startCell, [row, col]);
+    if (path.length) {
+      setHoverCell([row, col]);
+      setActivePath(path);
+    }
+  }
 
+  function endSelect() {
+    if (!selecting) return;
+    setSelecting(false);
+    const normalized = cellsToWord(activePath, grid);
+    const reversed = normalized.split('').reverse().join('');
+    const matched = words.find((word) => word === normalized || word === reversed);
+
+    if (!matched) {
+      setActivePath([]);
+      setStartCell(null);
+      setHoverCell(null);
+      return;
+    }
+
+    if (found.includes(matched)) {
+      setActivePath([]);
+      setStartCell(null);
+      setHoverCell(null);
+      return;
+    }
+
+    const nextFound = [...found, matched];
+    const score = Math.round((nextFound.length / words.length) * 100);
     showFeedback({
-      isCorrect,
-      userAnswer: normalized,
-      correctAnswer: isCorrect ? normalized : placed.filter((word) => !found.includes(word)).slice(0, 3).join(', '),
-      explanation: isCorrect
-        ? null
-        : found.includes(normalized)
-          ? 'You already found that word.'
-          : 'That word is not in the puzzle. Keep looking!',
-      xpEarned: isCorrect ? perWordXp : 0,
+      isCorrect: true,
+      userAnswer: matched,
+      correctAnswer: matched,
+      explanation: null,
+      xpEarned: perWordXp,
       score,
-      progress: nextFound.length / placed.length,
+      progress: nextFound.length / words.length,
       onNext: () => {
-        if (isCorrect) {
-          setFound(nextFound);
-          setDraft('');
-          if (nextFound.length === placed.length) {
-            onComplete?.({ score: 100, answers: { foundWords: nextFound } });
-          }
-          return;
+        setFound(nextFound);
+        setActivePath([]);
+        setStartCell(null);
+        setHoverCell(null);
+        if (nextFound.length === words.length) {
+          onComplete?.({ score: 100, answers: { foundWords: nextFound } });
         }
-        setDraft('');
       },
     });
   }
 
-  if (!placed.length) {
-    return <Typography color="text.secondary">No word search data available.</Typography>;
+  function finishEarly() {
+    if (feedback?.open) return;
+    const score = Math.round((found.length / words.length) * 100);
+    onComplete?.({ score, answers: { foundWords: found } });
   }
 
   return (
     <Stack spacing={2}>
-      <Typography variant="body2">Find: {placed.join(', ')}</Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${size}, 28px)`, gap: '2px', width: 'fit-content' }}>
-        {grid.flatMap((row, rowIndex) => row.map((cell, colIndex) => (
-          <Box
-            key={`${rowIndex}-${colIndex}`}
-            sx={{
-              width: 28,
-              height: 28,
-              border: '1px solid',
-              borderColor: 'divider',
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            {cell}
-          </Box>
-        )))}
+      <Typography variant="body2">
+        Find these words by dragging across letters: {words.join(', ')}
+      </Typography>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${size}, minmax(24px, 32px))`,
+          gap: '2px',
+          width: 'fit-content',
+          maxWidth: '100%',
+          userSelect: 'none',
+          touchAction: 'none',
+        }}
+        onMouseLeave={() => {
+          if (selecting) endSelect();
+        }}
+        onTouchEnd={endSelect}
+      >
+        {grid.flatMap((row, rowIndex) => row.map((cell, colIndex) => {
+          const key = `${rowIndex}:${colIndex}`;
+          const active = pathSet.has(key);
+          return (
+            <Box
+              key={key}
+              onMouseDown={() => beginSelect(rowIndex, colIndex)}
+              onMouseEnter={() => updateSelect(rowIndex, colIndex)}
+              onMouseUp={endSelect}
+              onTouchStart={(event) => {
+                event.preventDefault();
+                beginSelect(rowIndex, colIndex);
+              }}
+              onTouchMove={(event) => {
+                const touch = event.touches[0];
+                if (!touch) return;
+                const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                const r = Number(el?.dataset?.row);
+                const c = Number(el?.dataset?.col);
+                if (Number.isFinite(r) && Number.isFinite(c)) updateSelect(r, c);
+              }}
+              data-row={rowIndex}
+              data-col={colIndex}
+              sx={{
+                width: { xs: 26, sm: 30 },
+                height: { xs: 26, sm: 30 },
+                border: '1px solid',
+                borderColor: active ? 'secondary.main' : 'divider',
+                bgcolor: active ? 'secondary.light' : 'background.paper',
+                color: active ? 'secondary.contrastText' : 'text.primary',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              {cell}
+            </Box>
+          );
+        }))}
       </Box>
+
       <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ alignItems: 'center' }}>
-        <Chip label={`Found ${found.length}/${placed.length}`} />
-        <Box
-          component="input"
-          value={draft}
-          disabled={feedback?.open}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') markFound();
-          }}
-          placeholder="Type a found word"
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ccc', minWidth: 180 }}
-        />
-        <Button variant="contained" disabled={feedback?.open} onClick={markFound}>
-          Mark Found
+        <Chip label={`Found ${found.length}/${words.length}`} />
+        {found.map((word) => <Chip key={word} color="success" label={word} size="small" />)}
+        <Button variant="outlined" disabled={feedback?.open || !found.length} onClick={finishEarly}>
+          Submit Found Words
         </Button>
       </Stack>
 
@@ -146,9 +195,7 @@ export default function WordSearch({ gameData, onComplete, xpReward = 50 }) {
         progress={feedback?.progress}
         message={feedback?.message}
         onNext={handleNext}
-        nextLabel={found.length + (feedback?.isCorrect ? 1 : 0) >= placed.length && feedback?.isCorrect
-          ? 'See Results'
-          : 'Continue'}
+        nextLabel={found.length + 1 >= words.length ? 'See Results' : 'Continue'}
       />
     </Stack>
   );

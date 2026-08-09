@@ -8,6 +8,7 @@ import GameService from './GameService.js';
 import AiUsageService from './AiUsageService.js';
 import AppError from '../utils/AppError.js';
 import { normalizeGameType } from '../utils/gameTypes.js';
+import { assertGameDataMatchesType } from '../utils/gameDataValidation.js';
 import {
   assertInputTextSize,
   assertQuestionCount,
@@ -210,8 +211,7 @@ function validateGameForPublish(game) {
   if (!String(game.instructions || game.description || '').trim()) {
     throw new AppError('Game instructions are required before publishing', 400);
   }
-  const items = game.gameData?.items || [];
-  if (!items.length) throw new AppError('Game must contain at least one game item', 400);
+  assertGameDataMatchesType(game.gameType, game.gameData);
 }
 
 async function lessonSourceText(courseId, lessonId) {

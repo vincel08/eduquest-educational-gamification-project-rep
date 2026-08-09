@@ -16,10 +16,15 @@ export const GAME_TYPES = [
 export const LEGACY_GAME_TYPES = [
   'quiz_rush',
   'word_scramble',
+];
+
+/** Deprecated: kept in DB ENUM only. Not creatable / not AI-generated / not playable. */
+export const DEPRECATED_GAME_TYPES = [
   'true_false_blitz',
 ];
 
 export const ALL_GAME_TYPES = [...GAME_TYPES, ...LEGACY_GAME_TYPES];
+export const KNOWN_GAME_TYPES = [...ALL_GAME_TYPES, ...DEPRECATED_GAME_TYPES];
 
 const DISPLAY_TO_SLUG = {
   flashcards: 'flashcards',
@@ -49,15 +54,17 @@ const DISPLAY_TO_SLUG = {
   puzzle_challenge: 'puzzle_challenge',
   'puzzle challenge': 'puzzle_challenge',
   word_scramble: 'word_search',
-  true_false_blitz: 'quiz_show',
 };
 
 export function normalizeGameType(value) {
   if (!value) return null;
+  const underscored = String(value).trim().toLowerCase().replace(/\s+/g, '_');
+  if (DEPRECATED_GAME_TYPES.includes(underscored)) {
+    return null;
+  }
   const key = String(value).trim().toLowerCase().replace(/[_-]+/g, ' ');
   const slug = DISPLAY_TO_SLUG[key] || DISPLAY_TO_SLUG[key.replace(/\s+/g, '_')] || null;
   if (slug && GAME_TYPES.includes(slug)) return slug;
-  const underscored = String(value).trim().toLowerCase().replace(/\s+/g, '_');
   if (ALL_GAME_TYPES.includes(underscored)) {
     return DISPLAY_TO_SLUG[underscored] || underscored;
   }
@@ -66,4 +73,9 @@ export function normalizeGameType(value) {
 
 export function isValidGameType(value) {
   return ALL_GAME_TYPES.includes(value) || Boolean(normalizeGameType(value));
+}
+
+export function isDeprecatedGameType(value) {
+  const underscored = String(value || '').trim().toLowerCase().replace(/\s+/g, '_');
+  return DEPRECATED_GAME_TYPES.includes(underscored);
 }

@@ -239,9 +239,10 @@ export function calculateGameScore(gameType, gameData, answers) {
   switch (type) {
     case 'quiz_show':
     case 'quiz_rush':
-    case 'true_false_blitz':
       score = scoreChoicePool(getRounds(gameData), answers);
       break;
+    case 'true_false_blitz':
+      throw new AppError('This game type is deprecated and can no longer be scored', 400);
     case 'millionaire':
       score = scoreChoicePool(getItems(gameData), answers, { allowPartial: true });
       break;

@@ -1,8 +1,11 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
 import UserModel from '../models/UserModel.js';
 import StudentProfileModel from '../models/StudentProfileModel.js';
+import PasswordResetTokenModel from '../models/PasswordResetTokenModel.js';
+import EmailService from './EmailService.js';
 import AppError from '../utils/AppError.js';
 import { query } from '../config/db.js';
 import { validateNewPassword } from '../utils/passwordPolicy.js';
@@ -11,6 +14,21 @@ import {
   publicUploadUrl,
   safeUnlinkUpload,
 } from '../utils/uploadPaths.js';
+
+const FORGOT_PASSWORD_MESSAGE =
+  'If an account with that email exists, a password reset link has been sent.';
+
+const INVALID_RESET_TOKEN_MESSAGE =
+  'Your password reset link is invalid or has expired. Please request a new one.';
+
+function hashResetToken(rawToken) {
+  return crypto.createHash('sha256').update(String(rawToken)).digest('hex');
+}
+
+function createResetToken() {
+  // 32 bytes → base64url (~43 chars), URL-safe, high entropy
+  return crypto.randomBytes(32).toString('base64url');
+}
 
 function removeLocalAvatar(avatarUrl) {
   if (!avatarUrl) return;
@@ -182,6 +200,84 @@ const AuthService = {
     return {
       user: sanitizeUser(user),
       profile,
+    };
+  },
+
+  /**
+   * Always returns the same generic message (email enumeration protection).
+   * Works for student, teacher, and administrator accounts with a password.
+   */
+  async requestPasswordReset({ email }) {
+    await PasswordResetTokenModel.deleteExpiredOrUsed();
+
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const user = await UserModel.findByEmail(normalizedEmail);
+
+    if (user && user.is_active && user.password_hash) {
+      await PasswordResetTokenModel.invalidateActiveForUser(user.id);
+
+      const rawToken = createResetToken();
+      const tokenHash = hashResetToken(rawToken);
+      const expiresAt = new Date(Date.now() + env.passwordReset.ttlMs);
+
+      await PasswordResetTokenModel.create({
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+      });
+
+      const resetUrl = `${env.clientUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(rawToken)}`;
+
+      try {
+        await EmailService.sendPasswordResetEmail({
+          to: user.email,
+          firstName: user.first_name,
+          resetUrl,
+        });
+      } catch {
+        // Do not reveal delivery failures (enumeration / internals).
+        console.error('[AuthService] Password reset email delivery failed');
+      }
+    }
+
+    return { message: FORGOT_PASSWORD_MESSAGE };
+  },
+
+  async resetPassword({ token, password, confirmPassword }) {
+    await PasswordResetTokenModel.deleteExpiredOrUsed();
+
+    const rawToken = String(token || '').trim();
+    if (!rawToken || rawToken.length < 20) {
+      throw new AppError(INVALID_RESET_TOKEN_MESSAGE, 400);
+    }
+
+    if (password !== confirmPassword) {
+      throw new AppError('Passwords do not match.', 400);
+    }
+
+    const passwordError = validateNewPassword(password);
+    if (passwordError) {
+      throw new AppError(passwordError, 400);
+    }
+
+    const tokenHash = hashResetToken(rawToken);
+    const resetRecord = await PasswordResetTokenModel.findValidByTokenHash(tokenHash);
+    if (!resetRecord) {
+      throw new AppError(INVALID_RESET_TOKEN_MESSAGE, 400);
+    }
+
+    const user = await UserModel.findById(resetRecord.user_id);
+    if (!user || !user.is_active) {
+      throw new AppError(INVALID_RESET_TOKEN_MESSAGE, 400);
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    await UserModel.update(user.id, { password_hash: passwordHash });
+    await PasswordResetTokenModel.markUsed(resetRecord.id);
+    await PasswordResetTokenModel.invalidateActiveForUser(user.id);
+
+    return {
+      message: 'Your password has been reset successfully.',
     };
   },
 };

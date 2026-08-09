@@ -60,6 +60,19 @@ const env = {
     model: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
   },
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+  mail: {
+    // Set MAIL_HOST to enable SMTP (Mailhog/Ethereal/provider). Empty disables outbound mail.
+    host: process.env.MAIL_HOST || '',
+    port: Number(process.env.MAIL_PORT) || 587,
+    secure: String(process.env.MAIL_SECURE || '').toLowerCase() === 'true',
+    user: process.env.MAIL_USER || '',
+    password: process.env.MAIL_PASSWORD || '',
+    from: process.env.MAIL_FROM || 'EduQuest <noreply@eduquest.local>',
+  },
+  passwordReset: {
+    // ~30 minutes
+    ttlMs: Number(process.env.PASSWORD_RESET_TTL_MS) || 30 * 60 * 1000,
+  },
   uploadMaxSizeMb: Number(process.env.UPLOAD_MAX_SIZE_MB) || 10,
   rateLimit: {
     authWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,

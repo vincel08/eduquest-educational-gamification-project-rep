@@ -7,6 +7,12 @@ const authService = {
   login(payload) {
     return api.post('/auth/login', payload);
   },
+  forgotPassword(payload) {
+    return api.post('/auth/forgot-password', payload);
+  },
+  resetPassword(payload) {
+    return api.post('/auth/reset-password', payload);
+  },
   me() {
     return api.get('/auth/me');
   },

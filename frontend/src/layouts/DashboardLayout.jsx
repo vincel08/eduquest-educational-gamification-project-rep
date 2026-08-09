@@ -36,7 +36,9 @@ export default function DashboardLayout({ title, navItems }) {
   const isMobile = useMediaQuery('(max-width:900px)');
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const avatarSrc = buildAuthenticatedFileUrl(profile?.avatar_url || user?.avatarUrl);
+  // Prefer auth user.avatarUrl (authenticated /api/files/avatars/:id).
+  // profile.avatar_url can be a raw uploads path that the browser cannot load.
+  const avatarSrc = buildAuthenticatedFileUrl(user?.avatarUrl || profile?.avatar_url);
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

@@ -1,10 +1,19 @@
 import { body } from 'express-validator';
-import { ALL_GAME_TYPES, GAME_TYPES } from '../utils/gameTypes.js';
+import { ALL_GAME_TYPES, GAME_TYPES, isDeprecatedGameType } from '../utils/gameTypes.js';
 
 export const createGameValidation = [
   body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
   body('title').trim().notEmpty().withMessage('Title is required'),
-  body('gameType').isIn(ALL_GAME_TYPES).withMessage('Invalid game type'),
+  body('gameType')
+    .custom((value) => {
+      if (isDeprecatedGameType(value)) {
+        throw new Error('This game type is deprecated and cannot be created');
+      }
+      if (!ALL_GAME_TYPES.includes(value)) {
+        throw new Error('Invalid game type');
+      }
+      return true;
+    }),
   body('gameData').isObject().withMessage('gameData is required'),
   body('lessonId').optional({ nullable: true }).isInt({ min: 1 }),
   body('difficulty').optional().isIn(['easy', 'medium', 'hard']),
@@ -19,7 +28,12 @@ export const generateGameValidation = [
   body('topic').optional().isString(),
   body('gameType')
     .optional()
-    .custom((value) => value === 'auto' || GAME_TYPES.includes(value) || ALL_GAME_TYPES.includes(value))
+    .custom((value) => {
+      if (isDeprecatedGameType(value)) {
+        throw new Error('This game type is deprecated');
+      }
+      return value === 'auto' || GAME_TYPES.includes(value) || ALL_GAME_TYPES.includes(value);
+    })
     .withMessage('Invalid game type'),
   body('gradeLevel').optional().isString(),
 ];

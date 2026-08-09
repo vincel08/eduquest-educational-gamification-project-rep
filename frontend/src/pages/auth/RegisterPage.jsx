@@ -5,11 +5,15 @@ import {
   Button,
   Card,
   CardContent,
+  IconButton,
+  InputAdornment,
   Link,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
@@ -32,6 +36,7 @@ export default function RegisterPage() {
     gradeLevel: 'Grade 10',
     schoolName: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -138,7 +143,7 @@ export default function RegisterPage() {
               />
               <TextField
                 label="Password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={form.password}
                 onChange={updateField('password')}
@@ -147,7 +152,22 @@ export default function RegisterPage() {
                   fieldErrors.password
                   || `At least ${MIN_PASSWORD_LENGTH} characters with uppercase, lowercase, and a number`
                 }
-                slotProps={{ htmlInput: { minLength: MIN_PASSWORD_LENGTH } }}
+                slotProps={{
+                  htmlInput: { minLength: MIN_PASSWORD_LENGTH },
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
               <Alert severity="info">
                 Student registration only. Teacher accounts must be created by an administrator.
