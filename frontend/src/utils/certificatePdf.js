@@ -17,7 +17,7 @@ export async function downloadCertificatePdf(certificate) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
   doc.setTextColor(15, 118, 110);
-  doc.text('EduQuest Certificate of Achievement', width / 2, 90, { align: 'center' });
+  doc.text('EduWow Certificate of Achievement', width / 2, 90, { align: 'center' });
 
   doc.setFontSize(28);
   doc.setTextColor(20, 20, 20);
@@ -56,11 +56,11 @@ export async function downloadCertificatePdf(certificate) {
 
   doc.setFontSize(11);
   doc.setTextColor(80, 80, 80);
-  doc.text('Digitally verified by EduQuest LMS', width / 2, height - 70, { align: 'center' });
+  doc.text('Digitally verified by EduWow LMS', width / 2, height - 70, { align: 'center' });
 
   const verifyUrl = `${window.location.origin}/student/certificates/${certificate.id}`;
   const qrDataUrl = await QRCode.toDataURL(verifyUrl, { margin: 1, width: 120 });
   doc.addImage(qrDataUrl, 'PNG', width - 150, height - 160, 90, 90);
 
-  doc.save(`${certificate.certificate_code || 'eduquest-certificate'}.pdf`);
+  doc.save(`${certificate.certificate_code || 'eduwow-certificate'}.pdf`);
 }

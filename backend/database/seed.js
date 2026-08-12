@@ -255,8 +255,8 @@ async function run() {
     `INSERT INTO student_profiles (user_id, xp, level, grade_level, school_name, current_streak, longest_streak, last_activity_date)
      VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE()), (?, ?, ?, ?, ?, ?, ?, NULL)`,
     [
-      studentId, 120, 2, 'Grade 10', 'EduQuest High', 2, 5,
-      student2Id, 40, 1, 'Grade 11', 'EduQuest High', 0, 0,
+      studentId, 120, 2, 'Grade 10', 'EduWow High', 2, 5,
+      student2Id, 40, 1, 'Grade 11', 'EduWow High', 0, 0,
     ]
   );
 
@@ -477,7 +477,7 @@ async function run() {
 
   await connection.execute(
     `INSERT INTO notifications (user_id, title, message, type, link) VALUES
-     (?, 'Welcome to EduQuest', 'Explore Disaster Preparedness, Cyberbullying Awareness, and Bullying Prevention.', 'system', '/student/dashboard'),
+     (?, 'Welcome to EduWow', 'Explore Disaster Preparedness, Cyberbullying Awareness, and Bullying Prevention.', 'system', '/student/dashboard'),
      (?, 'Welcome Teacher', 'Your three safety and citizenship modules are ready. Use AI tools to expand them.', 'system', '/teacher/dashboard')`,
     [studentId, teacherId]
   );

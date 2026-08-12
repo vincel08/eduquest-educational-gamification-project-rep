@@ -77,8 +77,8 @@ export default function LeaderboardCard({ entries = [], title = 'Leaderboard' })
                 primary={`${entry.firstName || entry.first_name} ${entry.lastName || entry.last_name}`}
                 secondary={
                   index < 3
-                    ? `${style.label} · Level ${entry.level} · ${entry.badgeCount ?? entry.badge_count ?? 0} badges`
-                    : `Level ${entry.level} · ${entry.badgeCount ?? entry.badge_count ?? 0} badges`
+                    ? `${style.label} · ${entry.badgeCount ?? entry.badge_count ?? 0} badges`
+                    : `${entry.badgeCount ?? entry.badge_count ?? 0} badges`
                 }
                 primaryTypographyProps={{ fontWeight: 800 }}
               />

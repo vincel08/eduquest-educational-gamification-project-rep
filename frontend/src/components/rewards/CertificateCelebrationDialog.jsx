@@ -44,7 +44,7 @@ export default function CertificateCelebrationDialog({ open, certificate, onClos
           >
             <Typography variant="h6" fontWeight={900}>Certificate of Achievement</Typography>
             <Typography color="text.secondary" sx={{ mt: 1 }}>
-              {certificate.certificate_code || 'EduQuest Certified Learner'}
+              {certificate.certificate_code || 'EduWow Certified Learner'}
             </Typography>
           </Stack>
         </Stack>

@@ -2,7 +2,6 @@ import {
   Box,
   Button,
   Chip,
-  LinearProgress,
   Paper,
   Stack,
   Typography,
@@ -32,9 +31,6 @@ export default function FinalScore({
   score = 0,
   percentage = null,
   xpEarned = 0,
-  level = null,
-  xpInLevel = null,
-  xpToNextLevel = null,
   badges = [],
   medals = [],
   motivation = '',
@@ -47,9 +43,6 @@ export default function FinalScore({
   title = 'Game Complete!',
 }) {
   const percent = percentage == null ? Math.max(0, Math.min(100, Number(score) || 0)) : percentage;
-  const levelProgress = xpToNextLevel
-    ? Math.round(((Number(xpInLevel) || 0) / Number(xpToNextLevel)) * 100)
-    : 0;
 
   return (
     <MotionPaper
@@ -98,18 +91,6 @@ export default function FinalScore({
         <ScoreStat label="Percentage" value={`${percent}%`} />
         <ScoreStat label="XP Earned" value={`+${xpEarned}`} accent />
       </Stack>
-
-      {level != null ? (
-        <Box sx={{ mt: 3 }}>
-          <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-            <Typography variant="body2" fontWeight={800}>Level {level}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {xpInLevel}/{xpToNextLevel} XP
-            </Typography>
-          </Stack>
-          <LinearProgress variant="determinate" value={Math.min(100, levelProgress)} />
-        </Box>
-      ) : null}
 
       {(badges.length || medals.length) ? (
         <Stack spacing={1} sx={{ mt: 3 }}>

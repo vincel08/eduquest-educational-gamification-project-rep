@@ -103,7 +103,7 @@ export default function RegisterPage() {
         <Card sx={{ width: '100%' }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h4" color="primary" gutterBottom>
-              Join EduQuest
+              Join EduWow
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 3 }}>
               Create your account and start earning XP.

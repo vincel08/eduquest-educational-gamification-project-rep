@@ -6,25 +6,7 @@ import { pickMascotMessage } from '../../utils/feedbackMessages';
 import { useAuth } from '../../contexts/AuthContext';
 
 const HIDE_KEY = 'eduquest_mascot_hidden';
-const XP_PER_LEVEL = 100;
 const MESSAGE_MS = 2000;
-
-function resolveXpProgress(profile) {
-  if (!profile) {
-    return { xpInLevel: null, xpToNextLevel: XP_PER_LEVEL };
-  }
-
-  const xpInLevel = profile.xpInLevel
-    ?? profile.xp_in_level
-    ?? (profile.xp != null ? Number(profile.xp) % XP_PER_LEVEL : null);
-
-  let xpToNextLevel = profile.xpToNextLevel ?? profile.xp_to_next_level ?? XP_PER_LEVEL;
-  if (Number(xpToNextLevel) > XP_PER_LEVEL) {
-    xpToNextLevel = XP_PER_LEVEL;
-  }
-
-  return { xpInLevel, xpToNextLevel };
-}
 
 export default function QuestMascot() {
   const { profile, user } = useAuth();
@@ -51,10 +33,7 @@ export default function QuestMascot() {
     if (user?.role !== 'student' || !visible || !bubbleOpen) return undefined;
 
     const showNext = () => {
-      const progress = resolveXpProgress(profileRef.current);
       const next = pickMascotMessage({
-        xpInLevel: progress.xpInLevel,
-        xpToNextLevel: progress.xpToNextLevel,
         streak: profileRef.current?.current_streak,
         previousMessage: messageRef.current,
       });

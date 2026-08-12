@@ -1,5 +1,5 @@
 /**
- * EduQuest developer utility — reset operational data, keep user accounts.
+ * EduWow developer utility — reset operational data, keep user accounts.
  *
  * Usage (from backend/):
  *   npm run db:reset-demo

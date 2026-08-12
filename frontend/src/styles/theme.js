@@ -1,7 +1,7 @@
 import { createTheme } from '@mui/material/styles';
 
 /**
- * EduQuest centralized design system.
+ * EduWow centralized design system.
  * Visual direction: blue + purple + white, gold accents for achievements.
  */
 const getDesignTokens = (mode) => ({

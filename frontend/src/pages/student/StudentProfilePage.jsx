@@ -190,7 +190,7 @@ export default function StudentProfilePage() {
             <Typography color="text.secondary">{user?.email}</Typography>
             <Typography sx={{ mt: 1 }}>Grade: {studentProfile.grade_level || '—'}</Typography>
             <Typography>Rank: #{data.gamification.rank || '—'}</Typography>
-            <Typography>XP: {studentProfile.xp} · Level {studentProfile.level}</Typography>
+            <Typography>XP: {studentProfile.xp}</Typography>
             <Typography>
               Streak: {studentProfile.current_streak || 0} days
               (best {studentProfile.longest_streak || 0})
@@ -229,7 +229,7 @@ export default function StudentProfilePage() {
           </Paper>
 
           <Paper sx={{ p: 3, mb: 2 }}>
-            <XpBar xp={studentProfile.xp} level={studentProfile.level} />
+            <XpBar xp={studentProfile.xp} />
             <Typography sx={{ mt: 2 }}>
               Progress: {analytics.averageProgress}% · Completed courses:{' '}
               {(courses || []).filter((c) => Number(c.progress_percent) >= 100).length}

@@ -710,7 +710,7 @@ Return compact valid JSON only.`,
     try {
       const contentSnippet = String(lessonContent || '').slice(0, env.aiLimits.maxPromptCharacters);
       const { data, source } = await chatJson(
-        `You are an expert high school educator creating quiz questions for EduQuest.
+        `You are an expert high school educator creating quiz questions for EduWow.
 Return JSON with keys: title, description, questions.
 ${typeInstruction}
 Every question must include: questionText, questionType, points, explanation.`,

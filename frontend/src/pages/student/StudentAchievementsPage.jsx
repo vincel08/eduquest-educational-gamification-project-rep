@@ -34,12 +34,7 @@ export default function StudentAchievementsPage() {
       />
 
       <Paper sx={{ p: 3, mb: 3 }}>
-        <XpBar
-          xp={data.profile.xp}
-          level={data.profile.level}
-          xpInLevel={data.profile.xpInLevel}
-          xpToNextLevel={data.profile.xpToNextLevel}
-        />
+        <XpBar xp={data.profile.xp} />
         <Typography sx={{ mt: 2 }} color="text.secondary">
           Leaderboard rank: #{data.profile.rank || '—'}
         </Typography>
@@ -82,7 +77,7 @@ export default function StudentAchievementsPage() {
             <EmptyState
               icon={<MilitaryTechIcon sx={{ fontSize: 36 }} />}
               title="No medals yet"
-              description="Keep leveling up and completing challenges to earn medals."
+              description="Keep completing challenges to earn medals."
               actionLabel="Continue learning"
               to="/student/courses"
               color="#F97316"

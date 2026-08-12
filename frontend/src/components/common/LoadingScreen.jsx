@@ -2,7 +2,7 @@ import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import SkeletonCards from './SkeletonCards';
 
-export default function LoadingScreen({ label = 'Loading EduQuest...', showCards = false }) {
+export default function LoadingScreen({ label = 'Loading EduWow...', showCards = false }) {
   if (showCards) {
     return (
       <Box sx={{ py: 2 }}>

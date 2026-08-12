@@ -30,7 +30,7 @@ router.use('/files', fileRoutes);
 router.get('/health', (_req, res) => {
   res.json({
     success: true,
-    message: 'EduQuest API is running',
+    message: 'EduWow API is running',
     data: { status: 'ok' },
   });
 });

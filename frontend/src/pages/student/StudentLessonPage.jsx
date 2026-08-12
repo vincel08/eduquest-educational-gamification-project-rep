@@ -36,7 +36,7 @@ import {
 
 export default function StudentLessonPage() {
   const { lessonId } = useParams();
-  const { updateProfile, profile } = useAuth();
+  const { updateProfile } = useAuth();
   const { notifyReward } = useRewards();
   const [lesson, setLesson] = useState(null);
   const [error, setError] = useState('');
@@ -66,14 +66,11 @@ export default function StudentLessonPage() {
       const response = await lessonService.complete(lessonId);
       const result = response.data.data;
       if (!result.alreadyCompleted) {
-        const previousLevel = profile?.level;
         if (result.xpAward?.profile) {
           updateProfile(result.xpAward.profile);
         }
         notifyReward({
           xpEarned: result.progress?.xp_earned || 0,
-          previousLevel,
-          nextProfile: result.xpAward?.profile,
           badges: result.xpAward?.newlyUnlocked?.badges || [],
           medals: result.xpAward?.newlyUnlocked?.medals || [],
           certificate: result.certificate || null,

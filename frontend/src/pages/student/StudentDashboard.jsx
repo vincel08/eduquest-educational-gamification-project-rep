@@ -11,7 +11,6 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import SchoolIcon from '@mui/icons-material/School';
 import StarIcon from '@mui/icons-material/Star';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import QuizIcon from '@mui/icons-material/Quiz';
@@ -112,9 +111,6 @@ export default function StudentDashboard() {
     .slice(0, 3);
   const upcomingQuizzes = analytics.upcomingQuizzes || [];
   const dailyProgress = Math.min(100, Math.round((todayXp / DAILY_XP_GOAL) * 100));
-  const xpInLevel = profile.xpInLevel ?? profile.xp_in_level ?? 0;
-  const xpToNext = profile.xpToNextLevel ?? profile.xp_to_next_level ?? 100;
-  const levelProgress = xpToNext ? Math.min(100, Math.round((xpInLevel / xpToNext) * 100)) : 0;
   const avatarSrc = buildAuthenticatedFileUrl(authProfile?.avatar_url || profile.avatar_url);
   const quickStartTo = upcomingQuizzes[0]
     ? `/student/quizzes/${upcomingQuizzes[0].id}`
@@ -203,25 +199,16 @@ export default function StudentDashboard() {
       </Stack>
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 4 }}>
           <GlassStatCard
             accent
-            label="Level"
-            value={profile.level}
-            icon={<SchoolIcon />}
-            subtitle={`${xpInLevel} / ${xpToNext} XP to next`}
-            progress={levelProgress}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <GlassStatCard
             label="Total XP"
             value={profile.xp}
             icon={<StarIcon />}
             subtitle={`+${todayXp} today`}
           />
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
+        <Grid size={{ xs: 6, sm: 4 }}>
           <GlassStatCard
             label="Badges"
             value={analytics.badges || 0}
@@ -229,7 +216,7 @@ export default function StudentDashboard() {
             subtitle="Trophy room"
           />
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
+        <Grid size={{ xs: 6, sm: 4 }}>
           <GlassStatCard
             label="Certificates"
             value={analytics.certificates || 0}
@@ -244,15 +231,10 @@ export default function StudentDashboard() {
           <Paper sx={{ p: { xs: 2, md: 2.5 }, height: '100%' }}>
             <SectionHeader
               title="Learning Progress"
-              subtitle="XP progress toward your next level"
+              subtitle="Your XP journey across recent activity"
               icon={<AutoAwesomeIcon color="secondary" />}
             />
-            <XpBar
-              xp={profile.xp}
-              level={profile.level}
-              xpInLevel={xpInLevel}
-              xpToNextLevel={xpToNext}
-            />
+            <XpBar xp={profile.xp} />
             <Box sx={{ mt: 3, minHeight: 180 }}>
               <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
                 Recent XP Activity

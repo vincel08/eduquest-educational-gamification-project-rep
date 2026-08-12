@@ -48,7 +48,7 @@ async function start() {
     connection.release();
 
     const server = app.listen(env.port, () => {
-      console.log(`EduQuest API running on http://localhost:${env.port}`);
+      console.log(`EduWow API running on http://localhost:${env.port}`);
       console.log(`AI provider: ${env.aiProvider}`);
     });
 

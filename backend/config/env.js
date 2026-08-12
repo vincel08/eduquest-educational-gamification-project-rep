@@ -67,7 +67,7 @@ const env = {
     secure: String(process.env.MAIL_SECURE || '').toLowerCase() === 'true',
     user: process.env.MAIL_USER || '',
     password: process.env.MAIL_PASSWORD || '',
-    from: process.env.MAIL_FROM || 'EduQuest <noreply@eduquest.local>',
+    from: process.env.MAIL_FROM || 'EduWow <noreply@eduquest.local>',
   },
   passwordReset: {
     // ~30 minutes

@@ -30,16 +30,16 @@ const EmailService = {
    * Send password reset email. Never log the raw token or full reset URL.
    */
   async sendPasswordResetEmail({ to, firstName, resetUrl }) {
-    const subject = 'EduQuest Password Reset Request';
+    const subject = 'EduWow Password Reset Request';
     const greetingName = firstName || 'there';
     const text = [
-      'EduQuest',
+      'EduWow',
       '',
       'Password Reset Request',
       '',
       `Hi ${greetingName},`,
       '',
-      'We received a request to reset your EduQuest password.',
+      'We received a request to reset your EduWow password.',
       'Use the link below to choose a new password:',
       resetUrl,
       '',
@@ -50,10 +50,10 @@ const EmailService = {
 
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin: 0 0 8px;">EduQuest</h2>
+        <h2 style="margin: 0 0 8px;">EduWow</h2>
         <h3 style="margin: 0 0 16px;">Password Reset Request</h3>
         <p>Hi ${greetingName},</p>
-        <p>We received a request to reset your EduQuest password.</p>
+        <p>We received a request to reset your EduWow password.</p>
         <p style="margin: 24px 0;">
           <a href="${resetUrl}"
              style="background:#4F46E5;color:#ffffff;padding:12px 18px;text-decoration:none;border-radius:8px;display:inline-block;">

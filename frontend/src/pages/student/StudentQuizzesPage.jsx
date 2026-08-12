@@ -52,7 +52,7 @@ export default function StudentQuizzesPage() {
     <>
       <PageHeader
         title="Quiz Arena"
-        subtitle="Test your knowledge, earn XP, and level up."
+        subtitle="Test your knowledge and earn XP."
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       <ContentTimestampToolbar

@@ -1,5 +1,5 @@
 -- =============================================================================
--- EduQuest — Reset Demo / Test Data
+-- EduWow — Reset Demo / Test Data
 -- =============================================================================
 -- Purpose:
 --   Clear ALL operational teaching/learning data for a clean testing slate,
@@ -140,7 +140,7 @@ ALTER TABLE password_reset_tokens AUTO_INCREMENT = 1;
 -- student_profiles rows are kept; leave their AUTO_INCREMENT alone
 -- users table is NEVER touched
 
-SELECT 'EduQuest demo data reset complete. User accounts preserved.' AS status;
+SELECT 'EduWow demo data reset complete. User accounts preserved.' AS status;
 SELECT COUNT(*) AS users_remaining FROM users;
 SELECT COUNT(*) AS courses_remaining FROM courses;
 SELECT COUNT(*) AS quizzes_remaining FROM quizzes;

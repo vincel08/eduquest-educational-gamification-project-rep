@@ -1,11 +1,11 @@
-# EduQuest Project Rules
+# EduWow Project Rules
 
 ## Project Information
 
-Project Name: EduQuest
+Project Name: EduWow
 
 Description:
-EduQuest is an AI-powered Gamified Learning Management System (LMS) designed to improve student engagement among high school students through interactive learning, quizzes, achievements, badges, medals, leaderboards, and AI-generated educational content.
+EduWow is an AI-powered Gamified Learning Management System (LMS) designed to improve student engagement among high school students through interactive learning, quizzes, achievements, badges, medals, leaderboards, and AI-generated educational content.
 
 Always assume that every request belongs to this project unless otherwise specified.
 

@@ -69,7 +69,7 @@ export default function DashboardLayout({ title, navItems }) {
                 lineHeight: 1.2,
               }}
             >
-              EduQuest
+              EduWow
             </Typography>
             <Typography variant="caption" color="text.secondary" fontWeight={700}>
               {title}

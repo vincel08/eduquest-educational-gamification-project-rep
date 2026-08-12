@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
               Reset Password
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 3 }}>
-              Choose a new password for your EduQuest account.
+              Choose a new password for your EduWow account.
             </Typography>
 
             {missingToken ? (

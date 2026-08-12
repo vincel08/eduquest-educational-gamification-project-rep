@@ -21,7 +21,7 @@ import { useRewards } from '../../contexts/RewardsContext';
 export default function StudentGamePage() {
   const { gameId } = useParams();
   const navigate = useNavigate();
-  const { updateProfile, profile } = useAuth();
+  const { updateProfile } = useAuth();
   const { notifyReward } = useRewards();
   const [game, setGame] = useState(null);
   const [finished, setFinished] = useState(false);
@@ -82,8 +82,6 @@ export default function StudentGamePage() {
         durationSeconds: resultPayload?.durationSeconds ?? 60,
       });
       const payload = response.data.data;
-      const previousLevel = profile?.level;
-      const nextProfile = payload.xpAward?.profile || profile;
       if (payload.xpAward?.profile) {
         updateProfile(payload.xpAward.profile);
       }
@@ -93,8 +91,6 @@ export default function StudentGamePage() {
       playSound(SOUND_KEYS.gameComplete);
       notifyReward({
         xpEarned,
-        previousLevel,
-        nextProfile: payload.xpAward?.profile,
         badges: payload.xpAward?.newlyUnlocked?.badges || [],
         medals: payload.xpAward?.newlyUnlocked?.medals || [],
         celebrateWin: serverScore >= 70,
@@ -103,9 +99,6 @@ export default function StudentGamePage() {
         score: serverScore,
         percentage: Math.max(0, Math.min(100, Number(serverScore) || 0)),
         xpEarned,
-        level: nextProfile?.level ?? null,
-        xpInLevel: nextProfile?.xpInLevel ?? nextProfile?.xp_in_level ?? null,
-        xpToNextLevel: nextProfile?.xpToNextLevel ?? nextProfile?.xp_to_next_level ?? null,
         badges: payload.xpAward?.newlyUnlocked?.badges || [],
         medals: payload.xpAward?.newlyUnlocked?.medals || [],
         motivation: pickMotivationalMessage(),
@@ -150,9 +143,6 @@ export default function StudentGamePage() {
             score={result.score}
             percentage={result.percentage}
             xpEarned={result.xpEarned}
-            level={result.level}
-            xpInLevel={result.xpInLevel}
-            xpToNextLevel={result.xpToNextLevel}
             badges={result.badges}
             medals={result.medals}
             motivation={motivation || result.motivation}

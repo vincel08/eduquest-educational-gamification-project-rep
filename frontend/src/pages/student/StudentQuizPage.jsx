@@ -33,7 +33,7 @@ import { useRewards } from '../../contexts/RewardsContext';
 
 export default function StudentQuizPage() {
   const { quizId } = useParams();
-  const { updateProfile, profile } = useAuth();
+  const { updateProfile } = useAuth();
   const { notifyReward } = useRewards();
   const [quiz, setQuiz] = useState(null);
   const [motivation, setMotivation] = useState('');
@@ -141,14 +141,11 @@ export default function StudentQuizPage() {
       setResult({ ...data, timeTakenMs });
       setMotivation(pickMotivationalMessage());
       playSound(SOUND_KEYS.quizComplete);
-      const previousLevel = profile?.level;
       if (data.xpAward?.profile) {
         updateProfile(data.xpAward.profile);
       }
       notifyReward({
         xpEarned: data.attempt?.xp_earned || data.xpAward?.amount || 0,
-        previousLevel,
-        nextProfile: data.xpAward?.profile,
         badges: data.xpAward?.newlyUnlocked?.badges || [],
         medals: data.xpAward?.newlyUnlocked?.medals || [],
         certificate: data.certificate || null,

@@ -58,7 +58,7 @@ export default function LoginPage() {
         <Card sx={{ width: '100%' }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h4" color="primary" gutterBottom>
-              EduQuest
+              EduWow
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 3 }}>
               Login to continue your learning adventure.

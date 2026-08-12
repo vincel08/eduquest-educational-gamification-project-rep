@@ -76,7 +76,7 @@ export default function LandingPage() {
             variant="h1"
             sx={{ fontSize: { xs: '3rem', md: '5rem' }, lineHeight: 1, fontWeight: 900 }}
           >
-            EduQuest
+            EduWow
           </Typography>
           <Typography variant="h4" sx={{ fontWeight: 700, maxWidth: 560 }}>
             Level up learning with AI-powered quests for high school students.
