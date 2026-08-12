@@ -27,7 +27,7 @@ const COMPONENT_MAP = {
   mission_adventure: MissionAdventure,
   puzzle_challenge: PuzzleChallenge,
   word_scramble: WordSearch,
-  true_false_blitz: QuizShow,
+  // true_false_blitz intentionally omitted (deprecated)
 };
 
 export default function GamePreview({ gameType, gameData, onComplete, xpReward = 50 }) {

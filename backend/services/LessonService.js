@@ -1,11 +1,14 @@
-import fs from 'fs';
-import path from 'path';
 import CourseModel from '../models/CourseModel.js';
 import LessonModel from '../models/LessonModel.js';
 import GamificationService from './GamificationService.js';
 import StreakService from './StreakService.js';
 import AiService from './AiService.js';
 import AppError from '../utils/AppError.js';
+import {
+  materialFileApiPath,
+  safeUnlinkUpload,
+  sanitizeOriginalName,
+} from '../utils/uploadPaths.js';
 
 async function assertCourseAccess(courseId, user) {
   const course = await CourseModel.findById(courseId);
@@ -39,6 +42,8 @@ const LessonService = {
       courseId,
       summary,
       learningObjectives,
+      createdBy: user.id,
+      updatedBy: user.id,
     });
   },
 
@@ -54,7 +59,25 @@ const LessonService = {
       return LessonModel.getStudentProgressForCourse(courseId, user.id);
     }
 
-    return LessonModel.findByCourse(courseId);
+    if (user.role === 'teacher' && course.teacher_id !== user.id) {
+      throw new AppError('Access denied', 403);
+    }
+
+    // Teachers/admins: include materials with authenticated download URLs (never file paths).
+    const lessons = await LessonModel.findByCourse(courseId);
+    const withMaterials = [];
+    for (const lesson of lessons) {
+      const materials = await LessonModel.getMaterials(lesson.id);
+      withMaterials.push({
+        ...lesson,
+        materials: materials.map((material) => ({
+          ...material,
+          file_path: undefined,
+          download_url: materialFileApiPath(material.id),
+        })),
+      });
+    }
+    return withMaterials;
   },
 
   async getLessonById(id, user) {
@@ -73,9 +96,9 @@ const LessonService = {
     const materials = await LessonModel.getMaterials(id);
     const materialsWithUrls = materials.map((material) => ({
       ...material,
-      download_url: material.file_name
-        ? `/uploads/${material.file_name}`
-        : (material.file_path ? `/uploads/${path.basename(material.file_path)}` : null),
+      // Never expose filesystem paths; clients use the authenticated file API.
+      file_path: undefined,
+      download_url: materialFileApiPath(material.id),
     }));
     let progress = null;
 
@@ -94,7 +117,7 @@ const LessonService = {
       throw new AppError('Access denied', 403);
     }
 
-    return LessonModel.update(id, data);
+    return LessonModel.update(id, { ...data, updatedBy: user.id });
   },
 
   async deleteLesson(id, user) {
@@ -103,6 +126,11 @@ const LessonService = {
 
     if (user.role === 'teacher' && lesson.teacher_id !== user.id) {
       throw new AppError('Access denied', 403);
+    }
+
+    const materials = await LessonModel.getMaterials(id);
+    for (const material of materials) {
+      safeUnlinkUpload(material.file_name || material.file_path);
     }
 
     await LessonModel.delete(id);
@@ -129,13 +157,17 @@ const LessonService = {
       completedAt: new Date(),
     });
 
-    const xpAward = await GamificationService.awardXp({
-      studentId,
-      amount: lesson.xp_reward,
-      sourceType: 'lesson',
-      sourceId: lessonId,
-      description: `Completed lesson: ${lesson.title}`,
-    });
+    let xpAward = null;
+    if (Number(lesson.xp_reward) > 0) {
+      const xpResult = await GamificationService.awardXpOnce({
+        studentId,
+        amount: lesson.xp_reward,
+        sourceType: 'lesson',
+        sourceId: lessonId,
+        description: `Completed lesson: ${lesson.title}`,
+      });
+      xpAward = xpResult.alreadyAwarded ? null : xpResult.xpAward;
+    }
 
     const counts = await LessonModel.countCompleted(lesson.course_id, studentId);
     const progressPercent = counts.total
@@ -173,15 +205,21 @@ const LessonService = {
 
     if (!file) throw new AppError('No file uploaded', 400);
 
-    return LessonModel.addMaterial({
+    const material = await LessonModel.addMaterial({
       lessonId,
       fileName: file.filename,
-      originalName: file.originalname,
+      originalName: sanitizeOriginalName(file.originalname, file.filename),
       fileType: file.mimetype,
       fileSize: file.size,
       filePath: file.path,
       uploadedBy: user.id,
     });
+
+    return {
+      ...material,
+      file_path: undefined,
+      download_url: materialFileApiPath(material.id),
+    };
   },
 
   async deleteMaterial(materialId, user) {
@@ -193,10 +231,7 @@ const LessonService = {
       throw new AppError('Access denied', 403);
     }
 
-    if (fs.existsSync(material.file_path)) {
-      fs.unlinkSync(material.file_path);
-    }
-
+    safeUnlinkUpload(material.file_name || material.file_path);
     await LessonModel.deleteMaterial(materialId);
     return true;
   },

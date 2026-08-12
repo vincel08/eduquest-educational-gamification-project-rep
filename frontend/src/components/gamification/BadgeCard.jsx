@@ -5,16 +5,31 @@ import { motion } from 'framer-motion';
 export default function BadgeCard({ badge }) {
   return (
     <Card
+      className="glass-panel eq-achievement-glow"
       component={motion.div}
-      whileHover={{ scale: 1.02 }}
-      sx={{ height: '100%' }}
+      whileHover={{ scale: 1.03, y: -4 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+      sx={{
+        height: '100%',
+        cursor: 'pointer',
+        transition: 'box-shadow 0.25s ease',
+        '&:hover': { boxShadow: '0 18px 40px rgba(250,204,21,0.22)' },
+      }}
     >
       <CardContent>
         <Stack spacing={1.5} sx={{ alignItems: 'center', textAlign: 'center' }}>
-          <Avatar sx={{ bgcolor: badge.color || '#FFB300', width: 64, height: 64 }}>
-            <EmojiEventsIcon />
+          <Avatar
+            sx={{
+              bgcolor: badge.color || '#FACC15',
+              color: '#1E1B4B',
+              width: 72,
+              height: 72,
+              boxShadow: '0 10px 24px rgba(250, 204, 21, 0.45)',
+            }}
+          >
+            <EmojiEventsIcon sx={{ fontSize: 36 }} />
           </Avatar>
-          <Typography fontWeight={800}>{badge.name}</Typography>
+          <Typography fontWeight={900}>{badge.name}</Typography>
           <Typography variant="body2" color="text.secondary">
             {badge.description}
           </Typography>

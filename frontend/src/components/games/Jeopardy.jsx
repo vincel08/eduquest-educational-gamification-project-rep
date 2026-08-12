@@ -7,6 +7,7 @@ export default function Jeopardy({ gameData, onComplete, xpReward = 50 }) {
   const categories = useMemo(() => gameData?.categories || [], [gameData]);
   const [selected, setSelected] = useState(null);
   const [answered, setAnswered] = useState({});
+  const [responses, setResponses] = useState([]);
   const [score, setScore] = useState(0);
   const [draft, setDraft] = useState('');
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
@@ -50,12 +51,21 @@ export default function Jeopardy({ gameData, onComplete, xpReward = 50 }) {
       score: percent,
       progress,
       onNext: () => {
+        const nextResponses = [
+          ...responses,
+          {
+            categoryIndex: selected.categoryIndex,
+            clueIndex: selected.clueIndex,
+            answer: draft,
+          },
+        ];
+        setResponses(nextResponses);
         setScore(nextScore);
         setAnswered(nextAnswered);
         setSelected(null);
         setDraft('');
         if (Object.keys(nextAnswered).length >= totalClues) {
-          onComplete?.(percent);
+          onComplete?.({ score: percent, answers: { responses: nextResponses } });
         }
       },
     });

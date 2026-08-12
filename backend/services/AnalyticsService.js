@@ -20,24 +20,46 @@ const AnalyticsService = {
        ORDER BY day ASC`
     );
 
-    const topStudents = await query(
-      `SELECT u.first_name, u.last_name, sp.xp, sp.level
-       FROM student_profiles sp
-       INNER JOIN users u ON u.id = sp.user_id
-       ORDER BY sp.xp DESC
-       LIMIT 5`
-    );
+    const [topStudents, recentQuizzes, recentGames, gamesCount] = await Promise.all([
+      query(
+        `SELECT u.first_name, u.last_name, sp.xp, sp.level
+         FROM student_profiles sp
+         INNER JOIN users u ON u.id = sp.user_id
+         ORDER BY sp.xp DESC
+         LIMIT 5`
+      ),
+      query(
+        `SELECT q.id, q.title, q.is_published, q.is_ai_generated, q.created_at, q.updated_at,
+                c.title AS course_title
+         FROM quizzes q
+         INNER JOIN courses c ON c.id = q.course_id
+         ORDER BY q.updated_at DESC
+         LIMIT 8`
+      ),
+      query(
+        `SELECT g.id, g.title, g.game_type, g.is_published, g.is_ai_generated, g.created_at, g.updated_at,
+                c.title AS course_title
+         FROM educational_games g
+         INNER JOIN courses c ON c.id = g.course_id
+         ORDER BY g.updated_at DESC
+         LIMIT 8`
+      ),
+      query(`SELECT COUNT(*) AS total FROM educational_games`),
+    ]);
 
     return {
       usersByRole: users,
       totalCourses: courses[0].total,
       totalQuizzes: quizzes[0].total,
+      totalGames: gamesCount[0].total,
       quizAttempts: attempts[0].total,
       averageQuizScore: Number(Number(attempts[0].average_score || 0).toFixed(2)),
       averageXp: Number(Number(avgXp[0].average_xp || 0).toFixed(2)),
       averageLevel: Number(Number(avgXp[0].average_level || 0).toFixed(2)),
       engagement,
       topStudents,
+      recentQuizzes,
+      recentGames,
     };
   },
 
@@ -70,13 +92,14 @@ const AnalyticsService = {
         params
       ),
       query(
-        `SELECT q.id, q.title, COUNT(qa.id) AS attempts, AVG(qa.score) AS average_score,
+        `SELECT q.id, q.title, q.created_at, q.updated_at,
+                COUNT(qa.id) AS attempts, AVG(qa.score) AS average_score,
                 SUM(CASE WHEN qa.is_passed = 1 THEN 1 ELSE 0 END) AS passed_count
          FROM quizzes q
          LEFT JOIN quiz_attempts qa ON qa.quiz_id = q.id AND qa.completed_at IS NOT NULL
          WHERE q.course_id IN (${placeholders})
-         GROUP BY q.id, q.title
-         ORDER BY attempts DESC`,
+         GROUP BY q.id, q.title, q.created_at, q.updated_at
+         ORDER BY q.updated_at DESC`,
         params
       ),
       query(

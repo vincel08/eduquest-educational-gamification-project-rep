@@ -3,6 +3,7 @@ import AiContentController from '../controllers/AiContentController.js';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { documentUpload } from '../middleware/uploadMiddleware.js';
 import { validate } from '../middleware/validateMiddleware.js';
+import { aiRateLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
   generateAiContentValidation,
   saveAiContentValidation,
@@ -12,6 +13,7 @@ const router = Router();
 
 router.use(authenticate);
 router.use(authorize('teacher', 'administrator'));
+router.use(aiRateLimiter);
 
 router.post(
   '/extract',

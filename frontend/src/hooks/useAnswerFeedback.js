@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { celebrate } from '../utils/confetti';
-import { playCorrectSound, playIncorrectSound } from '../utils/gameSounds';
 import { pickFeedbackMessage } from '../utils/feedbackMessages';
 
 const DEFAULT_AUTO_MS = 2500;
@@ -31,10 +30,7 @@ export default function useAnswerFeedback({ autoAdvanceMs = DEFAULT_AUTO_MS } = 
     setFeedback(next);
 
     if (isCorrect) {
-      playCorrectSound();
       celebrate();
-    } else {
-      playIncorrectSound();
     }
   }, [autoAdvanceMs]);
 

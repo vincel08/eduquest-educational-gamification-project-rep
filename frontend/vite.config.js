@@ -10,6 +10,7 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      // Legacy public /uploads is blocked server-side; keep proxy only for clear 401 responses in dev.
       '/uploads': {
         target: 'http://localhost:4000',
         changeOrigin: true,

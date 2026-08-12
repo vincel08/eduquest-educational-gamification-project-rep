@@ -17,9 +17,10 @@ import {
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import PageHeader from '../../components/common/PageHeader';
-import GamePreview from '../../components/games/GamePreview';
+import AiGeneratedReviewPanel from '../../components/ai-review/AiGeneratedReviewPanel';
 import courseService from '../../services/courseService';
 import aiContentService from '../../services/aiContentService';
+import aiReviewService from '../../services/aiReviewService';
 import { getErrorMessage } from '../../services/api';
 
 const GAME_TYPE_OPTIONS = [
@@ -40,43 +41,6 @@ const GAME_TYPE_OPTIONS = [
 
 const ACCEPTED_TYPES = '.pdf,.docx,.pptx,.ppt,.txt,.png,.jpg,.jpeg,.webp';
 
-function QuizResultPreview({ quiz }) {
-  if (!quiz) return null;
-
-  return (
-    <Stack spacing={2}>
-      {(quiz.questions || []).map((item, index) => (
-        <Paper key={`q-${index}`} variant="outlined" sx={{ p: 2 }}>
-          <Typography fontWeight={600}>
-            {index + 1}. {item.question}
-          </Typography>
-          <Stack spacing={0.5} sx={{ mt: 1 }}>
-            {(item.choices || []).map((choice) => {
-              const isAnswer = String(choice).trim().toLowerCase()
-                === String(item.answer || '').trim().toLowerCase();
-              return (
-                <Typography
-                  key={choice}
-                  color={isAnswer ? 'success.main' : 'text.secondary'}
-                  fontWeight={isAnswer ? 600 : 400}
-                >
-                  {isAnswer ? '✓ ' : '• '}
-                  {choice}
-                </Typography>
-              );
-            })}
-          </Stack>
-          {item.explanation ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Explanation: {item.explanation}
-            </Typography>
-          ) : null}
-        </Paper>
-      ))}
-    </Stack>
-  );
-}
-
 export default function TeacherAiContentPage() {
   const fileInputRef = useRef(null);
   const [courses, setCourses] = useState([]);
@@ -93,13 +57,11 @@ export default function TeacherAiContentPage() {
   const [uploadMeta, setUploadMeta] = useState(null);
   const [extractedText, setExtractedText] = useState('');
   const [dragOver, setDragOver] = useState(false);
-  const [result, setResult] = useState(null);
+  const [draft, setDraft] = useState(null);
   const [error, setError] = useState('');
-  const [warning, setWarning] = useState('');
   const [message, setMessage] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     courseService.list({ limit: 50 })
@@ -135,9 +97,7 @@ export default function TeacherAiContentPage() {
     if (!file) return;
     setExtracting(true);
     setError('');
-    setWarning('');
     setMessage('');
-    setResult(null);
     try {
       const response = await aiContentService.extract(file);
       const data = response.data.data;
@@ -169,9 +129,8 @@ export default function TeacherAiContentPage() {
   async function handleGenerate() {
     setLoading(true);
     setError('');
-    setWarning('');
     setMessage('');
-    setResult(null);
+    setDraft(null);
 
     try {
       const payload = {
@@ -192,40 +151,14 @@ export default function TeacherAiContentPage() {
         if (form.lessonId) payload.lessonId = Number(form.lessonId);
       }
 
-      const response = await aiContentService.generate(payload);
+      const response = await aiReviewService.createFromContent(payload);
       const data = response.data.data;
-      setResult(data);
-      if (data.warning || data.source === 'fallback') {
-        setWarning(data.warning || 'Sample fallback content was used.');
-      } else {
-        setMessage('Content generated. Review the preview, then save.');
-      }
+      setDraft(data.draft);
+      setMessage(data.warning || 'Content generated. Review and edit below before publishing.');
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleSave() {
-    if (!result?.generationId) return;
-    setSaving(true);
-    setError('');
-    setMessage('');
-    try {
-      const response = await aiContentService.save({
-        generationId: result.generationId,
-        generated: result.generated,
-        isPublished: true,
-      });
-      const data = response.data.data;
-      const title = data.quiz?.title || data.game?.title || 'Content';
-      setMessage(`Saved "${title}" to the course library.`);
-      setResult((prev) => ({ ...prev, saved: true }));
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -234,30 +167,24 @@ export default function TeacherAiContentPage() {
       ? Boolean(form.lessonId)
       : Boolean(extractedText.trim().length >= 40));
 
-  const generated = result?.generated;
-
   return (
     <>
       <PageHeader
         title="AI Content Generator"
-        subtitle="Generate quizzes or educational games from lessons or uploaded learning materials."
+        subtitle="Generate quizzes, games, objectives, or summaries — then review before publishing."
       />
 
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-      {warning ? <Alert severity="warning" sx={{ mb: 2 }}>{warning}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 3, mb: draft ? 3 : 0 }}>
         <Stack spacing={3}>
           <FormControl>
             <FormLabel>1. Content Source</FormLabel>
             <RadioGroup
               row
               value={sourceType}
-              onChange={(e) => {
-                setSourceType(e.target.value);
-                setResult(null);
-              }}
+              onChange={(e) => setSourceType(e.target.value)}
             >
               <FormControlLabel value="lesson" control={<Radio />} label="Existing Lesson" />
               <FormControlLabel value="upload" control={<Radio />} label="Upload Document" />
@@ -376,17 +303,17 @@ export default function TeacherAiContentPage() {
             <RadioGroup
               row
               value={contentType}
-              onChange={(e) => {
-                setContentType(e.target.value);
-                setResult(null);
-              }}
+              onChange={(e) => setContentType(e.target.value)}
             >
               <FormControlLabel value="quiz" control={<Radio />} label="Generate Quiz" />
               <FormControlLabel value="game" control={<Radio />} label="Generate Educational Game" />
+              <FormControlLabel value="objectives" control={<Radio />} label="Learning Objectives" />
+              <FormControlLabel value="summary" control={<Radio />} label="Lesson Summary" />
+              <FormControlLabel value="all" control={<Radio />} label="Generate All" />
             </RadioGroup>
           </FormControl>
 
-          {contentType === 'quiz' ? (
+          {contentType === 'quiz' || contentType === 'all' ? (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField
                 select
@@ -408,10 +335,12 @@ export default function TeacherAiContentPage() {
                 sx={{ minWidth: 160 }}
               />
             </Stack>
-          ) : (
+          ) : null}
+
+          {contentType === 'game' || contentType === 'all' ? (
             <TextField
               select
-              label="5. Game Selector"
+              label="Game Selector"
               value={form.gameType}
               onChange={(e) => setForm((p) => ({ ...p, gameType: e.target.value }))}
             >
@@ -419,7 +348,7 @@ export default function TeacherAiContentPage() {
                 <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
               ))}
             </TextField>
-          )}
+          ) : null}
 
           <Button
             variant="contained"
@@ -432,52 +361,20 @@ export default function TeacherAiContentPage() {
         </Stack>
       </Paper>
 
-      {result && generated ? (
-        <Paper sx={{ p: 3 }}>
-          <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
-            <Chip label={result.contentType} color="primary" />
-            {generated.difficulty ? <Chip label={generated.difficulty} /> : null}
-            {result.contentType === 'Quiz' ? (
-              <>
-                <Chip label={`${generated.timeLimit || 15} min`} />
-                <Chip label={`Pass ${generated.passingScore || 70}%`} />
-              </>
-            ) : (
-              <>
-                <Chip label={generated.gameType} />
-                <Chip label={`${generated.estimatedTime || 10} min`} />
-                <Chip label={`${generated.xpReward || 100} XP`} color="secondary" />
-              </>
-            )}
-          </Stack>
-
-          <Typography variant="h6">{generated.title}</Typography>
-          <Typography color="text.secondary" sx={{ mb: 2 }}>
-            {generated.description}
-          </Typography>
-
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>8. AI Result Preview</Typography>
-
-          {result.contentType === 'Quiz' ? (
-            <QuizResultPreview quiz={generated} />
-          ) : (
-            <GamePreview
-              gameType={generated.gameType}
-              gameData={generated.gameData || { items: generated.items || [] }}
-              onComplete={(score) => setMessage(`Preview finished with score ${score}.`)}
-            />
-          )}
-
-          <Stack direction="row" spacing={1} sx={{ mt: 3 }}>
-            <Button
-              variant="contained"
-              onClick={handleSave}
-              disabled={saving || result.saved}
-            >
-              {result.saved ? 'Saved' : (saving ? 'Saving...' : 'Save')}
-            </Button>
-          </Stack>
-        </Paper>
+      {draft ? (
+        <AiGeneratedReviewPanel
+          key={draft.id}
+          initialDraft={draft}
+          mode="content"
+          onCleared={() => {
+            setDraft(null);
+            setMessage('');
+          }}
+          onPublished={() => {
+            setDraft(null);
+            setMessage('Content published successfully.');
+          }}
+        />
       ) : null}
     </>
   );

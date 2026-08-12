@@ -3,16 +3,21 @@ import env from '../config/env.js';
 import { errorResponse } from '../utils/apiResponse.js';
 import UserModel from '../models/UserModel.js';
 
-export async function authenticate(req, res, next) {
-  try {
-    const header = req.headers.authorization;
+function extractBearerToken(req) {
+  const header = req.headers.authorization;
+  if (header && header.startsWith('Bearer ')) {
+    return header.split(' ')[1];
+  }
+  return null;
+}
 
-    if (!header || !header.startsWith('Bearer ')) {
+async function authenticateWithToken(req, res, next, token) {
+  try {
+    if (!token) {
       return errorResponse(res, 'Authentication required', 401);
     }
 
-    const token = header.split(' ')[1];
-    const decoded = jwt.verify(token, env.jwt.secret);
+    const decoded = jwt.verify(token, env.jwt.secret, { algorithms: ['HS256'] });
     const user = await UserModel.findById(decoded.id);
 
     if (!user || !user.is_active) {
@@ -31,6 +36,19 @@ export async function authenticate(req, res, next) {
   } catch (error) {
     return errorResponse(res, 'Invalid or expired token', 401);
   }
+}
+
+export async function authenticate(req, res, next) {
+  return authenticateWithToken(req, res, next, extractBearerToken(req));
+}
+
+/**
+ * File/media routes may receive JWT via Authorization header or access_token query
+ * (needed for <img>/<a> tags that cannot set Authorization headers).
+ */
+export async function authenticateFileAccess(req, res, next) {
+  const queryToken = typeof req.query.access_token === 'string' ? req.query.access_token : null;
+  return authenticateWithToken(req, res, next, extractBearerToken(req) || queryToken);
 }
 
 export function authorize(...roles) {

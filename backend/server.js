@@ -3,30 +3,38 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import env from './config/env.js';
 import pool from './config/db.js';
 import routes from './routes/index.js';
+import FileController from './controllers/FileController.js';
 import { errorHandler, notFoundHandler } from './middleware/errorMiddleware.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+if (env.isProduction) {
+  // Needed when rate-limiting behind a reverse proxy (nginx, etc.).
+  app.set('trust proxy', 1);
+}
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: env.isProduction ? undefined : false,
+}));
 app.use(
   cors({
     origin: env.clientUrl,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
-app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
+app.use(morgan(env.isProduction ? 'combined' : 'dev'));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Public static /uploads is disabled. Uploaded files require authenticated access via /api/files/*.
+app.use('/uploads', FileController.legacyUploadsBlocked);
 
 app.use('/api', routes);
 
@@ -40,7 +48,7 @@ async function start() {
     connection.release();
 
     const server = app.listen(env.port, () => {
-      console.log(`EduQuest API running on http://localhost:${env.port}`);
+      console.log(`EduWow API running on http://localhost:${env.port}`);
       console.log(`AI provider: ${env.aiProvider}`);
     });
 

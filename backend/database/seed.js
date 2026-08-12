@@ -137,6 +137,39 @@ async function run() {
       'flashcards','memory_match','crossword','word_search','quiz_show','jeopardy','drag_drop','spin_wheel',
       'millionaire','escape_room','mission_adventure','puzzle_challenge','quiz_rush','word_scramble','true_false_blitz'
     ) NOT NULL`,
+    `CREATE TABLE IF NOT EXISTS ai_review_drafts (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      teacher_id INT UNSIGNED NOT NULL,
+      course_id INT UNSIGNED NOT NULL,
+      lesson_id INT UNSIGNED NULL,
+      source_type ENUM('ai_quiz', 'ai_game', 'ai_content', 'lesson_extras', 'manual') NOT NULL DEFAULT 'manual',
+      status ENUM('draft', 'published', 'archived', 'discarded') NOT NULL DEFAULT 'draft',
+      title VARCHAR(255) NULL,
+      source_text MEDIUMTEXT NULL,
+      quiz_json JSON NULL,
+      game_json JSON NULL,
+      learning_objectives_json JSON NULL,
+      lesson_summary_json JSON NULL,
+      generation_meta JSON NULL,
+      quiz_id INT UNSIGNED NULL,
+      game_id INT UNSIGNED NULL,
+      ai_generated TINYINT(1) NOT NULL DEFAULT 1,
+      teacher_edited TINYINT(1) NOT NULL DEFAULT 0,
+      generated_by INT UNSIGNED NULL,
+      updated_by INT UNSIGNED NULL,
+      published_by INT UNSIGNED NULL,
+      published_at TIMESTAMP NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_ai_review_teacher_status (teacher_id, status),
+      INDEX idx_ai_review_course (course_id)
+    ) ENGINE=InnoDB`,
+    `ALTER TABLE courses ADD COLUMN updated_by INT UNSIGNED NULL AFTER teacher_id`,
+    `ALTER TABLE lessons ADD COLUMN created_by INT UNSIGNED NULL AFTER is_published`,
+    `ALTER TABLE lessons ADD COLUMN updated_by INT UNSIGNED NULL AFTER created_by`,
+    `ALTER TABLE quizzes ADD COLUMN updated_by INT UNSIGNED NULL AFTER created_by`,
+    `ALTER TABLE educational_games ADD COLUMN updated_by INT UNSIGNED NULL AFTER created_by`,
+    `ALTER TABLE ai_review_drafts ADD COLUMN updated_by INT UNSIGNED NULL AFTER generated_by`,
   ];
 
   for (const sql of upgrades) {
@@ -152,6 +185,7 @@ async function run() {
   await connection.query('SET FOREIGN_KEY_CHECKS = 0');
   const tables = [
     'password_reset_tokens',
+    'ai_review_drafts',
     'ai_content_generations',
     'xp_transactions',
     'notifications',
@@ -221,8 +255,8 @@ async function run() {
     `INSERT INTO student_profiles (user_id, xp, level, grade_level, school_name, current_streak, longest_streak, last_activity_date)
      VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE()), (?, ?, ?, ?, ?, ?, ?, NULL)`,
     [
-      studentId, 120, 2, 'Grade 10', 'EduQuest High', 2, 5,
-      student2Id, 40, 1, 'Grade 11', 'EduQuest High', 0, 0,
+      studentId, 120, 2, 'Grade 10', 'EduWow High', 2, 5,
+      student2Id, 40, 1, 'Grade 11', 'EduWow High', 0, 0,
     ]
   );
 
@@ -443,7 +477,7 @@ async function run() {
 
   await connection.execute(
     `INSERT INTO notifications (user_id, title, message, type, link) VALUES
-     (?, 'Welcome to EduQuest', 'Explore Disaster Preparedness, Cyberbullying Awareness, and Bullying Prevention.', 'system', '/student/dashboard'),
+     (?, 'Welcome to EduWow', 'Explore Disaster Preparedness, Cyberbullying Awareness, and Bullying Prevention.', 'system', '/student/dashboard'),
      (?, 'Welcome Teacher', 'Your three safety and citizenship modules are ready. Use AI tools to expand them.', 'system', '/teacher/dashboard')`,
     [studentId, teacherId]
   );

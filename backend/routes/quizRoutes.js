@@ -5,16 +5,22 @@ import { validate } from '../middleware/validateMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
 import {
   createQuizValidation,
+  updateQuizValidation,
   generateQuizValidation,
   submitQuizValidation,
   attachQuestionImageValidation,
+  questionBodyValidation,
+  replaceQuestionsValidation,
+  reorderQuestionsValidation,
 } from '../validations/quizValidation.js';
+import { aiRateLimiter } from '../middleware/rateLimitMiddleware.js';
 
 const router = Router();
 
 router.use(authenticate);
 
 router.get('/attempts/mine', authorize('student'), QuizController.myAttempts);
+router.get('/mine', authorize('teacher', 'administrator'), QuizController.listMine);
 router.post(
   '/',
   authorize('teacher', 'administrator'),
@@ -25,11 +31,12 @@ router.post(
 router.post(
   '/generate',
   authorize('teacher', 'administrator'),
+  aiRateLimiter,
   generateQuizValidation,
   validate,
   QuizController.generate
 );
-router.post('/hints', authorize('student'), QuizController.hint);
+router.post('/hints', authorize('student'), aiRateLimiter, QuizController.hint);
 router.post(
   '/questions/:questionId/image',
   authorize('teacher', 'administrator'),
@@ -38,10 +45,51 @@ router.post(
   validate,
   QuizController.attachImage
 );
+router.get('/:id/preview', authorize('teacher', 'administrator'), QuizController.preview);
 router.get('/:id', QuizController.getById);
-router.put('/:id', authorize('teacher', 'administrator'), QuizController.update);
+router.put(
+  '/:id',
+  authorize('teacher', 'administrator'),
+  updateQuizValidation,
+  validate,
+  QuizController.update
+);
+router.post('/:id/publish', authorize('teacher', 'administrator'), QuizController.publish);
+router.post('/:id/unpublish', authorize('teacher', 'administrator'), QuizController.unpublish);
 router.delete('/:id', authorize('teacher', 'administrator'), QuizController.remove);
-router.post('/:id/questions', authorize('teacher', 'administrator'), QuizController.addQuestion);
+router.put(
+  '/:id/questions',
+  authorize('teacher', 'administrator'),
+  replaceQuestionsValidation,
+  validate,
+  QuizController.replaceQuestions
+);
+router.put(
+  '/:id/questions/reorder',
+  authorize('teacher', 'administrator'),
+  reorderQuestionsValidation,
+  validate,
+  QuizController.reorderQuestions
+);
+router.post(
+  '/:id/questions',
+  authorize('teacher', 'administrator'),
+  questionBodyValidation,
+  validate,
+  QuizController.addQuestion
+);
+router.put(
+  '/:id/questions/:questionId',
+  authorize('teacher', 'administrator'),
+  questionBodyValidation,
+  validate,
+  QuizController.updateQuestion
+);
+router.delete(
+  '/:id/questions/:questionId',
+  authorize('teacher', 'administrator'),
+  QuizController.deleteQuestion
+);
 router.post('/:id/start', authorize('student'), QuizController.start);
 router.post(
   '/attempts/:attemptId/submit',

@@ -4,9 +4,9 @@ const LessonModel = {
   async create(data) {
     const result = await query(
       `INSERT INTO lessons
-       (course_id, title, content, summary, learning_objectives, order_index, xp_reward, estimated_minutes, is_published)
+       (course_id, title, content, summary, learning_objectives, order_index, xp_reward, estimated_minutes, is_published, created_by, updated_by)
        VALUES
-       (:courseId, :title, :content, :summary, :learningObjectives, :orderIndex, :xpReward, :estimatedMinutes, :isPublished)`,
+       (:courseId, :title, :content, :summary, :learningObjectives, :orderIndex, :xpReward, :estimatedMinutes, :isPublished, :createdBy, :updatedBy)`,
       {
         courseId: data.courseId,
         title: data.title,
@@ -17,6 +17,8 @@ const LessonModel = {
         xpReward: data.xpReward || 25,
         estimatedMinutes: data.estimatedMinutes || null,
         isPublished: data.isPublished === false ? 0 : 1,
+        createdBy: data.createdBy || null,
+        updatedBy: data.updatedBy || data.createdBy || null,
       }
     );
     return this.findById(result.insertId);
@@ -34,10 +36,11 @@ const LessonModel = {
     return rows[0] || null;
   },
 
-  async findByCourse(courseId) {
+  async findByCourse(courseId, { publishedOnly = false } = {}) {
+    const publishedFilter = publishedOnly ? 'AND is_published = 1' : '';
     return query(
       `SELECT * FROM lessons
-       WHERE course_id = :courseId
+       WHERE course_id = :courseId ${publishedFilter}
        ORDER BY order_index ASC, id ASC`,
       { courseId }
     );
@@ -53,6 +56,7 @@ const LessonModel = {
       xpReward: 'xp_reward',
       estimatedMinutes: 'estimated_minutes',
       isPublished: 'is_published',
+      updatedBy: 'updated_by',
     };
 
     const sets = [];
@@ -104,12 +108,14 @@ const LessonModel = {
   async getStudentProgressForCourse(courseId, studentId) {
     return query(
       `SELECT l.id, l.title, l.order_index, l.xp_reward,
+              l.created_at, l.updated_at, l.is_published,
               COALESCE(lp.status, 'not_started') AS status,
               lp.xp_earned, lp.completed_at
        FROM lessons l
        LEFT JOIN lesson_progress lp
          ON lp.lesson_id = l.id AND lp.student_id = :studentId
        WHERE l.course_id = :courseId
+         AND l.is_published = 1
        ORDER BY l.order_index ASC`,
       { courseId, studentId }
     );
@@ -121,7 +127,10 @@ const LessonModel = {
          (SELECT COUNT(*) FROM lessons WHERE course_id = :courseId AND is_published = 1) AS total,
          (SELECT COUNT(*) FROM lesson_progress lp
           INNER JOIN lessons l ON l.id = lp.lesson_id
-          WHERE l.course_id = :courseId AND lp.student_id = :studentId AND lp.status = 'completed') AS completed`,
+          WHERE l.course_id = :courseId
+            AND l.is_published = 1
+            AND lp.student_id = :studentId
+            AND lp.status = 'completed') AS completed`,
       { courseId, studentId }
     );
     return rows[0];

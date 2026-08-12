@@ -3,6 +3,8 @@ import ProtectedRoute from '../components/common/ProtectedRoute';
 import LandingPage from '../pages/LandingPage';
 import LoginPage from '../pages/auth/LoginPage';
 import RegisterPage from '../pages/auth/RegisterPage';
+import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from '../pages/auth/ResetPasswordPage';
 import StudentLayout from '../layouts/StudentLayout';
 import TeacherLayout from '../layouts/TeacherLayout';
 import AdminLayout from '../layouts/AdminLayout';
@@ -25,12 +27,13 @@ import TeacherAiQuizPage from '../pages/teacher/TeacherAiQuizPage';
 import TeacherAiGamePage from '../pages/teacher/TeacherAiGamePage';
 import TeacherAiContentPage from '../pages/teacher/TeacherAiContentPage';
 import TeacherAwardsPage from '../pages/teacher/TeacherAwardsPage';
+import TeacherQuizzesPage from '../pages/teacher/TeacherQuizzesPage';
+import TeacherQuizEditorPage from '../pages/teacher/TeacherQuizEditorPage';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
 import AdminCoursesPage from '../pages/admin/AdminCoursesPage';
 import AdminLeaderboardPage from '../pages/admin/AdminLeaderboardPage';
 import AdminCertificatesPage from '../pages/admin/AdminCertificatesPage';
-import AdminAnalyticsPage from '../pages/admin/AdminAnalyticsPage';
 import AdminBadgesPage from '../pages/admin/AdminBadgesPage';
 import StudentProfilePage from '../pages/student/StudentProfilePage';
 import { useAuth } from '../contexts/AuthContext';
@@ -53,6 +56,8 @@ export default function AppRoutes() {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route element={<ProtectedRoute roles={['student']} />}>
         <Route path="/student" element={<StudentLayout />}>
@@ -77,6 +82,9 @@ export default function AppRoutes() {
           <Route path="dashboard" element={<TeacherDashboard />} />
           <Route path="courses" element={<TeacherCoursesPage />} />
           <Route path="courses/:courseId" element={<TeacherCourseDetailPage />} />
+          <Route path="quizzes" element={<TeacherQuizzesPage />} />
+          <Route path="quizzes/new" element={<TeacherQuizEditorPage />} />
+          <Route path="quizzes/:quizId/edit" element={<TeacherQuizEditorPage />} />
           <Route path="ai-content" element={<TeacherAiContentPage />} />
           <Route path="ai-quiz" element={<TeacherAiQuizPage />} />
           <Route path="ai-game" element={<TeacherAiGamePage />} />
@@ -92,7 +100,6 @@ export default function AppRoutes() {
           <Route path="leaderboard" element={<AdminLeaderboardPage />} />
           <Route path="certificates" element={<AdminCertificatesPage />} />
           <Route path="badges" element={<AdminBadgesPage />} />
-          <Route path="analytics" element={<AdminAnalyticsPage />} />
         </Route>
       </Route>
 

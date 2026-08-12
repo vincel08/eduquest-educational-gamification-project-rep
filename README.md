@@ -52,37 +52,6 @@ Thesis focus: improving student engagement through XP, levels, badges, medals, c
 
 ---
 
-## Project Structure
-
-```text
-eduquest-educational-gamification-project-rep/
-├── backend/
-│   ├── config/
-│   ├── controllers/
-│   ├── database/
-│   ├── middleware/
-│   ├── models/
-│   ├── routes/
-│   ├── services/
-│   ├── uploads/
-│   ├── utils/
-│   ├── validations/
-│   └── server.js
-└── frontend/
-    └── src/
-        ├── components/
-        ├── contexts/
-        ├── hooks/
-        ├── layouts/
-        ├── pages/
-        ├── routes/
-        ├── services/
-        ├── styles/
-        └── utils/
-```
-
----
-
 ## Prerequisites
 
 - Node.js 20+
@@ -129,6 +98,21 @@ cd backend
 npm install
 npm run seed
 ```
+
+Reset all teaching/learning data while **keeping user accounts** (for clean testing):
+
+```bash
+cd backend
+npm run db:reset-demo
+```
+
+Or run the SQL directly:
+
+```bash
+mysql -u root -p eduquest < backend/database/reset_demo_data.sql
+```
+
+This clears courses, lessons, quizzes, games, progress, XP history, badges, certificates, AI drafts, enrollments, and uploads. It does **not** touch the `users` table (emails, passwords, roles). Student profiles are kept but XP/level/streaks are reset to zero.
 
 ### 2. Backend
 

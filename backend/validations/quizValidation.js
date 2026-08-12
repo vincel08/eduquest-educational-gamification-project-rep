@@ -11,9 +11,24 @@ const QUESTION_TYPES = [
 export const createQuizValidation = [
   body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
   body('title').trim().notEmpty().withMessage('Title is required'),
-  body('description').optional().isString(),
+  body('description').optional({ nullable: true }).isString(),
+  body('lessonId').optional({ nullable: true }).isInt({ min: 1 }),
   body('passingScore').optional().isInt({ min: 1, max: 100 }),
   body('xpReward').optional().isInt({ min: 1 }),
+  body('timeLimitMinutes').optional({ nullable: true }).isInt({ min: 1 }),
+  body('isPublished').optional().isBoolean(),
+  body('questions').optional().isArray(),
+];
+
+export const updateQuizValidation = [
+  param('id').isInt({ min: 1 }),
+  body('title').optional().trim().notEmpty().withMessage('Title cannot be empty'),
+  body('description').optional({ nullable: true }).isString(),
+  body('lessonId').optional({ nullable: true }).isInt({ min: 1 }),
+  body('passingScore').optional().isInt({ min: 1, max: 100 }),
+  body('xpReward').optional().isInt({ min: 1 }),
+  body('timeLimitMinutes').optional({ nullable: true }).isInt({ min: 1 }),
+  body('isPublished').optional().isBoolean(),
   body('questions').optional().isArray(),
 ];
 
@@ -21,8 +36,32 @@ export const generateQuizValidation = [
   body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
   body('topic').trim().notEmpty().withMessage('Topic is required'),
   body('difficulty').optional().isIn(['easy', 'medium', 'hard']),
-  body('questionCount').optional().isInt({ min: 3, max: 15 }),
+  body('questionCount')
+    .optional()
+    .isInt({ min: 3, max: 50 })
+    .withMessage('Question count is invalid'),
   body('questionType').optional().isIn(QUESTION_TYPES),
+];
+
+export const questionBodyValidation = [
+  body('questionText').optional().trim().notEmpty().withMessage('Question text is required'),
+  body('questionType').optional().isIn(QUESTION_TYPES),
+  body('points').optional().isInt({ min: 1 }),
+  body('options').optional().isArray(),
+  body('pairs').optional().isArray(),
+  body('textAnswer').optional({ nullable: true }).isString(),
+  body('acceptedAnswers').optional().isArray(),
+];
+
+export const replaceQuestionsValidation = [
+  param('id').isInt({ min: 1 }),
+  body('questions').isArray().withMessage('questions must be an array'),
+];
+
+export const reorderQuestionsValidation = [
+  param('id').isInt({ min: 1 }),
+  body('orderedIds').isArray({ min: 1 }).withMessage('orderedIds is required'),
+  body('orderedIds.*').isInt({ min: 1 }),
 ];
 
 export const submitQuizValidation = [

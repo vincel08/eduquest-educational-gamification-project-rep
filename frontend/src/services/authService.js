@@ -7,11 +7,27 @@ const authService = {
   login(payload) {
     return api.post('/auth/login', payload);
   },
+  forgotPassword(payload) {
+    return api.post('/auth/forgot-password', payload);
+  },
+  resetPassword(payload) {
+    return api.post('/auth/reset-password', payload);
+  },
   me() {
     return api.get('/auth/me');
   },
   updateProfile(payload) {
     return api.put('/auth/profile', payload);
+  },
+  uploadAvatar(file) {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    return api.post('/auth/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  removeAvatar() {
+    return api.delete('/auth/avatar');
   },
 };
 

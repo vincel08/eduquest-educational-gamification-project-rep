@@ -8,6 +8,7 @@ export default function PuzzleChallenge({ gameData, onComplete, xpReward = 50 })
   const [index, setIndex] = useState(0);
   const [draft, setDraft] = useState('');
   const [score, setScore] = useState(0);
+  const [responses, setResponses] = useState([]);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
 
   if (!items.length) {
@@ -33,10 +34,12 @@ export default function PuzzleChallenge({ gameData, onComplete, xpReward = 50 })
       score: nextScore,
       progress: (index + 1) / items.length,
       onNext: () => {
+        const nextResponses = [...responses, draft];
+        setResponses(nextResponses);
         setScore(nextScore);
         setDraft('');
         if (index + 1 >= items.length) {
-          onComplete?.(nextScore);
+          onComplete?.({ score: nextScore, answers: { responses: nextResponses } });
           return;
         }
         setIndex((prev) => prev + 1);

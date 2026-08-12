@@ -8,6 +8,7 @@ export default function EscapeRoom({ gameData, onComplete, xpReward = 50 }) {
   const [index, setIndex] = useState(0);
   const [draft, setDraft] = useState('');
   const [score, setScore] = useState(0);
+  const [responses, setResponses] = useState([]);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
 
   if (!stages.length) {
@@ -33,12 +34,14 @@ export default function EscapeRoom({ gameData, onComplete, xpReward = 50 }) {
       score: nextScore,
       progress: (index + 1) / stages.length,
       onNext: () => {
+        const nextResponses = [...responses, draft];
+        setResponses(nextResponses);
         if (!isCorrect) {
-          onComplete?.(score);
+          onComplete?.({ score, answers: { responses: nextResponses } });
           return;
         }
         if (index + 1 >= stages.length) {
-          onComplete?.(nextScore);
+          onComplete?.({ score: nextScore, answers: { responses: nextResponses } });
           return;
         }
         setScore(nextScore);

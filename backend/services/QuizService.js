@@ -4,8 +4,33 @@ import GamificationService from './GamificationService.js';
 import GamificationModel from '../models/GamificationModel.js';
 import AiService from './AiService.js';
 import AppError from '../utils/AppError.js';
+import {
+  questionImageApiPath,
+  safeUnlinkUpload,
+} from '../utils/uploadPaths.js';
+import { assertQuestionCount } from '../utils/aiLimits.js';
+
+function withSecureQuestionImage(question) {
+  if (!question) return question;
+  if (!question.image_url) return question;
+  return {
+    ...question,
+    image_url: questionImageApiPath(question.id),
+  };
+}
+
+function withSecureQuestionImages(questions) {
+  return (questions || []).map(withSecureQuestionImage);
+}
 
 const SELECT_OPTION_TYPES = new Set(['multiple_choice', 'true_false', 'image_question']);
+const SUPPORTED_QUESTION_TYPES = new Set([
+  'multiple_choice',
+  'true_false',
+  'identification',
+  'matching',
+  'image_question',
+]);
 
 async function assertTeacherOwnsQuiz(quizId, user) {
   const quiz = await QuizModel.findById(quizId);
@@ -22,9 +47,93 @@ function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function optionText(option) {
+  return String(option.optionText ?? option.option_text ?? option.text ?? '').trim();
+}
+
+function isOptionCorrect(option) {
+  return Boolean(option.isCorrect || option.is_correct);
+}
+
+/**
+ * Normalize teacher/AI question payloads into the persistable shape used by QuizModel.
+ * Accepts convenience fields: textAnswer, acceptedAnswers, pairs, correctAnswer.
+ */
+function normalizeQuestionInput(question, orderIndex = 1) {
+  const type = question.questionType || question.question_type || 'multiple_choice';
+  const rawImageUrl = question.imageUrl ?? question.image_url ?? null;
+  const imageUrl = rawImageUrl && !String(rawImageUrl).startsWith('/api/')
+    ? rawImageUrl
+    : null;
+
+  const normalized = {
+    id: question.id || null,
+    questionText: String(question.questionText ?? question.question_text ?? '').trim(),
+    questionType: type,
+    points: Number(question.points) > 0 ? Number(question.points) : 1,
+    explanation: question.explanation ?? null,
+    orderIndex: question.orderIndex || question.order_index || orderIndex,
+    imageUrl,
+    options: Array.isArray(question.options) ? [...question.options] : [],
+  };
+
+  if (type === 'identification') {
+    if ((!normalized.options.length) && question.textAnswer) {
+      normalized.options = [{ optionText: String(question.textAnswer).trim(), isCorrect: true }];
+    }
+    if (Array.isArray(question.acceptedAnswers) && question.acceptedAnswers.length) {
+      normalized.options = question.acceptedAnswers
+        .map((answer) => String(answer || '').trim())
+        .filter(Boolean)
+        .map((answer) => ({ optionText: answer, isCorrect: true }));
+    }
+  }
+
+  if (type === 'matching' && Array.isArray(question.pairs) && question.pairs.length) {
+    normalized.options = [];
+    question.pairs.forEach((pair, index) => {
+      const key = String(pair.matchKey || pair.match_key || `p${index + 1}`);
+      normalized.options.push({
+        optionText: String(pair.left || '').trim(),
+        side: 'left',
+        matchKey: key,
+        isCorrect: false,
+      });
+      normalized.options.push({
+        optionText: String(pair.right || '').trim(),
+        side: 'right',
+        matchKey: key,
+        isCorrect: false,
+      });
+    });
+  }
+
+  if (type === 'true_false' && normalized.options.length !== 2) {
+    const raw = question.correctAnswer ?? question.correct_answer;
+    const correctIsTrue = raw === true
+      || String(raw).toLowerCase() === 'true'
+      || String(raw).toLowerCase() === 't';
+    normalized.options = [
+      { optionText: 'True', isCorrect: correctIsTrue },
+      { optionText: 'False', isCorrect: !correctIsTrue },
+    ];
+  }
+
+  return normalized;
+}
+
 function validateQuestionPayload(question) {
-  const type = question.questionType || 'multiple_choice';
+  const type = question.questionType || question.question_type || 'multiple_choice';
+  const questionText = String(question.questionText ?? question.question_text ?? '').trim();
   const options = Array.isArray(question.options) ? question.options : [];
+
+  if (!SUPPORTED_QUESTION_TYPES.has(type)) {
+    throw new AppError(`Unsupported question type: ${type}`, 400);
+  }
+
+  if (!questionText) {
+    throw new AppError('Question text is required', 400);
+  }
 
   if (SELECT_OPTION_TYPES.has(type)) {
     if (options.length < 2) {
@@ -33,7 +142,10 @@ function validateQuestionPayload(question) {
     if (type === 'true_false' && options.length !== 2) {
       throw new AppError('True/False questions must have exactly two options', 400);
     }
-    const correctCount = options.filter((option) => option.isCorrect).length;
+    if (options.some((option) => !optionText(option))) {
+      throw new AppError('Options cannot be empty', 400);
+    }
+    const correctCount = options.filter((option) => isOptionCorrect(option)).length;
     if (correctCount !== 1) {
       throw new AppError('Exactly one option must be marked correct', 400);
     }
@@ -44,6 +156,9 @@ function validateQuestionPayload(question) {
     if (!options.length) {
       throw new AppError('Identification questions need at least one accepted answer', 400);
     }
+    if (options.some((option) => !optionText(option))) {
+      throw new AppError('Accepted answers cannot be empty', 400);
+    }
     return;
   }
 
@@ -51,21 +166,68 @@ function validateQuestionPayload(question) {
     if (options.length < 4 || options.length % 2 !== 0) {
       throw new AppError('Matching questions need an even number of options (at least 4)', 400);
     }
-    const left = options.filter((option) => option.side === 'left');
-    const right = options.filter((option) => option.side === 'right');
+    if (options.some((option) => !optionText(option))) {
+      throw new AppError('Matching pair text cannot be empty', 400);
+    }
+    const left = options.filter((option) => (option.side || 'none') === 'left');
+    const right = options.filter((option) => (option.side || 'none') === 'right');
     if (left.length !== right.length || left.length === 0) {
       throw new AppError('Matching questions need equal left and right options', 400);
     }
     for (const leftOption of left) {
-      if (!leftOption.matchKey) {
+      const key = leftOption.matchKey ?? leftOption.match_key;
+      if (!key) {
         throw new AppError('Matching options require matchKey values', 400);
       }
-      const pair = right.find((option) => option.matchKey === leftOption.matchKey);
+      const pair = right.find((option) => (option.matchKey ?? option.match_key) === key);
       if (!pair) {
-        throw new AppError(`No matching right option for key ${leftOption.matchKey}`, 400);
+        throw new AppError(`No matching right option for key ${key}`, 400);
       }
     }
   }
+}
+
+function storedQuestionToPayload(question) {
+  return {
+    questionText: question.question_text,
+    questionType: question.question_type,
+    points: question.points,
+    explanation: question.explanation,
+    orderIndex: question.order_index,
+    imageUrl: question.image_url,
+    options: (question.options || []).map((option) => ({
+      optionText: option.option_text,
+      isCorrect: Boolean(option.is_correct),
+      matchKey: option.match_key,
+      side: option.side,
+    })),
+  };
+}
+
+async function assertQuizPublishReady(quizId) {
+  const quiz = await QuizModel.findById(quizId);
+  if (!quiz) throw new AppError('Quiz not found', 404);
+
+  if (!String(quiz.title || '').trim()) {
+    throw new AppError('Quiz title is required before publishing', 400);
+  }
+  if (!quiz.course_id) {
+    throw new AppError('Quiz must be linked to a course before publishing', 400);
+  }
+
+  const questions = await QuizModel.getQuestions(quizId, { includeCorrect: true });
+  if (!questions.length) {
+    throw new AppError('Publish requires at least one question', 400);
+  }
+
+  for (const question of questions) {
+    validateQuestionPayload(storedQuestionToPayload(question));
+    if (question.question_type === 'image_question' && !question.image_url) {
+      throw new AppError('Image questions require an uploaded image before publishing', 400);
+    }
+  }
+
+  return { quiz, questions };
 }
 
 function scoreQuestion(question, answer) {
@@ -141,23 +303,30 @@ const QuizService = {
       throw new AppError('Access denied', 403);
     }
 
-    const quiz = await QuizModel.create({
+    // Always create as draft first; publish only after questions validate.
+    let quiz = await QuizModel.create({
       ...data,
+      isPublished: false,
+      isAiGenerated: Boolean(data.isAiGenerated),
       createdBy: user.id,
     });
 
     if (Array.isArray(data.questions)) {
       for (let i = 0; i < data.questions.length; i += 1) {
-        const question = data.questions[i];
+        const question = normalizeQuestionInput(data.questions[i], i + 1);
         validateQuestionPayload(question);
-        await QuizModel.addQuestion(quiz.id, {
-          ...question,
-          orderIndex: question.orderIndex || i + 1,
-        });
+        await QuizModel.addQuestion(quiz.id, question);
       }
     }
 
-    const questions = await QuizModel.getQuestions(quiz.id, { includeCorrect: true });
+    if (data.isPublished) {
+      await assertQuizPublishReady(quiz.id);
+      quiz = await QuizModel.update(quiz.id, { isPublished: true, updatedBy: user.id });
+    }
+
+    const questions = withSecureQuestionImages(
+      await QuizModel.getQuestions(quiz.id, { includeCorrect: true })
+    );
     return { ...quiz, questions };
   },
 
@@ -169,10 +338,12 @@ const QuizService = {
       throw new AppError('Access denied', 403);
     }
 
+    const questionCount = assertQuestionCount(payload.questionCount ?? 5);
+
     const generated = await AiService.generateQuiz({
       topic: payload.topic,
       difficulty: payload.difficulty,
-      questionCount: payload.questionCount,
+      questionCount,
       questionType: payload.questionType || 'multiple_choice',
       gradeLevel: payload.gradeLevel || course.grade_level || 'high school',
     });
@@ -204,12 +375,18 @@ const QuizService = {
     const quiz = await QuizModel.findById(id);
     if (!quiz) throw new AppError('Quiz not found', 404);
 
-    const includeCorrect = user.role !== 'student';
     if (user.role === 'student' && !quiz.is_published) {
       throw new AppError('Quiz is not available', 403);
     }
 
-    const questions = await QuizModel.getQuestions(id, { includeCorrect });
+    if (user.role === 'teacher' && quiz.teacher_id !== user.id) {
+      throw new AppError('Access denied', 403);
+    }
+
+    const includeCorrect = user.role !== 'student';
+    const questions = withSecureQuestionImages(
+      await QuizModel.getQuestions(id, { includeCorrect })
+    );
     return { ...quiz, questions };
   },
 
@@ -218,21 +395,197 @@ const QuizService = {
     return QuizModel.findByCourse(courseId, { publishedOnly });
   },
 
+  async listForTeacher(user) {
+    if (user.role !== 'teacher' && user.role !== 'administrator') {
+      throw new AppError('Access denied', 403);
+    }
+
+    const { courses: courseList } = await CourseModel.findAll({
+      teacherId: user.role === 'teacher' ? user.id : undefined,
+      limit: 200,
+      page: 1,
+    });
+
+    const quizzes = [];
+    for (const course of courseList) {
+      const courseQuizzes = await QuizModel.findByCourse(course.id, { publishedOnly: false });
+      for (const quiz of courseQuizzes) {
+        quizzes.push({
+          ...quiz,
+          course_title: course.title,
+          grade_level: course.grade_level,
+        });
+      }
+    }
+
+    quizzes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return quizzes;
+  },
+
   async updateQuiz(id, data, user) {
     await assertTeacherOwnsQuiz(id, user);
-    return QuizModel.update(id, data);
+
+    if (Array.isArray(data.questions)) {
+      await this.replaceQuestions(id, data.questions, user);
+    }
+
+    const meta = { ...data };
+    delete meta.questions;
+
+    if (meta.isPublished === true) {
+      await assertQuizPublishReady(id);
+    }
+
+    const quiz = await QuizModel.update(id, { ...meta, updatedBy: user.id });
+    const questions = withSecureQuestionImages(
+      await QuizModel.getQuestions(id, { includeCorrect: true })
+    );
+    return { ...quiz, questions };
+  },
+
+  async publishQuiz(id, user) {
+    await assertTeacherOwnsQuiz(id, user);
+    await assertQuizPublishReady(id);
+    const quiz = await QuizModel.update(id, { isPublished: true, updatedBy: user.id });
+    const questions = withSecureQuestionImages(
+      await QuizModel.getQuestions(id, { includeCorrect: true })
+    );
+    return { ...quiz, questions };
+  },
+
+  async unpublishQuiz(id, user) {
+    await assertTeacherOwnsQuiz(id, user);
+    const quiz = await QuizModel.update(id, { isPublished: false, updatedBy: user.id });
+    const questions = withSecureQuestionImages(
+      await QuizModel.getQuestions(id, { includeCorrect: true })
+    );
+    return { ...quiz, questions };
   },
 
   async deleteQuiz(id, user) {
     await assertTeacherOwnsQuiz(id, user);
+    const questions = await QuizModel.getQuestions(id, { includeCorrect: true });
+    for (const question of questions) {
+      if (question.image_url) {
+        safeUnlinkUpload(question.image_url);
+      }
+    }
     await QuizModel.delete(id);
     return true;
   },
 
   async addQuestion(quizId, question, user) {
     await assertTeacherOwnsQuiz(quizId, user);
-    validateQuestionPayload(question);
-    return QuizModel.addQuestion(quizId, question);
+    const existing = await QuizModel.getQuestions(quizId, { includeCorrect: true });
+    const normalized = normalizeQuestionInput(question, existing.length + 1);
+    validateQuestionPayload(normalized);
+    return withSecureQuestionImage(await QuizModel.addQuestion(quizId, normalized));
+  },
+
+  async updateQuestion(quizId, questionId, question, user) {
+    await assertTeacherOwnsQuiz(quizId, user);
+    const existing = await QuizModel.getQuestionWithOptions(questionId);
+    if (!existing || Number(existing.quiz_id) !== Number(quizId)) {
+      throw new AppError('Question not found', 404);
+    }
+
+    const normalized = normalizeQuestionInput(
+      {
+        ...question,
+        imageUrl: question.imageUrl ?? question.image_url ?? existing.image_url,
+        orderIndex: question.orderIndex || question.order_index || existing.order_index,
+      },
+      existing.order_index
+    );
+    validateQuestionPayload(normalized);
+    return withSecureQuestionImage(await QuizModel.updateQuestion(questionId, normalized));
+  },
+
+  async deleteQuestion(quizId, questionId, user) {
+    await assertTeacherOwnsQuiz(quizId, user);
+    const existing = await QuizModel.getQuestionWithOptions(questionId);
+    if (!existing || Number(existing.quiz_id) !== Number(quizId)) {
+      throw new AppError('Question not found', 404);
+    }
+    if (existing.image_url) {
+      safeUnlinkUpload(existing.image_url);
+    }
+    await QuizModel.deleteQuestion(questionId);
+    return true;
+  },
+
+  async replaceQuestions(quizId, questions, user) {
+    await assertTeacherOwnsQuiz(quizId, user);
+
+    if (!Array.isArray(questions)) {
+      throw new AppError('Questions must be an array', 400);
+    }
+
+    const existing = await QuizModel.getQuestions(quizId, { includeCorrect: true });
+    const existingById = new Map(existing.map((question) => [Number(question.id), question]));
+
+    const normalizedList = questions.map((question, index) => {
+      const normalized = normalizeQuestionInput(question, index + 1);
+      const prior = question.id ? existingById.get(Number(question.id)) : null;
+      if (
+        prior
+        && prior.question_type === 'image_question'
+        && !normalized.imageUrl
+        && prior.image_url
+      ) {
+        normalized.imageUrl = prior.image_url;
+      }
+      validateQuestionPayload(normalized);
+      return normalized;
+    });
+
+    for (const question of existing) {
+      if (question.image_url) {
+        const stillUsed = normalizedList.some(
+          (item) => item.imageUrl && item.imageUrl === question.image_url
+        );
+        if (!stillUsed) {
+          safeUnlinkUpload(question.image_url);
+        }
+      }
+    }
+
+    await QuizModel.deleteQuestionsByQuizId(quizId);
+
+    const created = [];
+    for (const question of normalizedList) {
+      created.push(await QuizModel.addQuestion(quizId, question));
+    }
+
+    return withSecureQuestionImages(created);
+  },
+
+  async reorderQuestions(quizId, orderedIds, user) {
+    await assertTeacherOwnsQuiz(quizId, user);
+    if (!Array.isArray(orderedIds) || !orderedIds.length) {
+      throw new AppError('orderedIds must be a non-empty array', 400);
+    }
+
+    const existing = await QuizModel.getQuestions(quizId, { includeCorrect: true });
+    const existingIds = new Set(existing.map((question) => Number(question.id)));
+    const ids = orderedIds.map((id) => Number(id));
+
+    if (ids.length !== existing.length || ids.some((id) => !existingIds.has(id))) {
+      throw new AppError('orderedIds must include every question exactly once', 400);
+    }
+
+    await QuizModel.reorderQuestions(quizId, ids);
+    return withSecureQuestionImages(
+      await QuizModel.getQuestions(quizId, { includeCorrect: true })
+    );
+  },
+
+  /** Teacher preview: full quiz with answers. Never starts attempts or awards XP. */
+  async previewQuiz(id, user) {
+    if (user.role === 'student') {
+      throw new AppError('Students cannot preview unpublished teacher drafts this way', 403);
+    }
+    return this.getQuizById(id, user);
   },
 
   async attachQuestionImage(questionId, imageUrl, user) {
@@ -245,7 +598,13 @@ const QuizService = {
       throw new AppError('Only image questions can receive an image upload', 400);
     }
 
-    return QuizModel.updateQuestionImage(questionId, imageUrl);
+    if (question.image_url && question.image_url !== imageUrl) {
+      safeUnlinkUpload(question.image_url);
+    }
+
+    return withSecureQuestionImage(
+      await QuizModel.updateQuestionImage(questionId, imageUrl)
+    );
   },
 
   async startAttempt(quizId, studentId) {
@@ -257,7 +616,9 @@ const QuizService = {
     const enrolled = await CourseModel.isEnrolled(quiz.course_id, studentId);
     if (!enrolled) throw new AppError('Enroll in the course first', 403);
 
-    const questions = await QuizModel.getQuestions(quizId, { includeCorrect: false });
+    const questions = withSecureQuestionImages(
+      await QuizModel.getQuestions(quizId, { includeCorrect: false })
+    );
     const attempt = await QuizModel.createAttempt({ quizId, studentId });
 
     return { attempt, quiz, questions };
@@ -302,7 +663,27 @@ const QuizService = {
 
     const score = totalPoints ? Number(((earnedPoints / totalPoints) * 100).toFixed(2)) : 0;
     const isPassed = score >= quiz.passing_score;
-    const xpEarned = isPassed ? quiz.xp_reward : Math.floor(quiz.xp_reward * 0.25);
+    const computedXp = isPassed ? quiz.xp_reward : Math.floor(quiz.xp_reward * 0.25);
+
+    // Base quiz XP is one-time per student+quiz (retries allowed, no XP farming).
+    let xpAward = null;
+    let xpEarned = 0;
+    let xpAlreadyAwarded = false;
+
+    if (computedXp > 0) {
+      const xpResult = await GamificationService.awardXpOnce({
+        studentId,
+        amount: computedXp,
+        sourceType: 'quiz',
+        sourceId: quiz.id,
+        description: `Quiz attempt: ${quiz.title}`,
+      });
+      xpAlreadyAwarded = Boolean(xpResult.alreadyAwarded);
+      if (!xpResult.alreadyAwarded) {
+        xpAward = xpResult.xpAward;
+        xpEarned = computedXp;
+      }
+    }
 
     const completed = await QuizModel.completeAttempt(attemptId, {
       score,
@@ -312,27 +693,28 @@ const QuizService = {
       isPassed: isPassed ? 1 : 0,
     });
 
-    let xpAward = null;
-    if (xpEarned > 0) {
-      xpAward = await GamificationService.awardXp({
-        studentId,
-        amount: xpEarned,
-        sourceType: 'quiz',
-        sourceId: quiz.id,
-        description: `Quiz attempt: ${quiz.title}`,
-      });
-    }
-
+    let perfectMedal = null;
+    let perfectMedalAwarded = false;
     if (perfect && totalPoints > 0) {
       const medals = await GamificationModel.findAllMedals({ activeOnly: true });
-      const perfectMedal = medals.find((medal) => medal.criteria_type === 'perfect_quiz');
-      if (perfectMedal) {
-        await GamificationService.awardMedalManually({
+      const medal = medals.find((item) => item.criteria_type === 'perfect_quiz');
+      if (medal) {
+        const awarded = await GamificationService.awardMedalManually({
           studentId,
-          medalId: perfectMedal.id,
+          medalId: medal.id,
           awardedBy: null,
         });
+        perfectMedal = awarded;
+        perfectMedalAwarded = Boolean(awarded?.isNew);
       }
+    }
+
+    let certificate = null;
+    if (isPassed) {
+      certificate = await GamificationService.autoIssueCourseCertificate({
+        courseId: quiz.course_id,
+        studentId,
+      });
     }
 
     return {
@@ -340,7 +722,12 @@ const QuizService = {
       score,
       isPassed,
       xpAward,
+      xpAlreadyAwarded,
+      computedXp,
       perfect,
+      perfectMedalAwarded,
+      perfectMedal,
+      certificate,
     };
   },
 

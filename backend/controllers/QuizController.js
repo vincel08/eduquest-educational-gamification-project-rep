@@ -20,6 +20,15 @@ const QuizController = {
     }
   },
 
+  async listMine(req, res, next) {
+    try {
+      const data = await QuizService.listForTeacher(req.user);
+      return successResponse(res, 'Quizzes retrieved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async listByCourse(req, res, next) {
     try {
       const data = await QuizService.listByCourse(Number(req.params.courseId), req.user);
@@ -38,10 +47,37 @@ const QuizController = {
     }
   },
 
+  async preview(req, res, next) {
+    try {
+      const data = await QuizService.previewQuiz(Number(req.params.id), req.user);
+      return successResponse(res, 'Quiz preview retrieved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async update(req, res, next) {
     try {
       const data = await QuizService.updateQuiz(Number(req.params.id), req.body, req.user);
       return successResponse(res, 'Quiz updated', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async publish(req, res, next) {
+    try {
+      const data = await QuizService.publishQuiz(Number(req.params.id), req.user);
+      return successResponse(res, 'Quiz published', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async unpublish(req, res, next) {
+    try {
+      const data = await QuizService.unpublishQuiz(Number(req.params.id), req.user);
+      return successResponse(res, 'Quiz unpublished', data);
     } catch (error) {
       return next(error);
     }
@@ -60,6 +96,59 @@ const QuizController = {
     try {
       const data = await QuizService.addQuestion(Number(req.params.id), req.body, req.user);
       return successResponse(res, 'Question added', data, 201);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async updateQuestion(req, res, next) {
+    try {
+      const data = await QuizService.updateQuestion(
+        Number(req.params.id),
+        Number(req.params.questionId),
+        req.body,
+        req.user
+      );
+      return successResponse(res, 'Question updated', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async deleteQuestion(req, res, next) {
+    try {
+      await QuizService.deleteQuestion(
+        Number(req.params.id),
+        Number(req.params.questionId),
+        req.user
+      );
+      return successResponse(res, 'Question deleted', {});
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async replaceQuestions(req, res, next) {
+    try {
+      const data = await QuizService.replaceQuestions(
+        Number(req.params.id),
+        req.body.questions,
+        req.user
+      );
+      return successResponse(res, 'Questions saved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async reorderQuestions(req, res, next) {
+    try {
+      const data = await QuizService.reorderQuestions(
+        Number(req.params.id),
+        req.body.orderedIds,
+        req.user
+      );
+      return successResponse(res, 'Questions reordered', data);
     } catch (error) {
       return next(error);
     }
@@ -112,7 +201,7 @@ const QuizController = {
         return errorResponse(res, 'Image file is required', 400);
       }
 
-      const imageUrl = `/uploads/${req.file.filename}`;
+      const imageUrl = `/uploads/${req.file.filename}`; // stored disk reference; API returns secured URL
       const data = await QuizService.attachQuestionImage(
         Number(req.params.questionId),
         imageUrl,

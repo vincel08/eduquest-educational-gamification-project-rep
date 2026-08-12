@@ -121,13 +121,27 @@ const GamificationModel = {
   },
 
   async awardMedal({ studentId, medalId, awardedBy = null }) {
-    await query(
-      `INSERT INTO student_medals (student_id, medal_id, awarded_by)
-       VALUES (:studentId, :medalId, :awardedBy)
-       ON DUPLICATE KEY UPDATE awarded_at = CURRENT_TIMESTAMP`,
-      { studentId, medalId, awardedBy }
-    );
-    return this.getStudentMedal(studentId, medalId);
+    const existing = await this.getStudentMedal(studentId, medalId);
+    if (existing) {
+      return { ...existing, isNew: false };
+    }
+
+    try {
+      await query(
+        `INSERT INTO student_medals (student_id, medal_id, awarded_by)
+         VALUES (:studentId, :medalId, :awardedBy)`,
+        { studentId, medalId, awardedBy }
+      );
+    } catch (error) {
+      if (error?.code === 'ER_DUP_ENTRY' || Number(error?.errno) === 1062) {
+        const current = await this.getStudentMedal(studentId, medalId);
+        return current ? { ...current, isNew: false } : null;
+      }
+      throw error;
+    }
+
+    const awarded = await this.getStudentMedal(studentId, medalId);
+    return awarded ? { ...awarded, isNew: true } : null;
   },
 
   async getStudentMedal(studentId, medalId) {
@@ -214,11 +228,27 @@ const GamificationModel = {
     return this.findCertificateById(id);
   },
 
-  async issueCertificate({ certificateId, studentId, certificateCode, issuedBy = null }) {
+  async issueCertificate({
+    certificateId,
+    studentId,
+    certificateCode,
+    issuedBy = null,
+    isOverride = false,
+    issueReason = null,
+  }) {
     const result = await query(
-      `INSERT INTO student_certificates (certificate_id, student_id, certificate_code, issued_by)
-       VALUES (:certificateId, :studentId, :certificateCode, :issuedBy)`,
-      { certificateId, studentId, certificateCode, issuedBy }
+      `INSERT INTO student_certificates
+       (certificate_id, student_id, certificate_code, issued_by, is_override, issue_reason)
+       VALUES
+       (:certificateId, :studentId, :certificateCode, :issuedBy, :isOverride, :issueReason)`,
+      {
+        certificateId,
+        studentId,
+        certificateCode,
+        issuedBy,
+        isOverride: isOverride ? 1 : 0,
+        issueReason: issueReason || null,
+      }
     );
 
     return this.findStudentCertificateById(result.insertId);
@@ -261,12 +291,62 @@ const GamificationModel = {
     return rows[0] || null;
   },
 
+  async findStudentCertificateByCourse(courseId, studentId) {
+    const rows = await query(
+      `SELECT sc.*, c.title, c.description, c.template_style, c.course_id,
+              u.first_name, u.last_name, co.title AS course_title
+       FROM student_certificates sc
+       INNER JOIN certificates c ON c.id = sc.certificate_id
+       INNER JOIN users u ON u.id = sc.student_id
+       LEFT JOIN courses co ON co.id = c.course_id
+       WHERE sc.student_id = :studentId
+         AND c.course_id = :courseId
+       ORDER BY sc.issued_at ASC
+       LIMIT 1`,
+      { courseId, studentId }
+    );
+    return rows[0] || null;
+  },
+
+  async findActiveCertificateTemplateByCourse(courseId) {
+    const rows = await query(
+      `SELECT c.*, co.title AS course_title
+       FROM certificates c
+       LEFT JOIN courses co ON co.id = c.course_id
+       WHERE c.course_id = :courseId
+         AND c.is_active = 1
+       ORDER BY c.id ASC
+       LIMIT 1`,
+      { courseId }
+    );
+    return rows[0] || null;
+  },
+
   async addXpTransaction({ studentId, amount, sourceType, sourceId = null, description }) {
     await query(
       `INSERT INTO xp_transactions (student_id, amount, source_type, source_id, description)
        VALUES (:studentId, :amount, :sourceType, :sourceId, :description)`,
       { studentId, amount, sourceType, sourceId, description }
     );
+  },
+
+  async findXpTransaction(studentId, sourceType, sourceId) {
+    if (sourceId == null) return null;
+    const rows = await query(
+      `SELECT * FROM xp_transactions
+       WHERE student_id = :studentId
+         AND source_type = :sourceType
+         AND source_id = :sourceId
+       ORDER BY id ASC
+       LIMIT 1`,
+      { studentId, sourceType, sourceId }
+    );
+    return rows[0] || null;
+  },
+
+  async hasXpTransaction(studentId, sourceType, sourceId) {
+    const existing = await this.findXpTransaction(studentId, sourceType, sourceId);
+    return Boolean(existing);
   },
 
   async getXpHistory(studentId, limit = 20) {

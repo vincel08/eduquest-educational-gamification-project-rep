@@ -15,6 +15,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Typography,
 } from '@mui/material';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
@@ -29,15 +30,24 @@ export default function AdminCertificatesPage() {
   const [students, setStudents] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     title: '',
     description: '',
     courseId: '',
     templateStyle: 'classic',
   });
+  const [createError, setCreateError] = useState('');
+  const [assignForm, setAssignForm] = useState({
+    certificateId: '',
+    courseId: '',
+  });
+  const [assignError, setAssignError] = useState('');
   const [issueForm, setIssueForm] = useState({
     certificateId: '',
     studentId: '',
+    forceOverride: false,
+    overrideReason: '',
   });
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -65,17 +75,66 @@ export default function AdminCertificatesPage() {
     load();
   }, []);
 
+  function openCreate() {
+    setCreateError('');
+    setCreateForm({
+      title: '',
+      description: '',
+      courseId: '',
+      templateStyle: 'classic',
+    });
+    setCreateOpen(true);
+  }
+
   async function handleCreate() {
+    setCreateError('');
+    if (!createForm.title.trim()) {
+      setCreateError('Title is required.');
+      return;
+    }
+    if (!createForm.courseId) {
+      setCreateError('Please select a course for this certificate template.');
+      return;
+    }
+
     try {
       await gamificationService.createCertificate({
         ...createForm,
-        courseId: createForm.courseId ? Number(createForm.courseId) : null,
+        courseId: Number(createForm.courseId),
       });
       setCreateOpen(false);
       setMessage('Certificate template created');
       await load();
     } catch (err) {
-      setError(getErrorMessage(err));
+      setCreateError(getErrorMessage(err));
+    }
+  }
+
+  function openAssign(certificate) {
+    setAssignError('');
+    setAssignForm({
+      certificateId: certificate.id,
+      courseId: certificate.course_id || '',
+    });
+    setAssignOpen(true);
+  }
+
+  async function handleAssign() {
+    setAssignError('');
+    if (!assignForm.courseId) {
+      setAssignError('Please select a course for this certificate template.');
+      return;
+    }
+
+    try {
+      await gamificationService.updateCertificate(assignForm.certificateId, {
+        courseId: Number(assignForm.courseId),
+      });
+      setAssignOpen(false);
+      setMessage('Certificate template linked to course');
+      await load();
+    } catch (err) {
+      setAssignError(getErrorMessage(err));
     }
   }
 
@@ -84,8 +143,16 @@ export default function AdminCertificatesPage() {
       await gamificationService.issueCertificate({
         certificateId: Number(issueForm.certificateId),
         studentId: Number(issueForm.studentId),
+        forceOverride: Boolean(issueForm.forceOverride),
+        overrideReason: issueForm.overrideReason || undefined,
       });
       setIssueOpen(false);
+      setIssueForm({
+        certificateId: '',
+        studentId: '',
+        forceOverride: false,
+        overrideReason: '',
+      });
       setMessage('Certificate issued to student');
     } catch (err) {
       setError(getErrorMessage(err));
@@ -94,15 +161,17 @@ export default function AdminCertificatesPage() {
 
   if (loading) return <LoadingScreen />;
 
+  const issueableCertificates = certificates.filter((certificate) => certificate.course_id);
+
   return (
     <>
       <PageHeader
         title="Certificate Management"
-        subtitle="Create certificate templates and issue them to students."
+        subtitle="Create course-linked certificate templates and issue them to students."
         action={(
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" onClick={() => setIssueOpen(true)}>Issue</Button>
-            <Button variant="contained" onClick={() => setCreateOpen(true)}>New Template</Button>
+            <Button variant="contained" onClick={openCreate}>New Template</Button>
           </Stack>
         )}
       />
@@ -117,17 +186,34 @@ export default function AdminCertificatesPage() {
               <TableCell>Course</TableCell>
               <TableCell>Template</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {certificates.map((certificate) => (
-              <TableRow key={certificate.id}>
-                <TableCell>{certificate.title}</TableCell>
-                <TableCell>{certificate.course_title || '—'}</TableCell>
-                <TableCell>{certificate.template_style}</TableCell>
-                <TableCell>{certificate.is_active ? 'Active' : 'Inactive'}</TableCell>
-              </TableRow>
-            ))}
+            {certificates.map((certificate) => {
+              const unassigned = !certificate.course_id;
+              return (
+                <TableRow key={certificate.id}>
+                  <TableCell>{certificate.title}</TableCell>
+                  <TableCell>
+                    {unassigned ? (
+                      <Typography color="warning.main" fontWeight={700}>Unassigned</Typography>
+                    ) : (
+                      certificate.course_title || `Course #${certificate.course_id}`
+                    )}
+                  </TableCell>
+                  <TableCell>{certificate.template_style}</TableCell>
+                  <TableCell>{certificate.is_active ? 'Active' : 'Inactive'}</TableCell>
+                  <TableCell align="right">
+                    {unassigned ? (
+                      <Button size="small" onClick={() => openAssign(certificate)}>
+                        Link Course
+                      </Button>
+                    ) : null}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </Paper>
@@ -136,10 +222,32 @@ export default function AdminCertificatesPage() {
         <DialogTitle>Create Certificate Template</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Title" value={createForm.title} onChange={(e) => setCreateForm((p) => ({ ...p, title: e.target.value }))} />
-            <TextField label="Description" multiline minRows={3} value={createForm.description} onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))} />
-            <TextField select label="Course" value={createForm.courseId} onChange={(e) => setCreateForm((p) => ({ ...p, courseId: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
+            {createError ? <Alert severity="error">{createError}</Alert> : null}
+            <TextField
+              label="Title"
+              required
+              value={createForm.title}
+              onChange={(e) => setCreateForm((p) => ({ ...p, title: e.target.value }))}
+            />
+            <TextField
+              label="Description"
+              multiline
+              minRows={3}
+              value={createForm.description}
+              onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))}
+            />
+            <TextField
+              select
+              required
+              label="Course"
+              value={createForm.courseId}
+              onChange={(e) => setCreateForm((p) => ({ ...p, courseId: e.target.value }))}
+              error={!createForm.courseId && Boolean(createError)}
+              helperText="Course is required for course completion certificates."
+            >
+              <MenuItem value="" disabled>
+                Select a course
+              </MenuItem>
               {courses.map((course) => (
                 <MenuItem key={course.id} value={course.id}>{course.title}</MenuItem>
               ))}
@@ -152,13 +260,53 @@ export default function AdminCertificatesPage() {
         </DialogActions>
       </Dialog>
 
+      <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Link Certificate Template to Course</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {assignError ? <Alert severity="error">{assignError}</Alert> : null}
+            <Typography variant="body2" color="text.secondary">
+              This template is currently unassigned and cannot be issued until a course is selected.
+            </Typography>
+            <TextField
+              select
+              required
+              label="Course"
+              value={assignForm.courseId}
+              onChange={(e) => setAssignForm((p) => ({ ...p, courseId: e.target.value }))}
+              helperText="Please select a course for this certificate template."
+            >
+              <MenuItem value="" disabled>
+                Select a course
+              </MenuItem>
+              {courses.map((course) => (
+                <MenuItem key={course.id} value={course.id}>{course.title}</MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAssignOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleAssign}>Save</Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={issueOpen} onClose={() => setIssueOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Issue Certificate</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField select label="Certificate" value={issueForm.certificateId} onChange={(e) => setIssueForm((p) => ({ ...p, certificateId: e.target.value }))}>
-              {certificates.map((certificate) => (
-                <MenuItem key={certificate.id} value={certificate.id}>{certificate.title}</MenuItem>
+            <TextField
+              select
+              label="Certificate"
+              value={issueForm.certificateId}
+              onChange={(e) => setIssueForm((p) => ({ ...p, certificateId: e.target.value }))}
+              helperText="Only course-linked templates can be issued."
+            >
+              {issueableCertificates.map((certificate) => (
+                <MenuItem key={certificate.id} value={certificate.id}>
+                  {certificate.title}
+                  {certificate.course_title ? ` (${certificate.course_title})` : ''}
+                </MenuItem>
               ))}
             </TextField>
             <TextField select label="Student" value={issueForm.studentId} onChange={(e) => setIssueForm((p) => ({ ...p, studentId: e.target.value }))}>
@@ -168,6 +316,30 @@ export default function AdminCertificatesPage() {
                 </MenuItem>
               ))}
             </TextField>
+            <TextField
+              select
+              label="Eligibility mode"
+              value={issueForm.forceOverride ? 'override' : 'strict'}
+              onChange={(e) => setIssueForm((p) => ({
+                ...p,
+                forceOverride: e.target.value === 'override',
+              }))}
+              helperText="Strict mode requires enrollment, all published lessons, and all published quizzes passed."
+            >
+              <MenuItem value="strict">Require eligibility</MenuItem>
+              <MenuItem value="override">Admin override</MenuItem>
+            </TextField>
+            {issueForm.forceOverride ? (
+              <TextField
+                label="Override reason"
+                required
+                multiline
+                minRows={2}
+                value={issueForm.overrideReason}
+                onChange={(e) => setIssueForm((p) => ({ ...p, overrideReason: e.target.value }))}
+                helperText="Required for administrative override (min 5 characters)."
+              />
+            ) : null}
           </Stack>
         </DialogContent>
         <DialogActions>

@@ -45,7 +45,7 @@ export default function StudentCertificateViewPage() {
 
   return (
     <>
-      <PageHeader title="Certificate" subtitle="Official EduQuest achievement record" />
+      <PageHeader title="Certificate" subtitle="Official EduWow achievement record" />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
       <Button variant="contained" sx={{ mb: 2 }} onClick={handleDownload} disabled={downloading}>
@@ -53,7 +53,7 @@ export default function StudentCertificateViewPage() {
       </Button>
 
       <div className="certificate-sheet">
-        <Typography variant="overline">EduQuest Certificate of Achievement</Typography>
+        <Typography variant="overline">EduWow Certificate of Achievement</Typography>
         <Typography variant="h3" sx={{ my: 2 }}>
           {certificate.title}
         </Typography>

@@ -5,12 +5,15 @@ import {
   Button,
   Card,
   CardContent,
+  IconButton,
+  InputAdornment,
   Link,
-  MenuItem,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,10 +32,11 @@ export default function RegisterPage() {
     lastName: '',
     email: '',
     password: '',
-    role: 'student',
+    role: 'student', // Public registration is student-only.
     gradeLevel: 'Grade 10',
     schoolName: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -72,8 +76,8 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const user = await register(form);
-      navigate(user.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard');
+      await register({ ...form, role: 'student' });
+      navigate('/student/dashboard');
     } catch (err) {
       const message = getErrorMessage(err, 'Unable to register');
       setError(message);
@@ -99,7 +103,7 @@ export default function RegisterPage() {
         <Card sx={{ width: '100%' }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h4" color="primary" gutterBottom>
-              Join EduQuest
+              Join EduWow
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 3 }}>
               Create your account and start earning XP.
@@ -139,27 +143,37 @@ export default function RegisterPage() {
               />
               <TextField
                 label="Password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={form.password}
                 onChange={updateField('password')}
                 error={Boolean(fieldErrors.password)}
                 helperText={
                   fieldErrors.password
-                  || `Password must be at least ${MIN_PASSWORD_LENGTH} characters`
+                  || `At least ${MIN_PASSWORD_LENGTH} characters with uppercase, lowercase, and a number`
                 }
-                slotProps={{ htmlInput: { minLength: MIN_PASSWORD_LENGTH } }}
+                slotProps={{
+                  htmlInput: { minLength: MIN_PASSWORD_LENGTH },
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
-              <TextField select label="Role" value={form.role} onChange={updateField('role')}>
-                <MenuItem value="student">Student</MenuItem>
-                <MenuItem value="teacher">Teacher</MenuItem>
-              </TextField>
-              {form.role === 'student' ? (
-                <>
-                  <TextField label="Grade level" value={form.gradeLevel} onChange={updateField('gradeLevel')} />
-                  <TextField label="School name" value={form.schoolName} onChange={updateField('schoolName')} />
-                </>
-              ) : null}
+              <Alert severity="info">
+                Student registration only. Teacher accounts must be created by an administrator.
+              </Alert>
+              <TextField label="Grade level" value={form.gradeLevel} onChange={updateField('gradeLevel')} />
+              <TextField label="School name" value={form.schoolName} onChange={updateField('schoolName')} />
               <Button type="submit" variant="contained" size="large" disabled={loading}>
                 {loading ? 'Creating account...' : 'Register'}
               </Button>

@@ -3,6 +3,13 @@ import OpenAI from 'openai';
 import env from '../config/env.js';
 import AppError from '../utils/AppError.js';
 import { GAME_TYPES, normalizeGameType } from '../utils/gameTypes.js';
+import { assertGameDataMatchesType } from '../utils/gameDataValidation.js';
+import { ensureWordSearchData } from '../utils/wordSearchGrid.js';
+import {
+  clampQuestionCount,
+  sanitizeAiError,
+  withTimeout,
+} from '../utils/aiLimits.js';
 
 function getActiveProvider() {
   if (env.gemini.apiKey) return 'gemini';
@@ -64,10 +71,7 @@ function extractJson(text) {
     }
   }
 
-  throw new AppError(
-    `AI returned invalid JSON (${lastError?.message || 'parse failed'})`,
-    502
-  );
+  throw new AppError('AI returned invalid content. Please try generating again.', 502);
 }
 
 async function chatJsonWithGemini(systemPrompt, userPrompt) {
@@ -96,18 +100,24 @@ CRITICAL: Respond with valid JSON only.
 - Escape all quotes inside strings`,
         generationConfig: {
           temperature: 0.4,
-          maxOutputTokens: 8192,
+          maxOutputTokens: env.aiLimits.maxOutputTokens,
           responseMimeType: 'application/json',
         },
       });
 
-      const result = await model.generateContent(userPrompt);
+      const result = await withTimeout(model.generateContent(userPrompt));
       const content = result.response?.text?.() || '';
+      if (!content) {
+        throw new AppError('AI returned invalid content. Please try generating again.', 502);
+      }
       const parsed = extractJson(content);
       console.log(`Gemini model used: ${modelName}`);
-      return parsed;
+      return { data: parsed, model: modelName };
     } catch (error) {
       lastError = error;
+      if (error?.code === 'AI_TIMEOUT' || error?.statusCode === 504) {
+        throw error;
+      }
       const message = String(error?.message || error);
       const shouldTryNext = (
         message.includes('429')
@@ -121,28 +131,36 @@ CRITICAL: Respond with valid JSON only.
       console.error(`Gemini model "${modelName}" failed:`, message);
 
       if (!shouldTryNext) {
-        throw error;
+        const safe = sanitizeAiError(error);
+        throw new AppError(safe.message, safe.statusCode);
       }
     }
   }
 
-  throw lastError || new AppError('All Gemini models failed', 502);
+  const safe = sanitizeAiError(lastError || new Error('All Gemini models failed'));
+  throw new AppError(safe.message, safe.statusCode);
 }
 
 async function chatJsonWithOpenAI(systemPrompt, userPrompt) {
-  const client = new OpenAI({ apiKey: env.openai.apiKey });
-  const completion = await client.chat.completions.create({
-    model: env.openai.model,
-    temperature: 0.7,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
+  const client = new OpenAI({
+    apiKey: env.openai.apiKey,
+    timeout: env.aiLimits.requestTimeoutMs,
   });
+  const completion = await withTimeout(
+    client.chat.completions.create({
+      model: env.openai.model,
+      temperature: 0.7,
+      max_tokens: env.aiLimits.maxOutputTokens,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+    })
+  );
 
   const content = completion.choices[0]?.message?.content;
-  return extractJson(content);
+  return { data: extractJson(content), model: env.openai.model };
 }
 
 async function chatJson(systemPrompt, userPrompt) {
@@ -150,22 +168,31 @@ async function chatJson(systemPrompt, userPrompt) {
 
   if (!provider) {
     throw new AppError(
-      'No AI provider configured. Set GEMINI_API_KEY (recommended) or OPENAI_API_KEY.',
+      'AI service is temporarily unavailable. Please try again later.',
       503
     );
   }
 
-  if (provider === 'gemini') {
-    return {
-      data: await chatJsonWithGemini(systemPrompt, userPrompt),
-      source: 'gemini',
-    };
-  }
+  try {
+    if (provider === 'gemini') {
+      const result = await chatJsonWithGemini(systemPrompt, userPrompt);
+      return {
+        data: result.data,
+        source: 'gemini',
+        model: result.model,
+      };
+    }
 
-  return {
-    data: await chatJsonWithOpenAI(systemPrompt, userPrompt),
-    source: 'openai',
-  };
+    const result = await chatJsonWithOpenAI(systemPrompt, userPrompt);
+    return {
+      data: result.data,
+      source: 'openai',
+      model: result.model,
+    };
+  } catch (error) {
+    const safe = sanitizeAiError(error);
+    throw new AppError(safe.message, safe.statusCode);
+  }
 }
 
 function buildFallbackQuiz({
@@ -175,7 +202,7 @@ function buildFallbackQuiz({
   questionType = 'multiple_choice',
   warning = null,
 }) {
-  const count = Math.min(Math.max(Number(questionCount) || 5, 3), 15);
+  const count = clampQuestionCount(questionCount);
   const questions = [];
   const selectedType = [
     'multiple_choice',
@@ -454,11 +481,11 @@ function buildFallbackGame({ topic, gameType, warning = null }) {
         col: 0,
       })),
     },
-    word_search: {
+    word_search: ensureWordSearchData({
       words,
       gridSize: 10,
       items: pairs.map((item, index) => ({ term: words[index], definition: item.definition })),
-    },
+    }),
     quiz_show: {
       items: pairs.map((item) => ({
         question: `What best describes "${item.term}"?`,
@@ -540,12 +567,6 @@ function buildFallbackGame({ topic, gameType, warning = null }) {
         hint: item.definition,
       })),
     },
-    true_false_blitz: {
-      statements: pairs.flatMap((item) => [
-        { text: `${item.term} is related to ${item.definition}.`, isTrue: true },
-        { text: `${item.term} has no educational value.`, isTrue: false },
-      ]),
-    },
   };
 
   return {
@@ -561,8 +582,21 @@ function buildFallbackGame({ topic, gameType, warning = null }) {
   };
 }
 
+function limitGameCollection(list) {
+  if (!Array.isArray(list)) return list;
+  const max = env.aiLimits.maxGameItems;
+  return list.slice(0, max);
+}
+
 function normalizeGeneratedGame(raw, requestedType) {
-  const resolvedType = normalizeGameType(raw.gameType) || normalizeGameType(requestedType) || 'flashcards';
+  // When the teacher selected a concrete type, never let the model silently switch types.
+  const forcedType = requestedType && requestedType !== 'auto'
+    ? (normalizeGameType(requestedType) || requestedType)
+    : null;
+  const resolvedType = forcedType
+    || normalizeGameType(raw.gameType)
+    || normalizeGameType(requestedType)
+    || 'flashcards';
 
   let gameData = raw.gameData || raw.game_data || {};
   const items = raw.items || gameData.items || gameData.pairs || null;
@@ -585,6 +619,23 @@ function normalizeGeneratedGame(raw, requestedType) {
     };
   }
 
+  if (Array.isArray(gameData.items)) gameData.items = limitGameCollection(gameData.items);
+  if (Array.isArray(gameData.pairs)) gameData.pairs = limitGameCollection(gameData.pairs);
+  if (Array.isArray(gameData.rounds)) gameData.rounds = limitGameCollection(gameData.rounds);
+  if (Array.isArray(gameData.words)) gameData.words = limitGameCollection(gameData.words);
+  if (Array.isArray(gameData.stages)) gameData.stages = limitGameCollection(gameData.stages);
+  if (Array.isArray(gameData.missions)) gameData.missions = limitGameCollection(gameData.missions);
+  if (Array.isArray(gameData.categories)) {
+    gameData.categories = gameData.categories.slice(0, 3).map((category) => ({
+      ...category,
+      clues: limitGameCollection(category.clues || []),
+    }));
+  }
+
+  if (resolvedType === 'word_search' || resolvedType === 'word_scramble') {
+    gameData = ensureWordSearchData(gameData);
+  }
+
   return {
     title: raw.title || 'Educational Game',
     description: raw.description || '',
@@ -596,6 +647,11 @@ function normalizeGeneratedGame(raw, requestedType) {
     xpReward: Number(raw.xpReward || raw.xp_reward) || 100,
     gameData,
   };
+}
+
+function rethrowProviderFailure(error) {
+  const safe = sanitizeAiError(error);
+  throw new AppError(safe.message, safe.statusCode);
 }
 
 const AiService = {
@@ -639,37 +695,32 @@ Exactly one isCorrect=true.
 Return compact valid JSON only.`,
     }[selectedType];
 
+    const count = clampQuestionCount(questionCount);
     const provider = getActiveProvider();
     if (!provider) {
       return buildFallbackQuiz({
         topic,
         difficulty,
-        questionCount,
+        questionCount: count,
         questionType: selectedType,
         warning: 'No AI key set. Add GEMINI_API_KEY in backend/.env for free Gemini generation.',
       });
     }
 
     try {
-      const contentSnippet = String(lessonContent || '').slice(0, 6000);
+      const contentSnippet = String(lessonContent || '').slice(0, env.aiLimits.maxPromptCharacters);
       const { data, source } = await chatJson(
-        `You are an expert high school educator creating quiz questions for EduQuest.
+        `You are an expert high school educator creating quiz questions for EduWow.
 Return JSON with keys: title, description, questions.
 ${typeInstruction}
 Every question must include: questionText, questionType, points, explanation.`,
-        `Create ${questionCount} ${difficulty} ${selectedType.replace(/_/g, ' ')} quiz questions about "${topic}" for ${gradeLevel} students.
+        `Create ${count} ${difficulty} ${selectedType.replace(/_/g, ' ')} quiz questions about "${topic}" for ${gradeLevel} students.
 ${contentSnippet ? `\nBase every question on this source material:\n${contentSnippet}` : ''}`
       );
 
-      const questions = normalizeGeneratedQuestions(data.questions, selectedType);
-      if (!questions.length) {
-        return buildFallbackQuiz({
-          topic,
-          difficulty,
-          questionCount,
-          questionType: selectedType,
-          warning: 'AI returned no questions, so sample fallback questions were used.',
-        });
+      const questions = normalizeGeneratedQuestions(data.questions, selectedType).slice(0, count);
+      if (!questions.length || !data?.title) {
+        throw new AppError('AI returned invalid content. Please try generating again.', 502);
       }
 
       return {
@@ -680,23 +731,8 @@ ${contentSnippet ? `\nBase every question on this source material:\n${contentSni
         warning: null,
       };
     } catch (error) {
-      if (error instanceof AppError && error.statusCode === 503) throw error;
-      console.error('AI quiz generation failed, using fallback:', error.message);
-
-      const message = String(error.message || error);
-      let warning = `AI request failed (${message}). Sample fallback questions were used.`;
-
-      if (message.includes('limit: 0') || message.includes('429') || message.includes('404')) {
-        warning = 'Gemini model unavailable or out of quota. Tried newer models too. Sample fallback questions were used. Set GEMINI_MODEL=gemini-3.5-flash in backend/.env and retry.';
-      }
-
-      return buildFallbackQuiz({
-        topic,
-        difficulty,
-        questionCount,
-        questionType: selectedType,
-        warning,
-      });
+      console.error('AI quiz generation failed:', error.message);
+      rethrowProviderFailure(error);
     }
   },
 
@@ -707,8 +743,8 @@ ${contentSnippet ? `\nBase every question on this source material:\n${contentSni
     questionCount = 5,
     gradeLevel = 'high school',
   }) {
-    const count = Math.min(Math.max(Number(questionCount) || 5, 3), 15);
-    const contentSnippet = String(lessonContent || topic || '').slice(0, 6000);
+    const count = clampQuestionCount(questionCount);
+    const contentSnippet = String(lessonContent || topic || '').slice(0, env.aiLimits.maxPromptCharacters);
     const provider = getActiveProvider();
 
     if (!provider) {
@@ -759,37 +795,14 @@ ${contentSnippet}`
       );
 
       const normalized = normalizeContentQuiz(data, topic || 'Lesson', difficulty, count);
-      if (!normalized.questions.length) {
-        const fallback = buildFallbackQuiz({
-          topic: topic || 'Lesson',
-          difficulty,
-          questionCount: count,
-          questionType: 'multiple_choice',
-          warning: 'AI returned no questions, so sample fallback questions were used.',
-        });
-        return {
-          ...toContentQuizFormat(fallback, difficulty),
-          source: 'fallback',
-          warning: fallback.warning,
-        };
+      if (!normalized.questions.length || !normalized.title) {
+        throw new AppError('AI returned invalid content. Please try generating again.', 502);
       }
 
       return { ...normalized, source, warning: null };
     } catch (error) {
-      if (error instanceof AppError && error.statusCode === 503) throw error;
-      console.error('AI content quiz generation failed, using fallback:', error.message);
-      const fallback = buildFallbackQuiz({
-        topic: topic || 'Lesson',
-        difficulty,
-        questionCount: count,
-        questionType: 'multiple_choice',
-        warning: `AI request failed (${error.message}). Sample fallback questions were used.`,
-      });
-      return {
-        ...toContentQuizFormat(fallback, difficulty),
-        source: 'fallback',
-        warning: fallback.warning,
-      };
+      console.error('AI content quiz generation failed:', error.message);
+      rethrowProviderFailure(error);
     }
   },
 
@@ -805,7 +818,7 @@ ${contentSnippet}`
     }
 
     const resolvedFallbackType = requestedType === 'auto' ? 'flashcards' : (normalizeGameType(requestedType) || 'flashcards');
-    const contentSnippet = String(lessonContent || topic || '').slice(0, 6000);
+    const contentSnippet = String(lessonContent || topic || '').slice(0, env.aiLimits.maxPromptCharacters);
     const provider = getActiveProvider();
 
     if (!provider) {
@@ -827,6 +840,7 @@ ${contentSnippet}`
         `You are an educational game designer for high school students.
 Analyze the lesson and generate one educational game.
 ${typeInstruction}
+Keep game items at or below ${env.aiLimits.maxGameItems}.
 
 Return ONLY valid JSON with this shape:
 {
@@ -843,7 +857,7 @@ Return ONLY valid JSON with this shape:
 gameData requirements by gameType:
 - flashcards / memory_match / drag_drop: items [{term, definition}] (at least 4)
 - crossword: gameData.items [{clue, answer, direction, row, col}] (at least 4 short answers)
-- word_search: gameData.words string[] and gameData.gridSize number (8-12), optional items
+- word_search: gameData.words string[] and gameData.gridSize number (8-12); optional gameData.grid 2D letter array and placements
 - quiz_show: gameData.items [{question, choices[4], correctIndex}] (at least 4)
 - jeopardy: gameData.categories [{name, clues:[{points, clue, answer}]}] (1-3 categories)
 - spin_wheel: gameData.items [{label, question, choices[4], correctIndex}] (at least 4)
@@ -860,37 +874,35 @@ ${contentSnippet}`
       );
 
       const normalized = normalizeGeneratedGame(data, resolvedFallbackType);
-      if (!normalized.gameData || (!normalized.gameData.items && !normalized.gameData.pairs && !normalized.gameData.rounds && !normalized.gameData.categories && !normalized.gameData.words)) {
-        return {
-          ...buildFallbackGame({
-            topic: topic || 'Lesson',
-            gameType: resolvedFallbackType,
-            warning: 'AI returned incomplete game data, so a sample fallback game was used.',
-          }),
-          source: 'fallback',
-        };
+      if (!normalized.title || !normalized.gameData) {
+        throw new AppError('AI returned invalid content. Please try generating again.', 502);
+      }
+
+      try {
+        assertGameDataMatchesType(normalized.gameType, normalized.gameData, {
+          asTypeMismatch: true,
+        });
+      } catch (error) {
+        throw new AppError(
+          error.message || 'AI generated content did not match the selected game type. Please regenerate.',
+          400
+        );
       }
 
       return { ...normalized, source, warning: null };
     } catch (error) {
-      if (error instanceof AppError && error.statusCode === 503) throw error;
-      console.error('AI game generation failed, using fallback:', error.message);
-      return {
-        ...buildFallbackGame({
-          topic: topic || 'Lesson',
-          gameType: resolvedFallbackType,
-          warning: `AI request failed (${error.message}). A sample fallback game was used.`,
-        }),
-      };
+      console.error('AI game generation failed:', error.message);
+      rethrowProviderFailure(error);
     }
   },
 
   async summarizeLesson(content) {
     const provider = getActiveProvider();
+    const safeContent = String(content || '').slice(0, env.aiLimits.maxPromptCharacters);
     if (!provider) {
-      const words = content.split(/\s+/).slice(0, 60).join(' ');
+      const words = safeContent.split(/\s+/).slice(0, 60).join(' ');
       return {
-        summary: `${words}${content.split(/\s+/).length > 60 ? '...' : ''}`,
+        summary: `${words}${safeContent.split(/\s+/).length > 60 ? '...' : ''}`,
         learningObjectives: [
           'Understand the main ideas of the lesson',
           'Apply key concepts through practice',
@@ -900,13 +912,19 @@ ${contentSnippet}`
       };
     }
 
-    const { data, source } = await chatJson(
-      `Summarize lesson content for high school students.
+    try {
+      const { data, source } = await chatJson(
+        `Summarize lesson content for high school students.
 Return JSON with keys: summary (string), learningObjectives (array of 3-5 strings).`,
-      content
-    );
-
-    return { ...data, source };
+        safeContent
+      );
+      if (!data?.summary || !Array.isArray(data.learningObjectives)) {
+        throw new AppError('AI returned invalid content. Please try generating again.', 502);
+      }
+      return { ...data, source };
+    } catch (error) {
+      rethrowProviderFailure(error);
+    }
   },
 
   async generateHint({ questionText, topic }) {
@@ -924,6 +942,21 @@ Return JSON with keys: summary (string), learningObjectives (array of 3-5 string
     );
 
     return { hint: data.hint, source };
+  },
+
+  async rewriteText({ text, instruction }) {
+    const provider = getActiveProvider();
+    if (!provider) {
+      return { text: String(text || '').trim(), source: 'fallback' };
+    }
+
+    const { data, source } = await chatJson(
+      `You are an education editor for high school content. ${instruction}
+Return JSON with key: text.`,
+      String(text || '')
+    );
+
+    return { text: data.text || text, source };
   },
 };
 

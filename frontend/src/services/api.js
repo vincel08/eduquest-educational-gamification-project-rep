@@ -22,7 +22,9 @@ api.interceptors.response.use(
       localStorage.removeItem('eduquest_token');
       localStorage.removeItem('eduquest_user');
       if (!window.location.pathname.startsWith('/login')
-        && !window.location.pathname.startsWith('/register')) {
+        && !window.location.pathname.startsWith('/register')
+        && !window.location.pathname.startsWith('/forgot-password')
+        && !window.location.pathname.startsWith('/reset-password')) {
         window.location.href = '/login';
       }
     }
@@ -36,7 +38,17 @@ export function getErrorMessage(error, fallback = 'Something went wrong') {
     return fieldErrors.map((item) => item.message).join('. ');
   }
 
-  return error.response?.data?.message || fallback;
+  const apiMessage = error.response?.data?.message;
+  if (apiMessage) return apiMessage;
+
+  const status = error.response?.status;
+  if (status === 403) return "You don't have permission to access this content.";
+  if (status === 404) return 'The requested content was not found.';
+  if (status === 429) return 'AI generation limit reached. Please try again later.';
+  if (status >= 500) return 'The server is temporarily unavailable. Please try again.';
+  if (error.message && !/status code/i.test(error.message)) return error.message;
+
+  return fallback;
 }
 
 export default api;

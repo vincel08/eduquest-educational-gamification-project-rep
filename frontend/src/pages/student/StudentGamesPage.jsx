@@ -1,23 +1,21 @@
-import { useEffect, useState } from 'react';
-import {
-  Alert,
-  Button,
-  Card,
-  CardActions,
-  CardContent,
-  Grid,
-  Typography,
-} from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Grid } from '@mui/material';
+import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import QuestCard from '../../components/common/QuestCard';
+import EmptyState from '../../components/common/EmptyState';
+import ContentTimestampToolbar from '../../components/common/ContentTimestampToolbar';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
+import { applyTimestampControls } from '../../utils/contentTimestamps';
 
 export default function StudentGamesPage() {
   const [games, setGames] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sort, setSort] = useState('newest');
+  const [filters, setFilters] = useState({});
 
   useEffect(() => {
     async function load() {
@@ -43,34 +41,60 @@ export default function StudentGamesPage() {
     load();
   }, []);
 
-  if (loading) return <LoadingScreen />;
+  const visibleGames = useMemo(
+    () => applyTimestampControls(games, { sort, filters }),
+    [games, sort, filters]
+  );
+
+  if (loading) return <LoadingScreen label="Loading games..." showCards />;
 
   return (
     <>
-      <PageHeader title="Educational Games" subtitle="Play, learn, and earn bonus XP." />
+      <PageHeader
+        title="Game Zone"
+        subtitle="Play, learn, and stack bonus XP."
+      />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-      <Grid container spacing={2}>
-        {games.map((game) => (
-          <Grid key={game.id} size={{ xs: 12, md: 4 }}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="h6">{game.title}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {game.courseTitle}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 1, textTransform: 'capitalize' }}>
-                  {game.game_type.replace(/_/g, ' ')} · {game.xp_reward} XP
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <Button component={RouterLink} to={`/student/games/${game.id}`}>
-                  Play
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <ContentTimestampToolbar
+        sort={sort}
+        onSortChange={setSort}
+        filters={filters}
+        onFiltersChange={setFilters}
+        showUpdatedFilters={false}
+      />
+      {visibleGames.length ? (
+        <Grid container spacing={2}>
+          {visibleGames.map((game) => (
+            <Grid key={game.id} size={{ xs: 12, sm: 6, md: 4 }}>
+              <QuestCard
+                title={game.title}
+                description={game.courseTitle || game.description}
+                icon={<SportsEsportsIcon />}
+                accent="orange"
+                difficulty={game.difficulty || game.game_type}
+                xpReward={game.xp_reward}
+                estimatedTime={game.estimated_time}
+                status="Playable"
+                statusColor="success"
+                meta={String(game.game_type || '').replace(/_/g, ' ')}
+                showTimestamp
+                item={game}
+                to={`/student/games/${game.id}`}
+                actionLabel="Play Now"
+              />
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <EmptyState
+          icon={<SportsEsportsIcon sx={{ fontSize: 36 }} />}
+          title="No games unlocked yet"
+          description="Games appear when teachers publish them to your courses."
+          actionLabel="View courses"
+          to="/student/courses"
+          color="#F97316"
+        />
+      )}
     </>
   );
 }

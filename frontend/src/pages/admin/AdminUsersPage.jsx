@@ -28,7 +28,7 @@ const emptyForm = {
   password: '',
   role: 'student',
   gradeLevel: 'Grade 10',
-  schoolName: 'EduQuest High',
+  schoolName: 'EduWow High',
 };
 
 export default function AdminUsersPage() {

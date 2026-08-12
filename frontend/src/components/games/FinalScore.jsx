@@ -2,165 +2,175 @@ import {
   Box,
   Button,
   Chip,
-  LinearProgress,
   Paper,
   Stack,
   Typography,
 } from '@mui/material';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { motion } from 'framer-motion';
 
 const MotionPaper = motion.create(Paper);
+
+function Stars({ percentage }) {
+  const filled = percentage >= 90 ? 3 : percentage >= 70 ? 2 : percentage >= 40 ? 1 : 0;
+  return (
+    <Stack direction="row" spacing={0.5} justifyContent="center" sx={{ my: 1.5 }}>
+      {[0, 1, 2].map((index) => (
+        index < filled
+          ? <StarIcon key={index} sx={{ color: '#FACC15', fontSize: 36 }} />
+          : <StarBorderIcon key={index} sx={{ color: 'rgba(148,163,184,0.8)', fontSize: 36 }} />
+      ))}
+    </Stack>
+  );
+}
 
 export default function FinalScore({
   score = 0,
   percentage = null,
   xpEarned = 0,
-  level = null,
-  xpInLevel = null,
-  xpToNextLevel = null,
   badges = [],
   medals = [],
+  motivation = '',
   onPlayAgain,
   onDashboard,
   onLeaderboard,
+  onContinue,
+  nextGame = null,
+  onNextGame,
   title = 'Game Complete!',
 }) {
   const percent = percentage == null ? Math.max(0, Math.min(100, Number(score) || 0)) : percentage;
-  const levelProgress = xpToNextLevel
-    ? Math.round(((Number(xpInLevel) || 0) / Number(xpToNextLevel)) * 100)
-    : 0;
 
   return (
     <MotionPaper
+      className="game-panel"
       initial={{ opacity: 0, scale: 0.92, y: 16 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
       sx={{
         p: { xs: 2.5, sm: 3.5 },
         borderRadius: 4,
-        border: '1px solid rgba(15,118,110,0.25)',
-        background: 'linear-gradient(145deg, rgba(15,118,110,0.12), rgba(255,255,255,0.78))',
-        backdropFilter: 'blur(12px)',
-        boxShadow: '0 18px 40px rgba(15,118,110,0.18)',
+        border: '2px solid rgba(139,92,246,0.28)',
+        background: 'linear-gradient(145deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12), #ffffff)',
+        boxShadow: '0 20px 48px rgba(59,130,246,0.2)',
       }}
     >
-      <Typography variant="h4" fontWeight={900} textAlign="center">
+      <Typography
+        variant="h4"
+        fontWeight={900}
+        textAlign="center"
+        sx={{
+          background: 'linear-gradient(90deg, #3B82F6, #8B5CF6)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}
+      >
         {title}
       </Typography>
-      <Typography color="text.secondary" textAlign="center" sx={{ mt: 0.5 }}>
-        Here is how you did
-      </Typography>
+      {motivation ? (
+        <Typography color="secondary.main" textAlign="center" fontWeight={800} sx={{ mt: 0.75 }}>
+          {motivation}
+        </Typography>
+      ) : (
+        <Typography color="text.secondary" textAlign="center" sx={{ mt: 0.5 }}>
+          Here is how you did
+        </Typography>
+      )}
+
+      <Stars percentage={percent} />
 
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
-        sx={{ mt: 3, justifyContent: 'center' }}
+        sx={{ mt: 1, justifyContent: 'center' }}
       >
-        <StatCard label="Score" value={score} />
-        <StatCard label="Percentage" value={`${percent}%`} />
-        <StatCard label="XP Earned" value={`+${xpEarned}`} accent />
+        <ScoreStat label="Score" value={score} />
+        <ScoreStat label="Percentage" value={`${percent}%`} />
+        <ScoreStat label="XP Earned" value={`+${xpEarned}`} accent />
       </Stack>
 
-      {level != null ? (
-        <Box sx={{ mt: 3 }}>
-          <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-            <Typography variant="body2" fontWeight={700}>Level {level}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {xpInLevel || 0} / {xpToNextLevel || 0} XP
-            </Typography>
+      {(badges.length || medals.length) ? (
+        <Stack spacing={1} sx={{ mt: 3 }}>
+          <Typography fontWeight={900}>Achievements Unlocked</Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {badges.map((badge) => (
+              <Chip
+                key={badge.id || badge.name}
+                icon={<EmojiEventsIcon />}
+                label={badge.name}
+                sx={{ bgcolor: 'rgba(250,204,21,0.22)', fontWeight: 800 }}
+              />
+            ))}
+            {medals.map((medal) => (
+              <Chip
+                key={medal.id || medal.name}
+                icon={<MilitaryTechIcon />}
+                label={medal.name}
+                color="secondary"
+                variant="outlined"
+              />
+            ))}
           </Stack>
-          <LinearProgress
-            variant="determinate"
-            value={Math.max(0, Math.min(100, levelProgress))}
-            sx={{
-              height: 12,
-              borderRadius: 999,
-              bgcolor: 'rgba(15,23,42,0.08)',
-              '& .MuiLinearProgress-bar': {
-                borderRadius: 999,
-                bgcolor: '#0F766E',
-              },
-            }}
-          />
-        </Box>
+        </Stack>
       ) : null}
 
-      {(badges?.length || medals?.length) ? (
-        <Stack spacing={1.5} sx={{ mt: 3 }}>
-          {badges?.length ? (
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Badges Earned
-              </Typography>
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                {badges.map((badge) => (
-                  <Chip
-                    key={badge.id || badge.badge_id || badge.name}
-                    icon={<EmojiEventsIcon />}
-                    label={badge.name || badge.badge_name || 'Badge'}
-                    color="warning"
-                    variant="outlined"
-                  />
-                ))}
-              </Stack>
-            </Box>
+      {nextGame ? (
+        <Box sx={{ mt: 3, p: 2, borderRadius: 3, bgcolor: 'rgba(59,130,246,0.08)', textAlign: 'center' }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={800}>
+            Next recommended game
+          </Typography>
+          <Typography fontWeight={900}>{nextGame.title}</Typography>
+          {onNextGame ? (
+            <Button sx={{ mt: 1 }} variant="contained" color="secondary" onClick={onNextGame}>
+              Play Next
+            </Button>
           ) : null}
-          {medals?.length ? (
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Medals Earned
-              </Typography>
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                {medals.map((medal) => (
-                  <Chip
-                    key={medal.id || medal.medal_id || medal.name}
-                    icon={<MilitaryTechIcon />}
-                    label={medal.name || medal.medal_name || 'Medal'}
-                    color="secondary"
-                    variant="outlined"
-                  />
-                ))}
-              </Stack>
-            </Box>
-          ) : null}
-        </Stack>
+        </Box>
       ) : null}
 
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.5}
-        sx={{ mt: 3.5 }}
+        spacing={1}
+        sx={{ mt: 3, justifyContent: 'center' }}
       >
-        <Button fullWidth variant="contained" onClick={onPlayAgain}>
-          Play Again
-        </Button>
-        <Button fullWidth variant="outlined" onClick={onDashboard}>
-          Back to Dashboard
-        </Button>
-        <Button fullWidth variant="outlined" onClick={onLeaderboard}>
-          Leaderboard
-        </Button>
+        {onPlayAgain ? (
+          <Button variant="contained" onClick={onPlayAgain}>Play Again</Button>
+        ) : null}
+        {onContinue ? (
+          <Button variant="outlined" color="secondary" onClick={onContinue}>
+            Browse Games
+          </Button>
+        ) : null}
+        {onLeaderboard ? (
+          <Button variant="outlined" onClick={onLeaderboard}>Leaderboard</Button>
+        ) : null}
+        {onDashboard ? (
+          <Button variant="text" onClick={onDashboard}>Continue Learning</Button>
+        ) : null}
       </Stack>
     </MotionPaper>
   );
 }
 
-function StatCard({ label, value, accent = false }) {
+function ScoreStat({ label, value, accent = false }) {
   return (
     <Box
+      component={motion.div}
+      whileHover={{ scale: 1.03 }}
       sx={{
-        flex: 1,
-        p: 2,
+        minWidth: 110,
+        p: 1.5,
         borderRadius: 3,
         textAlign: 'center',
-        border: '1px solid',
-        borderColor: accent ? 'rgba(15,118,110,0.35)' : 'divider',
-        bgcolor: accent ? 'rgba(15,118,110,0.08)' : 'rgba(255,255,255,0.55)',
+        border: '1px solid rgba(59,130,246,0.16)',
+        bgcolor: accent ? 'rgba(250,204,21,0.18)' : 'rgba(255,255,255,0.7)',
+        cursor: 'default',
       }}
     >
-      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      <Typography variant="caption" color="text.secondary" fontWeight={800}>{label}</Typography>
       <Typography variant="h5" fontWeight={900}>{value}</Typography>
     </Box>
   );

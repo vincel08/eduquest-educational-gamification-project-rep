@@ -43,6 +43,9 @@ const gamificationService = {
   myCertificates() {
     return api.get('/gamification/certificates/mine');
   },
+  getCourseCertificateEligibility(courseId) {
+    return api.get(`/gamification/certificates/eligibility/${courseId}`);
+  },
   getIssuedCertificate(id) {
     return api.get(`/gamification/certificates/issued/${id}`);
   },

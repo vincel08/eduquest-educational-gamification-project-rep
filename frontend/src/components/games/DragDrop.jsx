@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 
@@ -14,119 +14,159 @@ function shuffle(list) {
 
 export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
   const items = useMemo(() => gameData?.items || gameData?.pairs || [], [gameData]);
-  const definitions = useMemo(
-    () => shuffle(items.map((item) => item.definition)),
+  const targets = useMemo(
+    () => shuffle(items.map((item, index) => ({
+      id: `target-${index}`,
+      definition: item.definition || item.back || item.right || '',
+      sourceIndex: index,
+    }))),
     [items]
   );
+
   const [matches, setMatches] = useState({});
-  const [checked, setChecked] = useState({});
-  const [correctCount, setCorrectCount] = useState(0);
+  const [draggingIndex, setDraggingIndex] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(null);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
 
   if (!items.length) {
     return <Typography color="text.secondary">No drag-and-drop pairs available.</Typography>;
   }
 
-  const perItemXp = Math.max(5, Math.round(Number(xpReward) / items.length));
+  const unmatched = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ index }) => matches[index] == null);
 
-  function checkItem(index) {
-    if (feedback?.open || checked[index]) return;
-    const item = items[index];
-    const userAnswer = matches[index] || '';
-    const isCorrect = userAnswer === item.definition;
-    const nextCorrect = isCorrect ? correctCount + 1 : correctCount;
-    const nextChecked = { ...checked, [index]: isCorrect ? 'correct' : 'missed' };
-    const score = Math.round((nextCorrect / items.length) * 100);
+  function assignMatch(termIndex, definition) {
+    if (feedback?.open || termIndex == null || !definition) return;
+    setMatches((prev) => ({ ...prev, [termIndex]: definition }));
+    setDraggingIndex(null);
+    setSelectedIndex(null);
+  }
 
-    showFeedback({
-      isCorrect,
-      userAnswer: userAnswer || '(none selected)',
-      correctAnswer: item.definition,
-      explanation: isCorrect
-        ? null
-        : `"${item.term}" matches: ${item.definition}`,
-      xpEarned: isCorrect ? perItemXp : 0,
-      score,
-      progress: Object.keys(nextChecked).length / items.length,
-      onNext: () => {
-        setChecked(nextChecked);
-        setCorrectCount(nextCorrect);
-        if (Object.keys(nextChecked).length >= items.length) {
-          onComplete?.(score);
-        }
-      },
+  function clearMatch(termIndex) {
+    if (feedback?.open) return;
+    setMatches((prev) => {
+      const next = { ...prev };
+      delete next[termIndex];
+      return next;
     });
   }
 
-  function checkAll() {
+  function finish() {
     if (feedback?.open) return;
-    let nextCorrect = 0;
-    const nextChecked = {};
+    let correct = 0;
     items.forEach((item, index) => {
-      const isCorrect = matches[index] === item.definition;
-      if (isCorrect) nextCorrect += 1;
-      nextChecked[index] = isCorrect ? 'correct' : 'missed';
+      if (matches[index] === (item.definition || item.back || item.right)) correct += 1;
     });
-    const score = Math.round((nextCorrect / items.length) * 100);
-    const allCorrect = nextCorrect === items.length;
-
+    const score = Math.round((correct / items.length) * 100);
     showFeedback({
-      isCorrect: allCorrect,
-      userAnswer: `${nextCorrect}/${items.length} matched`,
-      correctAnswer: allCorrect ? 'All pairs matched' : 'Review mismatched terms',
-      explanation: allCorrect
-        ? null
-        : items
-          .map((item, index) => (nextChecked[index] === 'missed' ? `${item.term} → ${item.definition}` : null))
-          .filter(Boolean)
-          .join(' · '),
-      xpEarned: Math.round((nextCorrect / items.length) * Number(xpReward)),
+      isCorrect: correct === items.length,
+      userAnswer: `${correct}/${items.length} matched`,
+      correctAnswer: correct === items.length ? 'All pairs matched' : 'Review mismatched pairs',
+      explanation: items
+        .map((item, index) => (
+          matches[index] === (item.definition || item.back || item.right)
+            ? null
+            : `${item.term} → ${item.definition || item.back || item.right}`
+        ))
+        .filter(Boolean)
+        .join(' · ') || null,
+      xpEarned: Math.round((correct / items.length) * Number(xpReward)),
       score,
       progress: 1,
-      onNext: () => {
-        setChecked(nextChecked);
-        setCorrectCount(nextCorrect);
-        onComplete?.(score);
-      },
+      onNext: () => onComplete?.({ score, answers: { matches: { ...matches } } }),
     });
   }
 
   return (
     <Stack spacing={2}>
       <Typography variant="body2" color="text.secondary">
-        Match each term with the correct definition.
+        Drag each term onto the matching definition. On touch devices, tap a term then tap a target.
       </Typography>
-      {items.map((item, index) => (
-        <Stack
-          key={`${item.term}-${index}`}
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={1}
-          sx={{ alignItems: { sm: 'center' } }}
-        >
-          <Typography sx={{ minWidth: { sm: 160 }, fontWeight: 700 }}>{item.term}</Typography>
-          <TextField
-            select
-            size="small"
-            fullWidth
-            label="Definition"
-            value={matches[index] || ''}
-            disabled={Boolean(checked[index]) || feedback?.open}
-            onChange={(event) => setMatches((prev) => ({ ...prev, [index]: event.target.value }))}
-          >
-            {definitions.map((definition) => (
-              <MenuItem key={definition} value={definition}>{definition}</MenuItem>
+
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+        <Paper sx={{ p: 2, flex: 1 }}>
+          <Typography fontWeight={800} sx={{ mb: 1 }}>Terms</Typography>
+          <Stack spacing={1}>
+            {unmatched.map(({ item, index }) => (
+              <Box
+                key={`term-${index}`}
+                draggable
+                onDragStart={() => setDraggingIndex(index)}
+                onDragEnd={() => setDraggingIndex(null)}
+                onClick={() => setSelectedIndex(index)}
+                sx={{
+                  px: 1.5,
+                  py: 1.25,
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: selectedIndex === index ? 'secondary.main' : 'divider',
+                  bgcolor: selectedIndex === index ? 'action.selected' : 'background.paper',
+                  cursor: 'grab',
+                  fontWeight: 700,
+                  userSelect: 'none',
+                }}
+              >
+                {item.term || item.front || item.left}
+              </Box>
             ))}
-          </TextField>
-          <Button
-            variant="outlined"
-            disabled={Boolean(checked[index]) || feedback?.open}
-            onClick={() => checkItem(index)}
-          >
-            Check
-          </Button>
-        </Stack>
-      ))}
-      <Button variant="contained" disabled={feedback?.open} onClick={checkAll}>
+            {!unmatched.length ? (
+              <Typography variant="body2" color="text.secondary">All terms placed.</Typography>
+            ) : null}
+          </Stack>
+        </Paper>
+
+        <Paper sx={{ p: 2, flex: 1.2 }}>
+          <Typography fontWeight={800} sx={{ mb: 1 }}>Targets</Typography>
+          <Stack spacing={1}>
+            {targets.map((target) => {
+              const filledIndex = Object.entries(matches).find(([, value]) => value === target.definition)?.[0];
+              const filledItem = filledIndex != null ? items[Number(filledIndex)] : null;
+              return (
+                <Box
+                  key={target.id}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    assignMatch(draggingIndex, target.definition);
+                  }}
+                  onClick={() => {
+                    if (filledIndex != null) {
+                      clearMatch(Number(filledIndex));
+                      return;
+                    }
+                    assignMatch(selectedIndex, target.definition);
+                  }}
+                  sx={{
+                    minHeight: 64,
+                    px: 1.5,
+                    py: 1.25,
+                    borderRadius: 2,
+                    border: '2px dashed',
+                    borderColor: filledItem ? 'success.main' : 'divider',
+                    bgcolor: filledItem ? 'success.light' : 'action.hover',
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    {target.definition}
+                  </Typography>
+                  <Typography fontWeight={800}>
+                    {filledItem
+                      ? (filledItem.term || filledItem.front || filledItem.left)
+                      : 'Drop term here'}
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Stack>
+        </Paper>
+      </Stack>
+
+      <Button
+        variant="contained"
+        disabled={feedback?.open || Object.keys(matches).length < items.length}
+        onClick={finish}
+      >
         Check Matches
       </Button>
 
@@ -141,7 +181,7 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
         progress={feedback?.progress}
         message={feedback?.message}
         onNext={handleNext}
-        nextLabel={feedback?.progress >= 1 ? 'See Results' : 'Continue'}
+        nextLabel="See Results"
       />
     </Stack>
   );

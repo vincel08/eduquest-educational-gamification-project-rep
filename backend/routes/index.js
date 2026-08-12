@@ -9,6 +9,8 @@ import gamificationRoutes from './gamificationRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import aiContentRoutes from './aiContentRoutes.js';
+import aiReviewRoutes from './aiReviewRoutes.js';
+import fileRoutes from './fileRoutes.js';
 
 const router = Router();
 
@@ -22,11 +24,13 @@ router.use('/gamification', gamificationRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/ai-content', aiContentRoutes);
+router.use('/ai-review', aiReviewRoutes);
+router.use('/files', fileRoutes);
 
 router.get('/health', (_req, res) => {
   res.json({
     success: true,
-    message: 'EduQuest API is running',
+    message: 'EduWow API is running',
     data: { status: 'ok' },
   });
 });

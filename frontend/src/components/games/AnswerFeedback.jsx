@@ -82,9 +82,13 @@ export default function AnswerFeedback({
               p: { xs: 2.5, sm: 3 },
               borderRadius: 4,
               border: `1px solid ${themeColor}55`,
-              background: `linear-gradient(145deg, ${glassBg}, rgba(255,255,255,0.72))`,
-              backdropFilter: 'blur(14px)',
-              boxShadow: `0 20px 50px ${themeColor}33`,
+              background: isCorrect
+                ? 'linear-gradient(145deg, rgba(34,197,94,0.18), rgba(250,204,21,0.16), rgba(255,255,255,0.78))'
+                : `linear-gradient(145deg, ${glassBg}, rgba(255,255,255,0.72))`,
+              backdropFilter: 'blur(16px)',
+              boxShadow: isCorrect
+                ? '0 20px 50px rgba(124,58,237,0.22)'
+                : `0 20px 50px ${themeColor}33`,
               textAlign: 'center',
             }}
           >
@@ -97,7 +101,7 @@ export default function AnswerFeedback({
             </Box>
 
             <Typography variant="h5" fontWeight={900} sx={{ color: themeColor }}>
-              {isCorrect ? '✅ Correct!' : '❌ Incorrect'}
+              {isCorrect ? 'Correct!' : 'Incorrect'}
             </Typography>
 
             <Typography variant="h6" sx={{ mt: 0.5 }}>
@@ -153,7 +157,9 @@ export default function AnswerFeedback({
                     bgcolor: 'rgba(15,23,42,0.08)',
                     '& .MuiLinearProgress-bar': {
                       borderRadius: 999,
-                      bgcolor: themeColor,
+                      background: isCorrect
+                        ? 'linear-gradient(90deg, #2563EB, #7C3AED, #FACC15)'
+                        : themeColor,
                     },
                   }}
                 />
@@ -168,8 +174,11 @@ export default function AnswerFeedback({
                 mt: 3,
                 py: 1.2,
                 borderRadius: 999,
-                bgcolor: themeColor,
-                '&:hover': { bgcolor: themeColor, filter: 'brightness(0.92)' },
+                bgcolor: isCorrect ? 'primary.main' : themeColor,
+                backgroundImage: isCorrect
+                  ? 'linear-gradient(90deg, #2563EB, #7C3AED)'
+                  : 'none',
+                '&:hover': { filter: 'brightness(0.94)' },
               }}
             >
               {nextLabel}

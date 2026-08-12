@@ -29,10 +29,46 @@ const AuthController = {
     }
   },
 
+  async uploadAvatar(req, res, next) {
+    try {
+      const data = await AuthService.uploadAvatar(req.user.id, req.file);
+      return successResponse(res, 'Profile picture updated', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async removeAvatar(req, res, next) {
+    try {
+      const data = await AuthService.removeAvatar(req.user.id);
+      return successResponse(res, 'Profile picture removed', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async me(req, res, next) {
     try {
       const data = await AuthService.getMe(req.user.id);
       return successResponse(res, 'Profile retrieved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async forgotPassword(req, res, next) {
+    try {
+      const data = await AuthService.requestPasswordReset(req.body);
+      return successResponse(res, data.message, {});
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async resetPassword(req, res, next) {
+    try {
+      const data = await AuthService.resetPassword(req.body);
+      return successResponse(res, data.message, {});
     } catch (error) {
       return next(error);
     }
