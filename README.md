@@ -1,4 +1,4 @@
-# EduQuest
+# EduWow
 
 AI-powered Gamified Learning Management System for high school students.
 
