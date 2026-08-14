@@ -1,3 +1,9 @@
+import {
+  GRADE_LEVEL_INVALID_MESSAGE,
+  GRADE_LEVEL_REQUIRED_MESSAGE,
+  isValidGradeLevel,
+} from './gradeLevels';
+
 const MIN_PASSWORD_LENGTH = 8;
 
 export function getPasswordError(password) {
@@ -42,6 +48,12 @@ export function validateRegistrationForm(form) {
   const passwordError = getPasswordError(form.password);
   if (passwordError) {
     errors.password = passwordError;
+  }
+
+  if (!form.gradeLevel?.trim()) {
+    errors.gradeLevel = GRADE_LEVEL_REQUIRED_MESSAGE;
+  } else if (!isValidGradeLevel(form.gradeLevel)) {
+    errors.gradeLevel = GRADE_LEVEL_INVALID_MESSAGE;
   }
 
   return {

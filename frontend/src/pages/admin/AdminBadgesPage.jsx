@@ -19,12 +19,14 @@ import gamificationService from '../../services/gamificationService';
 import { getErrorMessage } from '../../services/api';
 
 const CRITERIA = [
-  'xp',
-  'quizzes_passed',
-  'lessons_completed',
-  'manual',
-  'streak',
+  { value: 'xp', label: 'XP' },
+  { value: 'quizzes_passed', label: 'Quizzes Passed' },
+  { value: 'lessons_completed', label: 'Lessons Completed' },
+  { value: 'manual', label: 'Manual' },
+  { value: 'streak', label: 'Streak' },
 ];
+
+const CRITERIA_LABELS = Object.fromEntries(CRITERIA.map((item) => [item.value, item.label]));
 
 const emptyForm = {
   name: '',
@@ -127,7 +129,7 @@ export default function AdminBadgesPage() {
               sx={{ minWidth: 200 }}
             >
               {CRITERIA.map((item) => (
-                <MenuItem key={item} value={item}>{item}</MenuItem>
+                <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>
               ))}
             </TextField>
             <TextField
@@ -182,7 +184,7 @@ export default function AdminBadgesPage() {
             {badges.map((badge) => (
               <TableRow key={badge.id}>
                 <TableCell>{badge.name}</TableCell>
-                <TableCell>{badge.criteria_type}</TableCell>
+                <TableCell>{CRITERIA_LABELS[badge.criteria_type] || badge.criteria_type}</TableCell>
                 <TableCell>{badge.criteria_value}</TableCell>
                 <TableCell>{badge.xp_bonus}</TableCell>
                 <TableCell>{badge.is_active ? 'Yes' : 'No'}</TableCell>

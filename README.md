@@ -142,12 +142,12 @@ App runs at `http://localhost:5173`
 
 After seeding (`npm run seed`), use password `Password123!` for:
 
-| Role          | Email                     |
-| ------------- | ------------------------- |
-| Administrator | `admin@eduquest.local`    |
-| Teacher       | `teacher@eduquest.local`  |
-| Student       | `student@eduquest.local`  |
-| Student       | `student2@eduquest.local` |
+| Role          | Email                   |
+| ------------- | ----------------------- |
+| Administrator | `admin@eduwow.local`    |
+| Teacher       | `teacher@eduwow.local`  |
+| Student       | `student@eduwow.local`  |
+| Student       | `student2@eduwow.local` |
 
 ---
 

@@ -10,6 +10,12 @@ import AppError from '../utils/AppError.js';
 import { query } from '../config/db.js';
 import { validateNewPassword } from '../utils/passwordPolicy.js';
 import {
+  GRADE_LEVEL_INVALID_MESSAGE,
+  GRADE_LEVEL_REQUIRED_MESSAGE,
+  isValidGradeLevel,
+  normalizeGradeLevel,
+} from '../utils/gradeLevels.js';
+import {
   avatarFileApiPath,
   publicUploadUrl,
   safeUnlinkUpload,
@@ -89,6 +95,14 @@ const AuthService = {
       throw new AppError(passwordError, 400);
     }
 
+    const normalizedGrade = normalizeGradeLevel(gradeLevel);
+    if (!normalizedGrade) {
+      throw new AppError(GRADE_LEVEL_REQUIRED_MESSAGE, 400);
+    }
+    if (!isValidGradeLevel(normalizedGrade)) {
+      throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
+    }
+
     const existing = await UserModel.findByEmail(email.toLowerCase());
     if (existing) {
       // Avoid confirming whether a specific email is already registered.
@@ -107,7 +121,10 @@ const AuthService = {
       role: 'student',
     });
 
-    await StudentProfileModel.create(user.id, { gradeLevel, schoolName });
+    await StudentProfileModel.create(user.id, {
+      gradeLevel: normalizedGrade,
+      schoolName: schoolName || null,
+    });
 
     return buildAuthPayload(user);
   },
@@ -141,12 +158,24 @@ const AuthService = {
 
     let profile = null;
     if (user.role === 'student') {
+      // Empty string means "leave unchanged" so existing accounts without a grade stay intact.
+      const normalizedGrade = normalizeGradeLevel(gradeLevel);
+      if (normalizedGrade && !isValidGradeLevel(normalizedGrade)) {
+        throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
+      }
+
       await query(
         `UPDATE student_profiles
          SET grade_level = COALESCE(:gradeLevel, grade_level),
              school_name = COALESCE(:schoolName, school_name)
          WHERE user_id = :userId`,
-        { gradeLevel: gradeLevel ?? null, schoolName: schoolName ?? null, userId }
+        {
+          gradeLevel: normalizedGrade,
+          schoolName: schoolName !== undefined && schoolName !== null && String(schoolName).trim() !== ''
+            ? String(schoolName).trim()
+            : null,
+          userId,
+        }
       );
       profile = await StudentProfileModel.findByUserId(userId);
     }

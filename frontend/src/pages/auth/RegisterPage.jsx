@@ -8,6 +8,7 @@ import {
   IconButton,
   InputAdornment,
   Link,
+  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -23,6 +24,10 @@ import {
   MIN_PASSWORD_LENGTH,
   validateRegistrationForm,
 } from '../../utils/authValidation';
+import {
+  GRADE_LEVELS,
+  GRADE_LEVEL_PLACEHOLDER,
+} from '../../utils/gradeLevels';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -33,7 +38,7 @@ export default function RegisterPage() {
     email: '',
     password: '',
     role: 'student', // Public registration is student-only.
-    gradeLevel: 'Grade 10',
+    gradeLevel: '',
     schoolName: '',
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -172,7 +177,34 @@ export default function RegisterPage() {
               <Alert severity="info">
                 Student registration only. Teacher accounts must be created by an administrator.
               </Alert>
-              <TextField label="Grade level" value={form.gradeLevel} onChange={updateField('gradeLevel')} />
+              <TextField
+                select
+                label="Grade Level"
+                required
+                fullWidth
+                value={form.gradeLevel}
+                onChange={updateField('gradeLevel')}
+                error={Boolean(fieldErrors.gradeLevel)}
+                helperText={fieldErrors.gradeLevel}
+                SelectProps={{
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    if (!selected) {
+                      return GRADE_LEVEL_PLACEHOLDER;
+                    }
+                    return selected;
+                  },
+                }}
+              >
+                <MenuItem value="" disabled>
+                  {GRADE_LEVEL_PLACEHOLDER}
+                </MenuItem>
+                {GRADE_LEVELS.map((grade) => (
+                  <MenuItem key={grade} value={grade}>
+                    {grade}
+                  </MenuItem>
+                ))}
+              </TextField>
               <TextField label="School name" value={form.schoolName} onChange={updateField('schoolName')} />
               <Button type="submit" variant="contained" size="large" disabled={loading}>
                 {loading ? 'Creating account...' : 'Register'}

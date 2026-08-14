@@ -9,6 +9,7 @@ import {
   loginValidation,
   registerValidation,
   resetPasswordValidation,
+  updateProfileValidation,
 } from '../validations/authValidation.js';
 
 const router = Router();
@@ -42,7 +43,13 @@ router.post(
   AuthController.resetPassword
 );
 router.get('/me', authenticate, AuthController.me);
-router.put('/profile', authenticate, AuthController.updateProfile);
+router.put(
+  '/profile',
+  authenticate,
+  updateProfileValidation,
+  validate,
+  AuthController.updateProfile
+);
 router.post(
   '/avatar',
   authenticate,

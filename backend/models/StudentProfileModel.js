@@ -53,6 +53,7 @@ const StudentProfileModel = {
          FROM student_profiles sp
          INNER JOIN users u ON u.id = sp.user_id
          WHERE u.is_active = 1
+           AND sp.xp > 0
          ORDER BY sp.xp DESC, sp.level DESC, u.first_name ASC
          LIMIT :limit`,
         { limit: Number(limit) }
@@ -71,6 +72,7 @@ const StudentProfileModel = {
         AND xt.created_at >= DATE_SUB(NOW(), INTERVAL ${days} DAY)
        WHERE u.is_active = 1
        GROUP BY sp.user_id, sp.xp, sp.level, u.first_name, u.last_name, u.avatar_url
+       HAVING COALESCE(SUM(xt.amount), 0) > 0
        ORDER BY period_xp DESC, sp.xp DESC, u.first_name ASC
        LIMIT :limit`,
       { limit: Number(limit) }
@@ -78,11 +80,19 @@ const StudentProfileModel = {
   },
 
   async getStudentRank(userId) {
+    // Match overall leaderboard: active users with XP > 0, same sort, dense position (1..N).
+    // Students with 0 XP are unranked (null).
     const rows = await query(
       `SELECT ranked.rank_position
        FROM (
-         SELECT user_id, RANK() OVER (ORDER BY xp DESC, level DESC) AS rank_position
-         FROM student_profiles
+         SELECT sp.user_id,
+                ROW_NUMBER() OVER (
+                  ORDER BY sp.xp DESC, sp.level DESC, u.first_name ASC
+                ) AS rank_position
+         FROM student_profiles sp
+         INNER JOIN users u ON u.id = sp.user_id
+         WHERE u.is_active = 1
+           AND sp.xp > 0
        ) ranked
        WHERE ranked.user_id = :userId`,
       { userId }

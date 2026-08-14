@@ -4,6 +4,7 @@ import {
   Avatar,
   Button,
   Grid,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -23,6 +24,11 @@ import authService from '../../services/authService';
 import { getErrorMessage } from '../../services/api';
 import { buildAuthenticatedFileUrl } from '../../utils/fileUrls';
 import { useAuth } from '../../contexts/AuthContext';
+import {
+  GRADE_LEVELS,
+  GRADE_LEVEL_PLACEHOLDER,
+  isValidGradeLevel,
+} from '../../utils/gradeLevels';
 
 function resolveAvatarUrl(url) {
   if (!url) return undefined;
@@ -62,10 +68,12 @@ export default function StudentProfilePage() {
         setData({ gamification, analytics: analyticsRes.data.data });
         updateProfile(gamification.profile);
         setCourses(coursesRes.data.data?.courses || coursesRes.data.data || []);
+        const existingGrade = gamification.profile?.grade_level || '';
         setForm({
           firstName: user?.firstName || '',
           lastName: user?.lastName || '',
-          gradeLevel: gamification.profile?.grade_level || '',
+          // Keep unknown/legacy values editable as empty so the student can pick a supported grade.
+          gradeLevel: isValidGradeLevel(existingGrade) ? existingGrade : '',
           schoolName: gamification.profile?.school_name || '',
         });
         setAvatarUrl(user?.avatarUrl || '');
@@ -90,6 +98,19 @@ export default function StudentProfilePage() {
       });
       updateProfile(response.data.data.profile, response.data.data.user);
       setAvatarUrl(response.data.data.user?.avatarUrl || '');
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          gamification: {
+            ...prev.gamification,
+            profile: {
+              ...prev.gamification.profile,
+              ...(response.data.data.profile || {}),
+            },
+          },
+        };
+      });
       setMessage('Profile updated.');
     } catch (err) {
       setError(getErrorMessage(err));
@@ -188,8 +209,10 @@ export default function StudentProfilePage() {
             </Stack>
             <Typography variant="h5">{form.firstName} {form.lastName}</Typography>
             <Typography color="text.secondary">{user?.email}</Typography>
-            <Typography sx={{ mt: 1 }}>Grade: {studentProfile.grade_level || '—'}</Typography>
-            <Typography>Rank: #{data.gamification.rank || '—'}</Typography>
+            <Typography sx={{ mt: 1 }}>
+              Grade Level: {studentProfile.grade_level || '—'}
+            </Typography>
+            <Typography>Rank: #{studentProfile.rank || '—'}</Typography>
             <Typography>XP: {studentProfile.xp}</Typography>
             <Typography>
               Streak: {studentProfile.current_streak || 0} days
@@ -201,6 +224,11 @@ export default function StudentProfilePage() {
         <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: 3, mb: 2 }} component="form" onSubmit={handleSave}>
             <Typography variant="h6" gutterBottom>Edit Profile</Typography>
+            {!studentProfile.grade_level ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Please select your grade level to complete your profile.
+              </Alert>
+            ) : null}
             <Stack spacing={2}>
               <TextField
                 label="First name"
@@ -213,10 +241,35 @@ export default function StudentProfilePage() {
                 onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))}
               />
               <TextField
-                label="Grade"
+                select
+                label="Grade Level"
+                fullWidth
                 value={form.gradeLevel}
                 onChange={(e) => setForm((p) => ({ ...p, gradeLevel: e.target.value }))}
-              />
+                helperText={
+                  form.gradeLevel
+                    ? undefined
+                    : GRADE_LEVEL_PLACEHOLDER
+                }
+                SelectProps={{
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    if (!selected) {
+                      return GRADE_LEVEL_PLACEHOLDER;
+                    }
+                    return selected;
+                  },
+                }}
+              >
+                <MenuItem value="">
+                  {GRADE_LEVEL_PLACEHOLDER}
+                </MenuItem>
+                {GRADE_LEVELS.map((grade) => (
+                  <MenuItem key={grade} value={grade}>
+                    {grade}
+                  </MenuItem>
+                ))}
+              </TextField>
               <TextField
                 label="School"
                 value={form.schoolName}

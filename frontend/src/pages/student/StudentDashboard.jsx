@@ -104,7 +104,7 @@ export default function StudentDashboard() {
 
   const profile = data.gamification.profile;
   const analytics = data.analytics;
-  const rank = data.gamification.rank;
+  const rank = data.gamification.profile?.rank;
   const courseList = Array.isArray(courses) ? courses : [];
   const recommended = courseList
     .filter((course) => Number(course.progress_percent || 0) < 100)
