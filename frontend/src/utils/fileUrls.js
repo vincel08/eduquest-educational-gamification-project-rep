@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || 'http://localhost:4000';
+import { resolveApiOrigin } from './apiBase';
+
+const API_BASE = resolveApiOrigin();
 
 /**
  * Build an authenticated URL for protected uploaded files.

@@ -1,16 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import env, { ensureUploadDirWritable } from '../config/env.js';
 import AppError from './AppError.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+export const UPLOADS_DIR = env.uploadDir;
 
-export const UPLOADS_DIR = path.resolve(path.join(__dirname, '../uploads'));
-
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+// Create default/local upload root on import (production also verifies writability at startup).
+ensureUploadDirWritable({ requireWritable: false });
 
 /**
  * Resolve a stored upload reference to a safe absolute path under UPLOADS_DIR.

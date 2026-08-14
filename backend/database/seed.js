@@ -113,6 +113,22 @@ async function seedModule(connection, {
 }
 
 async function run() {
+  console.warn('');
+  console.warn('============================================================');
+  console.warn('WARNING: npm run seed is DESTRUCTIVE.');
+  console.warn('It truncates learning/demo tables and reloads demo accounts.');
+  console.warn('FOR FRESH/DEMO DATABASES ONLY.');
+  console.warn('DO NOT RUN against a database with real participant data.');
+  console.warn('============================================================');
+  console.warn('');
+
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
+    throw new Error(
+      'Refusing to run destructive demo seed while NODE_ENV=production. '
+      + 'Use a fresh/demo database in development, or set ALLOW_DEMO_SEED=true only if you intentionally want to wipe and reseed.'
+    );
+  }
+
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT) || 3306,

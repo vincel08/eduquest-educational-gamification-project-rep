@@ -54,7 +54,7 @@ Thesis focus: improving student engagement through XP, levels, badges, medals, c
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js `>=20 <23` (tested on 22.18.0)
 - MySQL 8+
 - Gemini or OpenAI API key (optional — AI features fall back to local generators if unset)
 
@@ -64,34 +64,11 @@ Thesis focus: improving student engagement through XP, levels, badges, medals, c
 
 ### 1. Database
 
-Create/configure MySQL credentials, then update `backend/.env`:
-
-```env
-PORT=4000
-NODE_ENV=development
-
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=eduquest
-DB_USER=root
-DB_PASSWORD=your_mysql_password
-
-JWT_SECRET=replace_with_a_long_random_secret
-JWT_EXPIRES_IN=7d
-
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4o-mini
-
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-3.5-flash
-
-CLIENT_URL=http://localhost:5173
-UPLOAD_MAX_SIZE_MB=10
-```
+Create/configure MySQL credentials, then update `backend/.env` (see `backend/.env.example`).
 
 Provider order: **Gemini → OpenAI → local fallback**. Get a free Gemini key at [Google AI Studio](https://aistudio.google.com/apikey).
 
-Apply schema + demo data:
+Apply schema + demo data (**destructive — fresh/demo DBs only**):
 
 ```bash
 cd backend
@@ -99,22 +76,27 @@ npm install
 npm run seed
 ```
 
-Reset all teaching/learning data while **keeping user accounts** (for clean testing):
+> **WARNING:** `npm run seed` truncates learning/demo tables and reloads demo accounts.  
+> Do **not** run it against a database with real participant data.  
+> Production blocks seed unless `ALLOW_DEMO_SEED=true`.
+
+For an **existing** database that already has data, apply migrations instead of reseeding:
+
+```bash
+cd backend
+npm run db:migrate
+```
+
+Reset all teaching/learning data while **keeping user accounts** (demo/test only):
 
 ```bash
 cd backend
 npm run db:reset-demo
 ```
 
-Or run the SQL directly:
-
-```bash
-mysql -u root -p eduquest < backend/database/reset_demo_data.sql
-```
-
 This clears courses, lessons, quizzes, games, progress, XP history, badges, certificates, AI drafts, enrollments, and uploads. It does **not** touch the `users` table (emails, passwords, roles). Student profiles are kept but XP/level/streaks are reset to zero.
 
-### 2. Backend
+### 2. Backend (development)
 
 ```bash
 cd backend
@@ -125,7 +107,7 @@ API runs at `http://localhost:4000` (avoid port 5000 on macOS — AirPlay Receiv
 
 Health check: `GET /api/health`
 
-### 3. Frontend
+### 3. Frontend (development)
 
 ```bash
 cd frontend
@@ -135,6 +117,23 @@ npm run dev
 ```
 
 App runs at `http://localhost:5173`
+
+### 4. Production (summary)
+
+```bash
+# Backend
+cd backend
+NODE_ENV=production npm run check:production
+NODE_ENV=production npm start
+
+# Frontend (VITE_API_URL must be a public non-localhost API URL)
+cd frontend
+VITE_API_URL=https://api.example.com/api npm run build
+```
+
+Full production checklist, hosting requirements, uploads persistence, SMTP/AI notes: see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+
+The backend requires a **long-running Node/Express** host with **MySQL** and a **persistent upload volume**. It is not designed for Vercel serverless backend hosting. The frontend static build may be hosted on Vercel or any static CDN.
 
 ---
 
@@ -194,12 +193,12 @@ Standard response:
 ## Notes
 
 - Passwords are hashed with bcrypt; routes are protected with JWT + RBAC.
-- Uploaded files are stored in `backend/uploads/`.
+- Uploaded files are stored under `UPLOAD_DIR` or `backend/uploads/` (persistent disk required in production).
 - Without `GEMINI_API_KEY` or `OPENAI_API_KEY`, AI quiz/game generation still works via deterministic fallback content so the thesis demo remains usable offline.
 - Prefer `GEMINI_API_KEY` for free generation. OpenAI is only used if Gemini is not configured.
 - Quiz question types: Multiple Choice, True/False, Matching, Identification, Image Questions.
-- For existing databases, apply `backend/database/migrations/001_quiz_question_types.sql` (or re-run `npm run seed` on a fresh DB).
+- For existing databases, apply numbered migrations via `npm run db:migrate` (007–010) or see earlier migration files under `backend/database/migrations/`. Prefer migrate over re-seeding when you already have data.
 - Teachers can attach images to Image Questions via `POST /api/quizzes/questions/:questionId/image`.
-- AI Game Generator supports Flashcards, Memory Match, Crossword, Word Search, Quiz Show, Jeopardy, Drag and Drop, and Spin Wheel (plus Auto Select). Apply `backend/database/migrations/002_ai_game_types.sql` for existing DBs.
-- AI Content Generator: apply `backend/database/migrations/003_ai_content_generations.sql` for existing DBs. Supports lesson or uploaded PDF/DOCX/PPTX/PPT/TXT → quiz or game.
-- Priority features (modules, streaks, certificates PDF/QR, new games, OCR): apply schema via `npm run seed` or `backend/database/migrations/004_priority_features.sql`.
+- AI Game Generator supports Flashcards, Memory Match, Crossword, Word Search, Quiz Show, Jeopardy, Drag and Drop, and Spin Wheel (plus Auto Select).
+- AI Content Generator supports lesson or uploaded PDF/DOCX/PPTX/PPT/TXT → quiz or game.
+- Deployment details: [DEPLOYMENT.md](./DEPLOYMENT.md).
