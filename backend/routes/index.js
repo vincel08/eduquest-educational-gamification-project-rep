@@ -11,6 +11,7 @@ import notificationRoutes from './notificationRoutes.js';
 import aiContentRoutes from './aiContentRoutes.js';
 import aiReviewRoutes from './aiReviewRoutes.js';
 import fileRoutes from './fileRoutes.js';
+import pool from '../config/db.js';
 
 const router = Router();
 
@@ -27,12 +28,29 @@ router.use('/ai-content', aiContentRoutes);
 router.use('/ai-review', aiReviewRoutes);
 router.use('/files', fileRoutes);
 
-router.get('/health', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'EduWow API is running',
-    data: { status: 'ok' },
-  });
+router.get('/health', async (_req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    await connection.ping();
+    connection.release();
+    return res.json({
+      success: true,
+      message: 'EduWow API is healthy',
+      data: {
+        status: 'ok',
+        database: 'up',
+      },
+    });
+  } catch {
+    return res.status(503).json({
+      success: false,
+      message: 'EduWow API is unavailable',
+      data: {
+        status: 'degraded',
+        database: 'down',
+      },
+    });
+  }
 });
 
 export default router;

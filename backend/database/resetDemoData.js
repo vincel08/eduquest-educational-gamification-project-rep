@@ -24,7 +24,9 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const sqlPath = path.join(__dirname, 'reset_demo_data.sql');
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+const uploadsDir = process.env.UPLOAD_DIR
+  ? path.resolve(String(process.env.UPLOAD_DIR).trim())
+  : path.join(__dirname, '..', 'uploads');
 
 async function clearUploads() {
   if (!fs.existsSync(uploadsDir)) return 0;
@@ -43,6 +45,21 @@ async function clearUploads() {
 }
 
 async function main() {
+  console.warn('');
+  console.warn('============================================================');
+  console.warn('WARNING: db:reset-demo is DESTRUCTIVE for learning data.');
+  console.warn('It clears courses, quizzes, games, progress, XP, uploads, etc.');
+  console.warn('User accounts are preserved. FOR DEMO/TEST DATABASES ONLY.');
+  console.warn('============================================================');
+  console.warn('');
+
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
+    throw new Error(
+      'Refusing to reset demo data while NODE_ENV=production. '
+      + 'Set ALLOW_DEMO_SEED=true only if you intentionally want to wipe learning data.'
+    );
+  }
+
   if (!fs.existsSync(sqlPath)) {
     throw new Error(`SQL script not found: ${sqlPath}`);
   }

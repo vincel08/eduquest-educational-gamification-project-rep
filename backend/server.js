@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
-import env from './config/env.js';
+import env, { ensureUploadDirWritable } from './config/env.js';
 import pool from './config/db.js';
 import routes from './routes/index.js';
 import FileController from './controllers/FileController.js';
@@ -43,12 +43,14 @@ app.use(errorHandler);
 
 async function start() {
   try {
+    ensureUploadDirWritable({ requireWritable: true });
+
     const connection = await pool.getConnection();
     await connection.ping();
     connection.release();
 
     const server = app.listen(env.port, () => {
-      console.log(`EduWow API running on http://localhost:${env.port}`);
+      console.log(`EduWow API running on port ${env.port} (${env.nodeEnv})`);
       console.log(`AI provider: ${env.aiProvider}`);
     });
 
@@ -63,7 +65,7 @@ async function start() {
       process.exit(1);
     });
   } catch (error) {
-    console.error('Failed to start server. Check database connection.', error.message);
+    console.error('Failed to start server.', error.message);
     process.exit(1);
   }
 }
