@@ -13,6 +13,7 @@
     "test:manual-quiz": "node --test tests/manualQuizCreation.test.js",
     "test:stabilization": "node --test tests/finalStabilization.test.js",
     "test:password-reset": "node --test tests/passwordReset.test.js",
+    "test:grade-level": "node --test tests/studentGradeLevelRegistration.test.js",
     "test:game-types": "node --test tests/aiGameTypeIntegrity.test.js",
     "test:game-quality": "node --test tests/gameQualityFixes.test.js",
     "start": "node server.js",

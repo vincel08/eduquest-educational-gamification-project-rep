@@ -1,5 +1,10 @@
 import { body } from 'express-validator';
 import { validateNewPassword } from '../utils/passwordPolicy.js';
+import {
+  GRADE_LEVEL_INVALID_MESSAGE,
+  GRADE_LEVEL_REQUIRED_MESSAGE,
+  isValidGradeLevel,
+} from '../utils/gradeLevels.js';
 
 export const registerValidation = [
   body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
@@ -19,7 +24,34 @@ export const registerValidation = [
       }
       return true;
     }),
-  body('gradeLevel').optional().isString(),
+  body('gradeLevel')
+    .custom((value) => {
+      if (value === undefined || value === null || String(value).trim() === '') {
+        throw new Error(GRADE_LEVEL_REQUIRED_MESSAGE);
+      }
+      if (!isValidGradeLevel(value)) {
+        throw new Error(GRADE_LEVEL_INVALID_MESSAGE);
+      }
+      return true;
+    }),
+  body('schoolName').optional().isString(),
+];
+
+export const updateProfileValidation = [
+  body('firstName').optional().trim().notEmpty().withMessage('First name is required'),
+  body('lastName').optional().trim().notEmpty().withMessage('Last name is required'),
+  body('gradeLevel')
+    .optional({ values: 'falsy' })
+    .custom((value) => {
+      // Existing students may omit grade until they complete it on their profile.
+      if (value === undefined || value === null || String(value).trim() === '') {
+        return true;
+      }
+      if (!isValidGradeLevel(value)) {
+        throw new Error(GRADE_LEVEL_INVALID_MESSAGE);
+      }
+      return true;
+    }),
   body('schoolName').optional().isString(),
 ];
 
