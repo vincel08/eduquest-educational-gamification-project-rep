@@ -14,6 +14,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -119,42 +120,63 @@ export default function AdminUsersPage() {
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
 
-      <Paper sx={{ p: 2, overflowX: 'auto' }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Username</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>{user.firstName} {user.lastName}</TableCell>
-                <TableCell>{user.username || '—'}</TableCell>
-                <TableCell>{user.email || '—'}</TableCell>
-                <TableCell sx={{ textTransform: 'capitalize' }}>{user.role}</TableCell>
-                <TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
-                <TableCell align="right">
-                  <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
-                    {user.role === 'student' ? (
-                      <Button size="small" onClick={() => { setPasswordTarget(user); setNewPassword(''); }}>
-                        Set password
-                      </Button>
-                    ) : null}
-                    <Button size="small" onClick={() => toggleActive(user)}>
-                      {user.isActive ? 'Deactivate' : 'Activate'}
-                    </Button>
-                  </Stack>
-                </TableCell>
+      <Paper sx={{ overflow: 'hidden' }}>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table size="small" sx={{ minWidth: 760, tableLayout: 'fixed' }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ width: '18%', fontWeight: 700 }}>Name</TableCell>
+                <TableCell sx={{ width: '16%', fontWeight: 700 }}>Username</TableCell>
+                <TableCell sx={{ width: '24%', fontWeight: 700 }}>Email</TableCell>
+                <TableCell sx={{ width: '12%', fontWeight: 700 }}>Role</TableCell>
+                <TableCell sx={{ width: '10%', fontWeight: 700 }}>Status</TableCell>
+                <TableCell sx={{ width: '20%', fontWeight: 700 }} align="right">Actions</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id} hover>
+                  <TableCell sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {user.firstName} {user.lastName}
+                  </TableCell>
+                  <TableCell sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {user.username || '—'}
+                  </TableCell>
+                  <TableCell sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {user.email || '—'}
+                  </TableCell>
+                  <TableCell sx={{ textTransform: 'capitalize' }}>{user.role}</TableCell>
+                  <TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
+                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      justifyContent="flex-end"
+                      alignItems="center"
+                      useFlexGap
+                      flexWrap="nowrap"
+                    >
+                      {user.role === 'student' ? (
+                        <Button
+                          size="small"
+                          onClick={() => {
+                            setPasswordTarget(user);
+                            setNewPassword('');
+                          }}
+                        >
+                          Set password
+                        </Button>
+                      ) : null}
+                      <Button size="small" onClick={() => toggleActive(user)}>
+                        {user.isActive ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
