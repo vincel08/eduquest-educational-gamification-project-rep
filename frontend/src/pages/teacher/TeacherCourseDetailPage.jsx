@@ -44,6 +44,7 @@ export default function TeacherCourseDetailPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     title: '',
+    competency: '',
     content: '',
     orderIndex: 1,
     xpReward: 25,
@@ -98,6 +99,14 @@ export default function TeacherCourseDetailPage() {
     try {
       await lessonService.create(courseId, form);
       setOpen(false);
+      setForm({
+        title: '',
+        competency: '',
+        content: '',
+        orderIndex: lessons.length + 1,
+        xpReward: 25,
+        generateAiExtras: true,
+      });
       setMessage('Lesson created');
       await load();
     } catch (err) {
@@ -121,13 +130,13 @@ export default function TeacherCourseDetailPage() {
   }
 
   if (loading) return <LoadingScreen />;
-  if (!course) return <Alert severity="error">{error || 'Course not found'}</Alert>;
+  if (!course) return <Alert severity="error">{error || 'Subject not found'}</Alert>;
 
   return (
     <>
       <PageHeader
-        title={course.title}
-        subtitle="Manage lessons, quizzes, games, and enrollments."
+        title={course.subject || course.title}
+        subtitle={course.description || 'Manage lessons, quizzes, games, and enrollments.'}
         action={(
           <Button variant="contained" onClick={() => setOpen(true)}>
             Add Lesson
@@ -180,6 +189,11 @@ export default function TeacherCourseDetailPage() {
                     primary={`${lesson.order_index}. ${lesson.title}`}
                     secondary={(
                       <Stack spacing={0.5} sx={{ mt: 0.5, pr: { xs: 0, sm: 16 } }}>
+                        {lesson.competency ? (
+                          <Typography variant="body2" color="text.secondary">
+                            Competency: {lesson.competency}
+                          </Typography>
+                        ) : null}
                         <Typography variant="body2" color="text.secondary">
                           {lesson.xp_reward} XP
                           {lesson.is_published ? ' · Published' : ' · Draft'}
@@ -376,7 +390,20 @@ export default function TeacherCourseDetailPage() {
         <DialogTitle>Add Lesson</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Title" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
+            <TextField
+              label="Lesson"
+              required
+              value={form.title}
+              onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+            />
+            <TextField
+              label="Competency"
+              multiline
+              minRows={2}
+              value={form.competency}
+              onChange={(e) => setForm((p) => ({ ...p, competency: e.target.value }))}
+              helperText="Learning competency or outcome for this lesson"
+            />
             <TextField
               label="Content"
               multiline
@@ -400,7 +427,13 @@ export default function TeacherCourseDetailPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreateLesson}>Create</Button>
+          <Button
+            variant="contained"
+            disabled={!form.title.trim()}
+            onClick={handleCreateLesson}
+          >
+            Create
+          </Button>
         </DialogActions>
       </Dialog>
     </>

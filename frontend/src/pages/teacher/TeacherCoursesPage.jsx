@@ -26,7 +26,6 @@ import { getErrorMessage } from '../../services/api';
 import { applyTimestampControls } from '../../utils/contentTimestamps';
 
 const emptyForm = {
-  title: '',
   subject: '',
   description: '',
   gradeLevel: 'Grade 10',
@@ -63,7 +62,14 @@ export default function TeacherCoursesPage() {
     setSaving(true);
     setError('');
     try {
-      await courseService.create(form);
+      const subject = form.subject.trim();
+      await courseService.create({
+        subject,
+        title: subject,
+        description: form.description,
+        gradeLevel: form.gradeLevel,
+        isPublished: form.isPublished,
+      });
       setOpen(false);
       setForm(emptyForm);
       await load();
@@ -84,11 +90,11 @@ export default function TeacherCoursesPage() {
   return (
     <>
       <PageHeader
-        title="My Courses"
-        subtitle="Create courses and manage learning materials."
+        title="My Subjects"
+        subtitle="Create subjects and manage lessons, quizzes, and materials."
         action={(
           <Button variant="contained" onClick={() => setOpen(true)}>
-            New Course
+            New Subject
           </Button>
         )}
       />
@@ -106,10 +112,15 @@ export default function TeacherCoursesPage() {
           <Grid key={course.id} size={{ xs: 12, md: 4 }}>
             <Card sx={{ height: '100%' }}>
               <CardContent>
-                <Typography variant="h6">{course.title}</Typography>
+                <Typography variant="h6">{course.subject || course.title}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {course.subject} · {course.grade_level}
+                  {course.grade_level || 'Grade not set'}
                 </Typography>
+                {course.description ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {course.description}
+                  </Typography>
+                ) : null}
                 <Typography variant="body2" sx={{ mt: 1 }}>
                   {course.lesson_count || 0} lessons
                 </Typography>
@@ -126,18 +137,28 @@ export default function TeacherCoursesPage() {
       </Grid>
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Create Course</DialogTitle>
+        <DialogTitle>Create Subject</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Title" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
-            <TextField label="Subject" value={form.subject} onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))} />
-            <TextField label="Grade Level" value={form.gradeLevel} onChange={(e) => setForm((p) => ({ ...p, gradeLevel: e.target.value }))} />
             <TextField
-              label="Description"
+              label="Subject"
+              required
+              value={form.subject}
+              onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))}
+              helperText="Example: English, Science, Mathematics"
+            />
+            <TextField
+              label="Grade Level"
+              value={form.gradeLevel}
+              onChange={(e) => setForm((p) => ({ ...p, gradeLevel: e.target.value }))}
+            />
+            <TextField
+              label="Overview"
               multiline
               minRows={3}
               value={form.description}
               onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+              helperText="Optional short overview of this subject offering"
             />
             <FormControlLabel
               control={(
@@ -152,7 +173,11 @@ export default function TeacherCoursesPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={saving} onClick={handleCreate}>
+          <Button
+            variant="contained"
+            disabled={saving || !form.subject.trim()}
+            onClick={handleCreate}
+          >
             {saving ? 'Creating...' : 'Create'}
           </Button>
         </DialogActions>

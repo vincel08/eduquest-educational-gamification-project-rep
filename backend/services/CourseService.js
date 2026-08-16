@@ -5,7 +5,14 @@ import AppError from '../utils/AppError.js';
 
 const CourseService = {
   async createCourse(data, teacherId) {
-    return CourseModel.create({ ...data, teacherId });
+    const subject = String(data.subject || '').trim();
+    const title = String(data.title || subject).trim() || subject;
+    return CourseModel.create({
+      ...data,
+      subject,
+      title,
+      teacherId,
+    });
   },
 
   async listCourses(filters) {

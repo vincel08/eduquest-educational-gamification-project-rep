@@ -9,7 +9,7 @@ import DashboardLayout from './DashboardLayout';
 
 const navItems = [
   { label: 'Dashboard', path: '/teacher/dashboard', icon: <DashboardIcon /> },
-  { label: 'My Courses', path: '/teacher/courses', icon: <MenuBookIcon /> },
+  { label: 'My Subjects', path: '/teacher/courses', icon: <MenuBookIcon /> },
   { label: 'Quizzes', path: '/teacher/quizzes', icon: <QuizIcon /> },
   { label: 'AI Content', path: '/teacher/ai-content', icon: <AutoFixHighIcon /> },
   { label: 'AI Quiz', path: '/teacher/ai-quiz', icon: <AutoAwesomeIcon /> },

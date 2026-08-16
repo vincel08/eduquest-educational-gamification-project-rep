@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS lessons (
   content TEXT NULL,
   summary TEXT NULL,
   learning_objectives TEXT NULL,
+  competency TEXT NULL,
   order_index INT UNSIGNED NOT NULL DEFAULT 1,
   xp_reward INT UNSIGNED NOT NULL DEFAULT 25,
   estimated_minutes INT UNSIGNED NULL,

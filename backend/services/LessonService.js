@@ -37,11 +37,16 @@ const LessonService = {
           : null);
     }
 
+    const competency = data.competency != null
+      ? String(data.competency).trim() || null
+      : null;
+
     return LessonModel.create({
       ...data,
       courseId,
       summary,
       learningObjectives,
+      competency,
       createdBy: user.id,
       updatedBy: user.id,
     });

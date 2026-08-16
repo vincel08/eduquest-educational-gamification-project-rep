@@ -344,6 +344,11 @@ export default function StudentCourseDetailPage() {
                       spacing={0.5}
                       sx={{ mt: 0.5, pr: { xs: 0, sm: 12 } }}
                     >
+                      {lesson.competency ? (
+                        <Typography variant="body2" color="text.secondary">
+                          {lesson.competency}
+                        </Typography>
+                      ) : null}
                       <Typography variant="body2" color="text.secondary">
                         XP reward: {lesson.xp_reward || 25}
                       </Typography>
