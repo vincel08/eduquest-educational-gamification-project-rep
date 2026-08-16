@@ -151,7 +151,16 @@ export default function TeacherCourseDetailPage() {
             >
               Class Scores
             </Button>
-            <Button variant="contained" onClick={() => setOpen(true)}>
+            <Button
+              variant="contained"
+              onClick={() => {
+                setForm((prev) => ({
+                  ...prev,
+                  orderIndex: lessons.length + 1,
+                }));
+                setOpen(true);
+              }}
+            >
               Add Lesson
             </Button>
           </Stack>
@@ -507,14 +516,6 @@ export default function TeacherCourseDetailPage() {
               value={form.content}
               onChange={(e) =>
                 setForm((p) => ({ ...p, content: e.target.value }))
-              }
-            />
-            <TextField
-              label="Order"
-              type="number"
-              value={form.orderIndex}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, orderIndex: Number(e.target.value) }))
               }
             />
             <TextField
