@@ -5,7 +5,17 @@ const authService = {
     return api.post('/auth/register', payload);
   },
   login(payload) {
-    return api.post('/auth/login', payload);
+    const identifier = String(payload.login || payload.username || payload.email || '').trim();
+    const body = {
+      password: payload.password,
+      login: identifier,
+    };
+    if (identifier.includes('@')) {
+      body.email = identifier;
+    } else if (identifier) {
+      body.username = identifier;
+    }
+    return api.post('/auth/login', body);
   },
   forgotPassword(payload) {
     return api.post('/auth/forgot-password', payload);

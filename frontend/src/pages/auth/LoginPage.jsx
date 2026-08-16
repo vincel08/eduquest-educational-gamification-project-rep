@@ -39,8 +39,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const identifier = form.login.trim();
       const user = await login({
-        login: form.login.trim(),
+        login: identifier,
+        // Backward compatible with APIs that still validate `email`
+        ...(identifier.includes('@') ? { email: identifier } : { username: identifier }),
         password: form.password,
       });
       navigate(roleHome[user.role] || "/");
