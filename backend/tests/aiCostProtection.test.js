@@ -203,49 +203,44 @@ describe('AI authorization conventions', () => {
   });
 });
 
-describe('AI generation happy paths without provider keys', () => {
-  it('TEST 1: normal quiz generation returns structured fallback content', async () => {
+describe('AI generation without provider keys', () => {
+  it('TEST 1: quiz generation fails clearly when no AI key is configured', async () => {
     const { default: AiService } = await import('../services/AiService.js');
     const previousGemini = env.gemini.apiKey;
     const previousOpenAI = env.openai.apiKey;
     env.gemini.apiKey = '';
     env.openai.apiKey = '';
     try {
-      const result = await AiService.generateQuiz({
-        topic: 'Photosynthesis',
-        difficulty: 'medium',
-        questionCount: 5,
-        questionType: 'multiple_choice',
-      });
-      assert.ok(result.title);
-      assert.ok(Array.isArray(result.questions));
-      assert.ok(result.questions.length >= 3);
-      assert.ok(result.questions.length <= env.aiLimits.maxQuestions);
-      for (const question of result.questions) {
-        assert.ok(question.questionText);
-        assert.ok(Array.isArray(question.options));
-      }
+      await assert.rejects(
+        () => AiService.generateQuiz({
+          topic: 'Photosynthesis',
+          difficulty: 'medium',
+          questionCount: 5,
+          questionType: 'multiple_choice',
+        }),
+        (error) => error.statusCode === 503 && /GEMINI_API_KEY/i.test(error.message)
+      );
     } finally {
       env.gemini.apiKey = previousGemini;
       env.openai.apiKey = previousOpenAI;
     }
   });
 
-  it('TEST 2: normal game generation returns structured content', async () => {
+  it('TEST 2: game generation fails clearly when no AI key is configured', async () => {
     const { default: AiService } = await import('../services/AiService.js');
     const previousGemini = env.gemini.apiKey;
     const previousOpenAI = env.openai.apiKey;
     env.gemini.apiKey = '';
     env.openai.apiKey = '';
     try {
-      const result = await AiService.generateGame({
-        topic: 'Photosynthesis',
-        gameType: 'flashcards',
-        lessonContent: 'Plants convert light energy into chemical energy through photosynthesis.',
-      });
-      assert.ok(result.title);
-      assert.ok(result.gameType);
-      assert.ok(result.gameData);
+      await assert.rejects(
+        () => AiService.generateGame({
+          topic: 'Photosynthesis',
+          gameType: 'flashcards',
+          lessonContent: 'Plants convert light energy into chemical energy through photosynthesis.',
+        }),
+        (error) => error.statusCode === 503 && /GEMINI_API_KEY/i.test(error.message)
+      );
     } finally {
       env.gemini.apiKey = previousGemini;
       env.openai.apiKey = previousOpenAI;

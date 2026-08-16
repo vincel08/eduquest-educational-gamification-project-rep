@@ -99,9 +99,15 @@ export default function TeacherAiGamePage() {
         gameType: form.gameType,
       });
       const data = response.data.data;
+      if (data.source === 'fallback') {
+        setDraft(null);
+        setError(data.warning || 'AI generation failed. Please configure GEMINI_API_KEY and try again.');
+        return;
+      }
       setDraft(data.draft);
       setMessage(data.warning || 'Game generated. Review and edit below before publishing.');
     } catch (err) {
+      setDraft(null);
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);

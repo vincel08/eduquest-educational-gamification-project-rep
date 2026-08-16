@@ -148,7 +148,7 @@ async function main() {
   } else if (process.env.OPENAI_API_KEY) {
     pass('AI configuration', 'OpenAI configured');
   } else {
-    warn('AI configuration', 'No provider key — local/demo AI fallback will be used');
+    warn('AI configuration', 'No provider key — AI quiz/game generation will error until GEMINI_API_KEY is set');
   }
 
   // Frontend reminder (cannot read frontend env from backend reliably)
