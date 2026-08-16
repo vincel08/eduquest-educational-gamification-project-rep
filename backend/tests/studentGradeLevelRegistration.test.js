@@ -66,10 +66,15 @@ function uniqueEmail(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`;
 }
 
+function uniqueUsername(prefix) {
+  return `${prefix}${Date.now()}${Math.random().toString(16).slice(2, 8)}`.toLowerCase().slice(0, 64);
+}
+
 function baseStudentPayload(overrides = {}) {
   return {
     firstName: 'Grade',
     lastName: 'Student',
+    username: uniqueUsername('gradereg'),
     email: uniqueEmail('grade-reg'),
     password: 'Password123!',
     role: 'student',
@@ -82,13 +87,16 @@ describe('student grade level registration', () => {
   it('registers with valid Grade 7 and persists grade_level', async () => {
     const { default: AuthService } = await import('../services/AuthService.js');
     const email = uniqueEmail('grade7');
+    const username = uniqueUsername('grade7');
     const result = await AuthService.register(baseStudentPayload({
       email,
+      username,
       gradeLevel: 'Grade 7',
     }));
 
     createdUserIds.push(result.user.id);
     assert.equal(result.user.role, 'student');
+    assert.ok(result.user.username);
     assert.equal(result.profile.grade_level, 'Grade 7');
 
     const rows = await query(
@@ -102,6 +110,7 @@ describe('student grade level registration', () => {
     const { default: AuthService } = await import('../services/AuthService.js');
     const result = await AuthService.register(baseStudentPayload({
       email: uniqueEmail('grade10'),
+      username: uniqueUsername('grade10'),
       gradeLevel: 'Grade 10',
     }));
 
@@ -113,6 +122,7 @@ describe('student grade level registration', () => {
     const { default: AuthService } = await import('../services/AuthService.js');
     const result = await AuthService.register(baseStudentPayload({
       email: uniqueEmail('grade12'),
+      username: uniqueUsername('grade12'),
       gradeLevel: 'Grade 12',
     }));
 
@@ -166,8 +176,10 @@ describe('student grade level registration', () => {
     const { default: AuthService } = await import('../services/AuthService.js');
 
     const email = uniqueEmail('legacy-student');
+    const username = uniqueUsername('legacystudent');
     const password = 'Password123!';
     const user = await UserService.createUser({
+      username,
       email,
       password,
       firstName: 'Legacy',
@@ -183,7 +195,7 @@ describe('student grade level registration', () => {
       { id: user.id }
     );
 
-    const login = await AuthService.login({ email, password });
+    const login = await AuthService.login({ login: username, password });
     assert.equal(login.user.id, user.id);
     assert.equal(login.user.role, 'student');
     assert.equal(login.profile.grade_level, null);

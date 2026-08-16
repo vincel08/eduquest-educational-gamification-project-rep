@@ -18,13 +18,13 @@ import { getErrorMessage } from '../../services/api';
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
-    setSuccess('');
+    setFeedback(null);
 
     const trimmed = email.trim();
     if (!trimmed) {
@@ -39,16 +39,27 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       const response = await authService.forgotPassword({ email: trimmed });
-      setSuccess(
-        response.data?.message
-        || 'If an account with that email exists, a password reset link has been sent.'
-      );
+      const eligible = Boolean(response.data?.data?.eligible);
+      const reason = response.data?.data?.reason;
+      const message = response.data?.message
+        || (eligible
+          ? 'A password reset link has been sent to that staff email address.'
+          : 'This email is not eligible for staff password reset.');
+
+      setFeedback({
+        severity: eligible ? 'success' : 'warning',
+        message,
+        reason,
+        eligible,
+      });
     } catch (err) {
       setError(getErrorMessage(err, 'Unable to send reset link'));
     } finally {
       setLoading(false);
     }
   }
+
+  const formLocked = loading || Boolean(feedback?.eligible);
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2 }}>
@@ -60,25 +71,43 @@ export default function ForgotPasswordPage() {
         <Card sx={{ width: '100%' }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h4" color="primary" gutterBottom>
-              Forgot your password?
+              Staff password reset
             </Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>
-              Enter your email address and we&apos;ll send you a link to reset your password.
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              Teachers and administrators can reset via email.
             </Typography>
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Learners cannot use this page — even if they have an email on their account.
+              Ask a school administrator to set a new password.
+            </Alert>
 
             {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-            {success ? <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert> : null}
+            {feedback ? (
+              <Alert severity={feedback.severity} sx={{ mb: 2 }}>
+                {feedback.message}
+              </Alert>
+            ) : null}
 
             <Stack component="form" spacing={2} onSubmit={handleSubmit}>
               <TextField
-                label="Email"
+                label="Work email"
                 type="email"
                 required
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                disabled={loading || Boolean(success)}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  if (feedback && !feedback.eligible) {
+                    setFeedback(null);
+                  }
+                }}
+                disabled={formLocked}
+                helperText={
+                  feedback?.reason === 'learner'
+                    ? 'This address belongs to a learner account.'
+                    : undefined
+                }
               />
-              <Button type="submit" variant="contained" size="large" disabled={loading || Boolean(success)}>
+              <Button type="submit" variant="contained" size="large" disabled={formLocked}>
                 {loading ? 'Sending...' : 'Send Reset Link'}
               </Button>
             </Stack>

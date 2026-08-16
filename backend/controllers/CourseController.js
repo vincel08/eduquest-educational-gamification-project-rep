@@ -1,4 +1,5 @@
 import CourseService from '../services/CourseService.js';
+import GradebookService from '../services/GradebookService.js';
 import { successResponse } from '../utils/apiResponse.js';
 
 const CourseController = {
@@ -74,6 +75,45 @@ const CourseController = {
     try {
       const data = await CourseService.getEnrollments(Number(req.params.id), req.user);
       return successResponse(res, 'Enrollments retrieved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async gradebook(req, res, next) {
+    try {
+      const data = await GradebookService.getCourseGradebook(Number(req.params.id), req.user);
+      return successResponse(res, 'Gradebook retrieved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async updateQuizGrade(req, res, next) {
+    try {
+      const data = await GradebookService.updateQuizStudentScore(
+        Number(req.params.id),
+        Number(req.params.quizId),
+        Number(req.params.studentId),
+        req.body,
+        req.user
+      );
+      return successResponse(res, 'Quiz score saved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async updateGameGrade(req, res, next) {
+    try {
+      const data = await GradebookService.updateGameStudentScore(
+        Number(req.params.id),
+        Number(req.params.gameId),
+        Number(req.params.studentId),
+        req.body,
+        req.user
+      );
+      return successResponse(res, 'Game score saved', data);
     } catch (error) {
       return next(error);
     }

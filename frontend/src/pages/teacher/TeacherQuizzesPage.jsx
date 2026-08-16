@@ -97,7 +97,7 @@ export default function TeacherQuizzesPage() {
                       {quiz.xp_reward} XP · Pass {quiz.passing_score}%
                     </Typography>
                   </TableCell>
-                  <TableCell>{quiz.course_title || `Course #${quiz.course_id}`}</TableCell>
+                  <TableCell>{quiz.course_title || `Subject #${quiz.course_id}`}</TableCell>
                   <TableCell>{quiz.question_count || 0}</TableCell>
                   <TableCell>
                     <Chip

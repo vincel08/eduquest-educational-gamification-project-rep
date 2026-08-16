@@ -290,7 +290,7 @@ export default function StudentDashboard() {
               <Typography color="text.secondary" sx={{ mb: 1.5 }}>
                 {analytics.certificates
                   ? `You have earned ${analytics.certificates} certificate(s).`
-                  : 'Complete course lessons and required quizzes to unlock certificates.'}
+                  : 'Complete subject lessons and required quizzes to unlock certificates.'}
               </Typography>
               <Button component={RouterLink} to="/student/certificates" variant="contained" fullWidth>
                 View Certificates
@@ -332,7 +332,7 @@ export default function StudentDashboard() {
             <SectionHeader
               title="Continue Learning"
               subtitle="Pick up where you left off"
-              actionLabel="My courses"
+              actionLabel="My subjects"
               actionTo="/student/courses"
               icon={<MenuBookIcon color="secondary" />}
             />
@@ -347,9 +347,9 @@ export default function StudentDashboard() {
                       justifyContent="space-between"
                     >
                       <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography fontWeight={800} noWrap>{course.title}</Typography>
+                        <Typography fontWeight={800} noWrap>{course.subject || course.title}</Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          {course.subject || 'Course'} · {Number(course.progress_percent || 0)}% lessons
+                          {course.subject || course.title} · {Number(course.progress_percent || 0)}% lessons
                         </Typography>
                         <LinearProgress
                           variant="determinate"
@@ -371,9 +371,9 @@ export default function StudentDashboard() {
             ) : (
               <EmptyState
                 icon={<MenuBookIcon sx={{ fontSize: 36 }} />}
-                title="No courses in progress"
-                description="Enroll in a learning module to get started."
-                actionLabel="Find a course"
+                title="No subjects in progress"
+                description="Enroll in a subject to get started."
+                actionLabel="Find a subject"
                 to="/student/courses"
                 color="#8B5CF6"
               />
@@ -411,8 +411,8 @@ export default function StudentDashboard() {
               <EmptyState
                 icon={<QuizIcon sx={{ fontSize: 36 }} />}
                 title="No quizzes waiting"
-                description="Explore your courses to unlock new quiz challenges."
-                actionLabel="Browse courses"
+                description="Explore your subjects to unlock new quiz challenges."
+                actionLabel="Browse subjects"
                 to="/student/courses"
               />
             )}

@@ -300,15 +300,15 @@ export default function StudentQuizPage() {
             {motivation || 'Excellent work!'}
           </Typography>
           <Typography variant="h2" fontWeight={800} color="primary.main" sx={{ mb: 0.5, fontSize: { xs: '2.4rem', md: '3rem' } }}>
-            {result.score}%
+            {result.attempt?.earned_points ?? '—'} / {result.attempt?.total_points ?? '—'}
           </Typography>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
-            {result.attempt?.earned_points ?? '—'} / {result.attempt?.total_points ?? '—'} points · {formatDuration(result.timeTakenMs)}
+            Grade score · {result.score}% · {formatDuration(result.timeTakenMs)}
           </Typography>
           <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
             <Chip label={result.isPassed ? 'Passed' : 'Not passed yet'} color={result.isPassed ? 'success' : 'warning'} />
             {result.attempt?.xp_earned ? (
-              <Chip icon={<BoltIcon />} label={`+${result.attempt.xp_earned} XP`} sx={{ bgcolor: 'rgba(250,204,21,0.28)', fontWeight: 800 }} />
+              <Chip icon={<BoltIcon />} label={`+${result.attempt.xp_earned} XP progress`} sx={{ bgcolor: 'rgba(250,204,21,0.28)', fontWeight: 800 }} />
             ) : result.xpAlreadyAwarded ? (
               <Chip label="XP already earned earlier" variant="outlined" />
             ) : null}

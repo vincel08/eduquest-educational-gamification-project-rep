@@ -633,6 +633,8 @@ export default function GameEditor({
           type="number"
           value={game.xpReward || 100}
           onChange={(e) => updateGame({ xpReward: Number(e.target.value) })}
+          helperText="Student progress XP. Class Scores grade is a separate %."
+          inputProps={{ min: 0 }}
         />
       </Stack>
 

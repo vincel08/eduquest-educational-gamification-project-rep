@@ -59,7 +59,10 @@ const AuthController = {
   async forgotPassword(req, res, next) {
     try {
       const data = await AuthService.requestPasswordReset(req.body);
-      return successResponse(res, data.message, {});
+      return successResponse(res, data.message, {
+        eligible: data.eligible,
+        reason: data.reason,
+      });
     } catch (error) {
       return next(error);
     }

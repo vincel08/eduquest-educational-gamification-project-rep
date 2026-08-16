@@ -8,6 +8,8 @@ import { validate } from '../middleware/validateMiddleware.js';
 import {
   createCourseValidation,
   updateCourseValidation,
+  gradebookQuizScoreValidation,
+  gradebookGameScoreValidation,
 } from '../validations/courseValidation.js';
 
 const router = Router();
@@ -37,6 +39,25 @@ router.get(
   '/:id/enrollments',
   authorize('teacher', 'administrator'),
   CourseController.enrollments
+);
+router.get(
+  '/:id/gradebook',
+  authorize('teacher', 'administrator'),
+  CourseController.gradebook
+);
+router.put(
+  '/:id/gradebook/quizzes/:quizId/students/:studentId',
+  authorize('teacher', 'administrator'),
+  gradebookQuizScoreValidation,
+  validate,
+  CourseController.updateQuizGrade
+);
+router.put(
+  '/:id/gradebook/games/:gameId/students/:studentId',
+  authorize('teacher', 'administrator'),
+  gradebookGameScoreValidation,
+  validate,
+  CourseController.updateGameGrade
 );
 
 router.get('/:courseId/lessons', LessonController.listByCourse);

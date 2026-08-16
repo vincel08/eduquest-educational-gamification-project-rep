@@ -5,9 +5,28 @@ import {
   GRADE_LEVEL_REQUIRED_MESSAGE,
   isValidGradeLevel,
 } from '../utils/gradeLevels.js';
+import {
+  isValidUsername,
+  USERNAME_INVALID_MESSAGE,
+  USERNAME_REQUIRED_MESSAGE,
+} from '../utils/username.js';
 
 export const registerValidation = [
-  body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('username')
+    .trim()
+    .notEmpty()
+    .withMessage(USERNAME_REQUIRED_MESSAGE)
+    .custom((value) => {
+      if (!isValidUsername(value)) {
+        throw new Error(USERNAME_INVALID_MESSAGE);
+      }
+      return true;
+    }),
+  body('email')
+    .optional({ values: 'falsy' })
+    .isEmail()
+    .withMessage('Enter a valid email address, or leave it blank')
+    .normalizeEmail(),
   body('password')
     .custom((value) => {
       const error = validateNewPassword(value);
@@ -43,7 +62,6 @@ export const updateProfileValidation = [
   body('gradeLevel')
     .optional({ values: 'falsy' })
     .custom((value) => {
-      // Existing students may omit grade until they complete it on their profile.
       if (value === undefined || value === null || String(value).trim() === '') {
         return true;
       }
@@ -56,7 +74,20 @@ export const updateProfileValidation = [
 ];
 
 export const loginValidation = [
-  body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('login')
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage('Username or email is required'),
+  body('email').optional().trim(),
+  body('username').optional().trim(),
+  body().custom((_, { req }) => {
+    const identifier = String(req.body.login || req.body.username || req.body.email || '').trim();
+    if (!identifier) {
+      throw new Error('Username or email is required');
+    }
+    return true;
+  }),
   body('password').notEmpty().withMessage('Password is required'),
 ];
 
@@ -79,6 +110,15 @@ export const resetPasswordValidation = [
       if (value !== req.body.password) {
         throw new Error('Passwords do not match.');
       }
+      return true;
+    }),
+];
+
+export const setStudentPasswordValidation = [
+  body('password')
+    .custom((value) => {
+      const error = validateNewPassword(value);
+      if (error) throw new Error(error);
       return true;
     }),
 ];

@@ -64,7 +64,7 @@ export default function StudentCertificateViewPage() {
           {certificate.description || 'Successfully completed the learning requirements.'}
         </Typography>
         <Typography>
-          Course: {certificate.course_title || 'General Program'}
+          Subject: {certificate.course_title || 'General Program'}
         </Typography>
         <Typography sx={{ mt: 1 }}>
           Issued: {dayjs(certificate.issued_at).format('MMMM D, YYYY')}

@@ -94,7 +94,7 @@ export default function AdminDashboard() {
           <StatCard label="Teachers" value={roleCounts.teacher} icon={<PersonIcon />} color="#8B5CF6" />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Courses" value={data.totalCourses} icon={<MenuBookIcon />} color="#10B981" />
+          <StatCard label="Subjects" value={data.totalCourses} icon={<MenuBookIcon />} color="#10B981" />
         </Grid>
       </Grid>
 

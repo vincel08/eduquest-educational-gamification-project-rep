@@ -42,7 +42,7 @@ export async function downloadCertificatePdf(certificate) {
     || 'Successfully completed the learning requirements.';
   doc.text(description, width / 2, 260, { align: 'center', maxWidth: width - 160 });
 
-  doc.text(`Course: ${certificate.course_title || 'General Program'}`, width / 2, 300, { align: 'center' });
+  doc.text(`Subject: ${certificate.course_title || 'General Program'}`, width / 2, 300, { align: 'center' });
   doc.text(`Certificate No: ${certificate.certificate_code}`, width / 2, 325, { align: 'center' });
 
   if (certificate.issued_at) {

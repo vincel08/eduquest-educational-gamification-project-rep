@@ -15,8 +15,12 @@ import {
 import AuthController from '../controllers/AuthController.js';
 import { errorHandler } from '../middleware/errorMiddleware.js';
 
-const GENERIC_FORGOT =
-  'If an account with that email exists, a password reset link has been sent.';
+const STAFF_SENT =
+  'A password reset link has been sent to that staff email address.';
+const LEARNER_BLOCKED =
+  'Learner accounts cannot reset via email — even if an email is on file. Ask a school administrator to set a new password.';
+const INELIGIBLE =
+  'This email is not eligible for staff password reset. Learners should ask a school administrator. Staff should check the address and try again.';
 const INVALID_TOKEN =
   'Your password reset link is invalid or has expired. Please request a new one.';
 
@@ -81,8 +85,9 @@ function hashToken(rawToken) {
 
 async function createUser({ role, emailPrefix, password = 'OldPass123' }) {
   const { default: UserService } = await import('../services/UserService.js');
-  const email = `${emailPrefix}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`;
-  const user = await UserService.createUser({
+  const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const email = `${emailPrefix}-${suffix}@example.com`;
+  const payload = {
     email,
     password,
     firstName: 'Reset',
@@ -90,9 +95,13 @@ async function createUser({ role, emailPrefix, password = 'OldPass123' }) {
     role,
     gradeLevel: 'Grade 10',
     schoolName: 'EduQuest High',
-  });
+  };
+  if (role === 'student') {
+    payload.username = `u${emailPrefix}${suffix}`.replace(/[^a-z0-9]/gi, '').slice(0, 64).toLowerCase();
+  }
+  const user = await UserService.createUser(payload);
   createdUserIds.push(user.id);
-  return { user, email, password };
+  return { user, email, password, username: user.username };
 }
 
 function extractTokenFromUrl(resetUrl) {
@@ -136,32 +145,50 @@ before(async () => {
 });
 
 describe('password reset - forgot password enumeration', () => {
-  it('existing email returns generic success response', async () => {
+  it('existing staff email returns sent response and sends mail', async () => {
     const AuthService = (await import('../services/AuthService.js')).default;
-    const { email } = await createUser({ role: 'student', emailPrefix: 'prt-exist' });
+    const { email } = await createUser({ role: 'teacher', emailPrefix: 'prt-exist' });
 
     const { result, captured } = await withCapturedResetEmail(() =>
       AuthService.requestPasswordReset({ email })
     );
 
-    assert.equal(result.message, GENERIC_FORGOT);
+    assert.equal(result.message, STAFF_SENT);
+    assert.equal(result.eligible, true);
+    assert.equal(result.reason, 'sent');
     assert.ok(captured?.resetUrl);
     assert.equal(captured.to, email);
     assert.equal(Object.hasOwn(result, 'token'), false);
     assert.equal(Object.hasOwn(result, 'userId'), false);
   });
 
-  it('non-existing email returns the same generic response', async () => {
+  it('student email is blocked with a learner prompt and does not send mail', async () => {
+    const AuthService = (await import('../services/AuthService.js')).default;
+    const { email } = await createUser({ role: 'student', emailPrefix: 'prt-student' });
+
+    const { result, captured } = await withCapturedResetEmail(() =>
+      AuthService.requestPasswordReset({ email })
+    );
+
+    assert.equal(result.message, LEARNER_BLOCKED);
+    assert.equal(result.eligible, false);
+    assert.equal(result.reason, 'learner');
+    assert.equal(captured, null);
+  });
+
+  it('non-existing email returns ineligible prompt', async () => {
     const AuthService = (await import('../services/AuthService.js')).default;
     const { result, captured } = await withCapturedResetEmail(() =>
       AuthService.requestPasswordReset({ email: `missing-${Date.now()}@example.com` })
     );
 
-    assert.equal(result.message, GENERIC_FORGOT);
+    assert.equal(result.message, INELIGIBLE);
+    assert.equal(result.eligible, false);
+    assert.equal(result.reason, 'ineligible');
     assert.equal(captured, null);
   });
 
-  it('does not reveal account existence across responses', async () => {
+  it('does not reveal reset tokens in the response payload', async () => {
     const AuthService = (await import('../services/AuthService.js')).default;
     const { email } = await createUser({ role: 'teacher', emailPrefix: 'prt-enum' });
 
@@ -172,15 +199,17 @@ describe('password reset - forgot password enumeration', () => {
       AuthService.requestPasswordReset({ email: `no-user-${Date.now()}@example.com` })
     );
 
-    assert.equal(existing.result.message, missing.result.message);
-    assert.deepEqual(Object.keys(existing.result), Object.keys(missing.result));
+    assert.equal(Object.hasOwn(existing.result, 'token'), false);
+    assert.equal(Object.hasOwn(missing.result, 'token'), false);
+    assert.equal(Object.hasOwn(existing.result, 'userId'), false);
+    assert.equal(Object.hasOwn(missing.result, 'userId'), false);
   });
 });
 
 describe('password reset - token security', () => {
   it('generates a cryptographically random URL-safe token and stores only the hash', async () => {
     const AuthService = (await import('../services/AuthService.js')).default;
-    const { user, email } = await createUser({ role: 'student', emailPrefix: 'prt-hash' });
+    const { user, email } = await createUser({ role: 'teacher', emailPrefix: 'prt-hash' });
 
     const { captured } = await withCapturedResetEmail(() =>
       AuthService.requestPasswordReset({ email })
@@ -214,7 +243,7 @@ describe('password reset - token security', () => {
   it('valid token resets password; token cannot be reused', async () => {
     const AuthService = (await import('../services/AuthService.js')).default;
     const { email, password: oldPassword } = await createUser({
-      role: 'student',
+      role: 'teacher',
       emailPrefix: 'prt-valid',
       password: 'OldPass123',
     });
@@ -258,9 +287,33 @@ describe('password reset - token security', () => {
     );
   });
 
-  it('rejects expired tokens', async () => {
+  it('rejects student reset tokens even if present', async () => {
     const AuthService = (await import('../services/AuthService.js')).default;
     const { user } = await createUser({ role: 'student', emailPrefix: 'prt-exp' });
+    const rawToken = crypto.randomBytes(32).toString('base64url');
+
+    await query(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, used_at)
+       VALUES (:userId, :tokenHash, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE), NULL)`,
+      { userId: user.id, tokenHash: hashToken(rawToken) }
+    );
+
+    await assert.rejects(
+      () => AuthService.resetPassword({
+        token: rawToken,
+        password: 'NewPass456',
+        confirmPassword: 'NewPass456',
+      }),
+      (error) => {
+        assert.equal(error.message, INVALID_TOKEN);
+        return true;
+      }
+    );
+  });
+
+  it('rejects expired tokens', async () => {
+    const AuthService = (await import('../services/AuthService.js')).default;
+    const { user } = await createUser({ role: 'teacher', emailPrefix: 'prt-exp-staff' });
     const rawToken = crypto.randomBytes(32).toString('base64url');
 
     await query(
@@ -324,7 +377,7 @@ describe('password reset - token security', () => {
 
   it('rejects weak passwords using existing password policy', async () => {
     const AuthService = (await import('../services/AuthService.js')).default;
-    const { email } = await createUser({ role: 'student', emailPrefix: 'prt-weak' });
+    const { email } = await createUser({ role: 'teacher', emailPrefix: 'prt-weak' });
     const { captured } = await withCapturedResetEmail(() =>
       AuthService.requestPasswordReset({ email })
     );
@@ -345,7 +398,7 @@ describe('password reset - token security', () => {
 
   it('rejects password mismatch', async () => {
     const AuthService = (await import('../services/AuthService.js')).default;
-    const { email } = await createUser({ role: 'student', emailPrefix: 'prt-mismatch' });
+    const { email } = await createUser({ role: 'teacher', emailPrefix: 'prt-mismatch' });
     const { captured } = await withCapturedResetEmail(() =>
       AuthService.requestPasswordReset({ email })
     );
@@ -366,7 +419,7 @@ describe('password reset - token security', () => {
 });
 
 describe('password reset - roles', () => {
-  for (const role of ['student', 'teacher', 'administrator']) {
+  for (const role of ['teacher', 'administrator']) {
     it(`works for ${role} accounts`, async () => {
       const AuthService = (await import('../services/AuthService.js')).default;
       const { email } = await createUser({
@@ -391,6 +444,30 @@ describe('password reset - roles', () => {
       assert.equal(login.user.role, role);
     });
   }
+
+  it('admin can reset a student password', async () => {
+    const AuthService = (await import('../services/AuthService.js')).default;
+    const { default: UserService } = await import('../services/UserService.js');
+    const created = await createUser({
+      role: 'student',
+      emailPrefix: 'prt-recover',
+      password: 'OldPass123',
+    });
+
+    const admin = await createUser({ role: 'administrator', emailPrefix: 'prt-rec-admin' });
+    await UserService.setStudentPassword(
+      { id: admin.user.id, role: 'administrator' },
+      created.user.id,
+      'NewPass456'
+    );
+
+    const login = await AuthService.login({
+      login: created.username,
+      password: 'NewPass456',
+    });
+    assert.equal(login.user.role, 'student');
+    assert.equal(login.user.username, created.username);
+  });
 });
 
 describe('password reset - HTTP layer', () => {
@@ -429,7 +506,7 @@ describe('password reset - HTTP layer', () => {
     );
     app.use(errorHandler);
 
-    const { email } = await createUser({ role: 'student', emailPrefix: 'prt-http' });
+    const { email } = await createUser({ role: 'teacher', emailPrefix: 'prt-http' });
     const { baseUrl, close } = await listen(app);
 
     try {
@@ -442,8 +519,9 @@ describe('password reset - HTTP layer', () => {
         const body = await response.json();
         assert.equal(response.status, 200);
         assert.equal(body.success, true);
-        assert.equal(body.message, GENERIC_FORGOT);
-        assert.deepEqual(body.data, {});
+        assert.equal(body.message, STAFF_SENT);
+        assert.equal(body.data.eligible, true);
+        assert.equal(body.data.reason, 'sent');
         return body;
       });
 
@@ -489,20 +567,22 @@ describe('password reset - HTTP layer', () => {
 
   it('existing JWT authentication still works after password reset feature', async () => {
     const AuthService = (await import('../services/AuthService.js')).default;
-    const { email, password } = await createUser({
+    const { email, password, username } = await createUser({
       role: 'student',
       emailPrefix: 'prt-jwt',
       password: 'JwtPass123',
     });
 
-    const login = await AuthService.login({ email, password });
+    const login = await AuthService.login({ login: username, password });
     assert.ok(login.token);
 
     const decoded = jwt.verify(login.token, env.jwt.secret, { algorithms: ['HS256'] });
     assert.equal(decoded.email, email);
+    assert.equal(decoded.username, username);
 
     const me = await AuthService.getMe(login.user.id);
     assert.equal(me.user.email, email);
+    assert.equal(me.user.username, username);
 
     // Password hash still bcrypt-compatible.
     const rows = await query(

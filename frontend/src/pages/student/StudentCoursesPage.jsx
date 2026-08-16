@@ -36,7 +36,7 @@ export default function StudentCoursesPage() {
     load();
   }, []);
 
-  if (loading) return <LoadingScreen label="Loading courses..." showCards />;
+  if (loading) return <LoadingScreen label="Loading subjects..." showCards />;
 
   const enrolledIds = new Set(enrolled.map((course) => course.id));
 
@@ -44,12 +44,12 @@ export default function StudentCoursesPage() {
     <>
       <PageHeader
         title="Learning Quests"
-        subtitle="Browse modules and continue your adventure."
+        subtitle="Browse subjects and continue your adventure."
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
       <SectionHeader
-        title="My Courses"
+        title="My Subjects"
         subtitle="Pick up where you left off"
         icon={<SchoolIcon color="primary" />}
       />
@@ -57,8 +57,8 @@ export default function StudentCoursesPage() {
         {enrolled.length ? enrolled.map((course) => (
           <Grid key={course.id} size={{ xs: 12, sm: 6, md: 4 }}>
             <QuestCard
-              title={course.title}
-              description={`${course.subject || ''} · ${course.grade_level || ''}`.trim()}
+              title={course.subject || course.title}
+              description={`${course.grade_level || ''}${course.description ? ` · ${course.description}` : ''}`.trim() || 'Subject overview'}
               icon={<SchoolIcon />}
               accent="blue"
               status={`${Number(course.progress_percent || 0)}% lessons`}
@@ -73,7 +73,7 @@ export default function StudentCoursesPage() {
           <Grid size={12}>
             <EmptyState
               icon={<MenuBookIcon sx={{ fontSize: 36 }} />}
-              title="No enrolled courses yet"
+              title="No enrolled subjects yet"
               description="Browse the catalog below and join your first learning quest!"
               color="#3B82F6"
             />
@@ -82,7 +82,7 @@ export default function StudentCoursesPage() {
       </Grid>
 
       <SectionHeader
-        title="Course Catalog"
+        title="Subject Catalog"
         subtitle="Discover new subjects to master"
         icon={<MenuBookIcon color="secondary" />}
       />
@@ -90,8 +90,8 @@ export default function StudentCoursesPage() {
         {catalog.length ? catalog.map((course) => (
           <Grid key={course.id} size={{ xs: 12, sm: 6, md: 4 }}>
             <QuestCard
-              title={course.title}
-              description={course.description || course.subject}
+              title={course.subject || course.title}
+              description={course.description || 'Subject overview'}
               icon={<MenuBookIcon />}
               accent={enrolledIds.has(course.id) ? 'green' : 'purple'}
               difficulty={course.grade_level}
@@ -100,12 +100,12 @@ export default function StudentCoursesPage() {
               showTimestamp
               item={course}
               to={`/student/courses/${course.id}`}
-              actionLabel={enrolledIds.has(course.id) ? 'Open' : 'View Course'}
+              actionLabel={enrolledIds.has(course.id) ? 'Open' : 'View Subject'}
             />
           </Grid>
         )) : (
           <Grid size={12}>
-            <Typography color="text.secondary">No courses published yet.</Typography>
+            <Typography color="text.secondary">No subjects published yet.</Typography>
           </Grid>
         )}
       </Grid>

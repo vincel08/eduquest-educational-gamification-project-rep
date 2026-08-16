@@ -27,6 +27,7 @@ async function authenticateWithToken(req, res, next, token) {
     req.user = {
       id: user.id,
       email: user.email,
+      username: user.username,
       role: user.role,
       firstName: user.first_name,
       lastName: user.last_name,

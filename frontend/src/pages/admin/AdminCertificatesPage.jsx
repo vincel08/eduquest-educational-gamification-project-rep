@@ -93,7 +93,7 @@ export default function AdminCertificatesPage() {
       return;
     }
     if (!createForm.courseId) {
-      setCreateError('Please select a course for this certificate template.');
+      setCreateError('Please select a subject for this certificate template.');
       return;
     }
 
@@ -122,7 +122,7 @@ export default function AdminCertificatesPage() {
   async function handleAssign() {
     setAssignError('');
     if (!assignForm.courseId) {
-      setAssignError('Please select a course for this certificate template.');
+      setAssignError('Please select a subject for this certificate template.');
       return;
     }
 
@@ -131,7 +131,7 @@ export default function AdminCertificatesPage() {
         courseId: Number(assignForm.courseId),
       });
       setAssignOpen(false);
-      setMessage('Certificate template linked to course');
+      setMessage('Certificate template linked to subject');
       await load();
     } catch (err) {
       setAssignError(getErrorMessage(err));
@@ -167,7 +167,7 @@ export default function AdminCertificatesPage() {
     <>
       <PageHeader
         title="Certificate Management"
-        subtitle="Create course-linked certificate templates and issue them to students."
+        subtitle="Create subject-linked certificate templates and issue them to students."
         action={(
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" onClick={() => setIssueOpen(true)}>Issue</Button>
@@ -183,7 +183,7 @@ export default function AdminCertificatesPage() {
           <TableHead>
             <TableRow>
               <TableCell>Title</TableCell>
-              <TableCell>Course</TableCell>
+              <TableCell>Subject</TableCell>
               <TableCell>Template</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Actions</TableCell>
@@ -199,7 +199,7 @@ export default function AdminCertificatesPage() {
                     {unassigned ? (
                       <Typography color="warning.main" fontWeight={700}>Unassigned</Typography>
                     ) : (
-                      certificate.course_title || `Course #${certificate.course_id}`
+                      certificate.course_title || `Subject #${certificate.course_id}`
                     )}
                   </TableCell>
                   <TableCell>{certificate.template_style}</TableCell>
@@ -207,7 +207,7 @@ export default function AdminCertificatesPage() {
                   <TableCell align="right">
                     {unassigned ? (
                       <Button size="small" onClick={() => openAssign(certificate)}>
-                        Link Course
+                        Link Subject
                       </Button>
                     ) : null}
                   </TableCell>
@@ -239,17 +239,17 @@ export default function AdminCertificatesPage() {
             <TextField
               select
               required
-              label="Course"
+              label="Subject"
               value={createForm.courseId}
               onChange={(e) => setCreateForm((p) => ({ ...p, courseId: e.target.value }))}
               error={!createForm.courseId && Boolean(createError)}
-              helperText="Course is required for course completion certificates."
+              helperText="Subject is required for subject completion certificates."
             >
               <MenuItem value="" disabled>
-                Select a course
+                Select a subject
               </MenuItem>
               {courses.map((course) => (
-                <MenuItem key={course.id} value={course.id}>{course.title}</MenuItem>
+                <MenuItem key={course.id} value={course.id}>{course.subject || course.title}</MenuItem>
               ))}
             </TextField>
           </Stack>
@@ -261,26 +261,26 @@ export default function AdminCertificatesPage() {
       </Dialog>
 
       <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Link Certificate Template to Course</DialogTitle>
+        <DialogTitle>Link Certificate Template to Subject</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {assignError ? <Alert severity="error">{assignError}</Alert> : null}
             <Typography variant="body2" color="text.secondary">
-              This template is currently unassigned and cannot be issued until a course is selected.
+              This template is currently unassigned and cannot be issued until a subject is selected.
             </Typography>
             <TextField
               select
               required
-              label="Course"
+              label="Subject"
               value={assignForm.courseId}
               onChange={(e) => setAssignForm((p) => ({ ...p, courseId: e.target.value }))}
-              helperText="Please select a course for this certificate template."
+              helperText="Please select a subject for this certificate template."
             >
               <MenuItem value="" disabled>
-                Select a course
+                Select a subject
               </MenuItem>
               {courses.map((course) => (
-                <MenuItem key={course.id} value={course.id}>{course.title}</MenuItem>
+                <MenuItem key={course.id} value={course.id}>{course.subject || course.title}</MenuItem>
               ))}
             </TextField>
           </Stack>
@@ -300,7 +300,7 @@ export default function AdminCertificatesPage() {
               label="Certificate"
               value={issueForm.certificateId}
               onChange={(e) => setIssueForm((p) => ({ ...p, certificateId: e.target.value }))}
-              helperText="Only course-linked templates can be issued."
+              helperText="Only subject-linked templates can be issued."
             >
               {issueableCertificates.map((certificate) => (
                 <MenuItem key={certificate.id} value={certificate.id}>

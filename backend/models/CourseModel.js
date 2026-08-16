@@ -118,7 +118,7 @@ const CourseModel = {
 
   async getEnrollments(courseId) {
     return query(
-      `SELECT ce.*, u.first_name, u.last_name, u.email, sp.xp, sp.level
+      `SELECT ce.*, u.username, u.first_name, u.last_name, u.email, sp.xp, sp.level
        FROM course_enrollments ce
        INNER JOIN users u ON u.id = ce.student_id
        LEFT JOIN student_profiles sp ON sp.user_id = ce.student_id

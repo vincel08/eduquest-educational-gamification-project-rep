@@ -184,9 +184,9 @@ export default function ManualQuizEditor({
               <TextField
                 label="Grade level"
                 fullWidth
-                value={selectedCourse?.grade_level || 'From selected course'}
+                value={selectedCourse?.grade_level || 'From selected subject'}
                 InputProps={{ readOnly: true }}
-                helperText="Taken from the selected course"
+                helperText="Taken from the selected subject"
               />
               <TextField
                 select
@@ -221,6 +221,7 @@ export default function ManualQuizEditor({
                 fullWidth
                 value={form.xpReward}
                 onChange={(e) => setForm((prev) => ({ ...prev, xpReward: Number(e.target.value) }))}
+                helperText="Student progress XP (not the grade)"
               />
             </Stack>
           </Stack>
@@ -286,10 +287,12 @@ export default function ManualQuizEditor({
                   <MenuItem value="image_question">Image Question</MenuItem>
                 </TextField>
                 <TextField
-                  label="Points"
+                  label="Score points"
                   type="number"
                   value={question.points || 1}
                   onChange={(e) => updateQuestion(index, { points: Number(e.target.value) })}
+                  helperText="Teacher grading weight"
+                  inputProps={{ min: 1 }}
                 />
               </Stack>
 

@@ -25,6 +25,9 @@ const courseService = {
   enrollments(id) {
     return api.get(`/courses/${id}/enrollments`);
   },
+  gradebook(id) {
+    return api.get(`/courses/${id}/gradebook`);
+  },
   lessons(courseId) {
     return api.get(`/courses/${courseId}/lessons`);
   },

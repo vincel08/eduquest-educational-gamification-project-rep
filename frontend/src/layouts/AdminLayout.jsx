@@ -9,7 +9,7 @@ import DashboardLayout from './DashboardLayout';
 const navItems = [
   { label: 'Dashboard', path: '/admin/dashboard', icon: <DashboardIcon /> },
   { label: 'Users', path: '/admin/users', icon: <PeopleIcon /> },
-  { label: 'Courses', path: '/admin/courses', icon: <MenuBookIcon /> },
+  { label: 'Subjects', path: '/admin/courses', icon: <MenuBookIcon /> },
   { label: 'Badges', path: '/admin/badges', icon: <EmojiEventsIcon /> },
   { label: 'Leaderboard', path: '/admin/leaderboard', icon: <LeaderboardIcon /> },
   { label: 'Certificates', path: '/admin/certificates', icon: <WorkspacePremiumIcon /> },

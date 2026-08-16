@@ -46,6 +46,19 @@ const UserController = {
       return next(error);
     }
   },
+
+  async setPassword(req, res, next) {
+    try {
+      const data = await UserService.setStudentPassword(
+        req.user,
+        Number(req.params.id),
+        req.body.password
+      );
+      return successResponse(res, 'Student password updated', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
 };
 
 export default UserController;
