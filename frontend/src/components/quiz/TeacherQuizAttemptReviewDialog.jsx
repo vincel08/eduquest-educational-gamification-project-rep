@@ -15,7 +15,6 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import quizService from '../../services/quizService';
 import { getErrorMessage } from '../../services/api';
 import { buildAuthenticatedFileUrl } from '../../utils/fileUrls';
@@ -25,16 +24,6 @@ function formatWhen(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString();
-}
-
-function ResultIcon({ isCorrect }) {
-  if (isCorrect === true) {
-    return <CheckCircleIcon color="success" fontSize="small" sx={{ mt: 0.35 }} />;
-  }
-  if (isCorrect === false) {
-    return <CancelIcon color="error" fontSize="small" sx={{ mt: 0.35 }} />;
-  }
-  return <HelpOutlineIcon color="disabled" fontSize="small" sx={{ mt: 0.35 }} />;
 }
 
 export default function TeacherQuizAttemptReviewDialog({
@@ -81,6 +70,8 @@ export default function TeacherQuizAttemptReviewDialog({
     ? `${review.attempt.studentFirstName} ${review.attempt.studentLastName}`.trim()
     : '';
 
+  const answerItems = (review?.items || []).filter((item) => item.answerStored);
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>
@@ -114,61 +105,65 @@ export default function TeacherQuizAttemptReviewDialog({
               <Chip label={formatWhen(review.attempt.completedAt)} variant="outlined" />
             </Stack>
 
-            {!review.answersAvailable ? (
-              <Alert severity="warning">
-                Per-question answers are not stored for this attempt (the quiz may have been edited
-                after the student submitted). The total score above is still valid. Ask the student
-                to retake the quiz to capture answer details.
+            {!answerItems.length ? (
+              <Alert severity="info">
+                Question-by-question answers are not available for this attempt. Have the student
+                retake the quiz to record each correct/wrong answer.
               </Alert>
-            ) : null}
+            ) : (
+              answerItems.map((item, index) => {
+                const correct = item.isCorrect === true;
+                const imageSrc = item.imageUrl
+                  ? buildAuthenticatedFileUrl(item.imageUrl)
+                  : null;
 
-            {review.items.map((item, index) => {
-              const imageSrc = item.imageUrl
-                ? buildAuthenticatedFileUrl(item.imageUrl)
-                : null;
-              const pointsLabel = item.pointsEarned == null
-                ? `—/${item.points} pts`
-                : `${item.pointsEarned}/${item.points} pts`;
-              return (
-                <Box key={`${item.questionId || 'orphan'}-${index}`}>
-                  {index > 0 ? <Divider sx={{ mb: 2 }} /> : null}
-                  <Stack spacing={1}>
-                    <Stack direction="row" spacing={1} alignItems="flex-start">
-                      <ResultIcon isCorrect={item.isCorrect} />
-                      <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography fontWeight={800}>
-                          Q{index + 1}. {item.questionText}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {String(item.questionType || 'question').replaceAll('_', ' ')} · {pointsLabel}
-                        </Typography>
-                      </Box>
-                    </Stack>
+                return (
+                  <Box key={`${item.questionId || 'answer'}-${index}`}>
+                    {index > 0 ? <Divider sx={{ mb: 2 }} /> : null}
+                    <Stack spacing={1}>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="flex-start"
+                        justifyContent="space-between"
+                      >
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography fontWeight={800}>
+                            Q{index + 1}. {item.questionText}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.pointsEarned ?? 0}/{item.points} pts
+                          </Typography>
+                        </Box>
+                        <Chip
+                          size="small"
+                          icon={correct ? <CheckCircleIcon /> : <CancelIcon />}
+                          label={correct ? 'Correct' : 'Wrong'}
+                          color={correct ? 'success' : 'error'}
+                          variant="filled"
+                        />
+                      </Stack>
 
-                    {imageSrc ? (
-                      <Box
-                        component="img"
-                        src={imageSrc}
-                        alt={`Question ${index + 1}`}
-                        sx={{ maxWidth: '100%', maxHeight: 220, borderRadius: 1 }}
-                      />
-                    ) : null}
+                      {imageSrc ? (
+                        <Box
+                          component="img"
+                          src={imageSrc}
+                          alt={`Question ${index + 1}`}
+                          sx={{ maxWidth: '100%', maxHeight: 220, borderRadius: 1 }}
+                        />
+                      ) : null}
 
-                    <Typography variant="body2">
-                      <strong>Student answer:</strong> {item.studentAnswer}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      <strong>Correct answer:</strong> {item.correctAnswer}
-                    </Typography>
-                    {item.explanation ? (
-                      <Typography variant="body2" color="text.secondary">
-                        <strong>Explanation:</strong> {item.explanation}
+                      <Typography variant="body2">
+                        <strong>Student:</strong> {item.studentAnswer}
                       </Typography>
-                    ) : null}
-                  </Stack>
-                </Box>
-              );
-            })}
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Correct:</strong> {item.correctAnswer}
+                      </Typography>
+                    </Stack>
+                  </Box>
+                );
+              })
+            )}
           </Stack>
         ) : null}
       </DialogContent>
