@@ -36,11 +36,98 @@ async function assertTeacherOwnsQuiz(quizId, user) {
   const quiz = await QuizModel.findById(quizId);
   if (!quiz) throw new AppError('Quiz not found', 404);
 
-  if (user.role === 'teacher' && quiz.teacher_id !== user.id) {
+  if (user.role === 'teacher' && Number(quiz.teacher_id) !== Number(user.id)) {
     throw new AppError('Access denied', 403);
   }
 
   return quiz;
+}
+
+function parseAnswerPayload(value) {
+  if (value == null) return null;
+  if (typeof value === 'object') return value;
+  if (typeof value !== 'string') return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function formatStudentAnswerDisplay(question, answer, optionsById) {
+  if (!answer) return { display: '—', selectedOptionId: null, textAnswer: null, answerPayload: null };
+
+  if (answer.selected_option_id) {
+    const option = optionsById.get(Number(answer.selected_option_id));
+    return {
+      display: option?.option_text || `Option #${answer.selected_option_id}`,
+      selectedOptionId: Number(answer.selected_option_id),
+      textAnswer: answer.text_answer || null,
+      answerPayload: parseAnswerPayload(answer.answer_payload),
+    };
+  }
+
+  const payload = parseAnswerPayload(answer.answer_payload);
+  if (question.question_type === 'matching' && payload && typeof payload === 'object') {
+    const leftOptions = (question.options || []).filter((option) => option.side === 'left');
+    const rightById = new Map(
+      (question.options || [])
+        .filter((option) => option.side === 'right')
+        .map((option) => [Number(option.id), option.option_text])
+    );
+    const pairs = leftOptions.map((left) => {
+      const rightId = Number(payload[left.id] ?? payload[String(left.id)]);
+      return `${left.option_text} → ${rightById.get(rightId) || '—'}`;
+    });
+    return {
+      display: pairs.join('; ') || '—',
+      selectedOptionId: null,
+      textAnswer: answer.text_answer || null,
+      answerPayload: payload,
+    };
+  }
+
+  if (answer.text_answer) {
+    return {
+      display: answer.text_answer,
+      selectedOptionId: null,
+      textAnswer: answer.text_answer,
+      answerPayload: payload,
+    };
+  }
+
+  return {
+    display: '—',
+    selectedOptionId: null,
+    textAnswer: null,
+    answerPayload: payload,
+  };
+}
+
+function formatCorrectAnswerDisplay(question) {
+  const options = question.options || [];
+  if (question.question_type === 'matching') {
+    const left = options.filter((option) => option.side === 'left');
+    const rightByKey = new Map(
+      options
+        .filter((option) => option.side === 'right')
+        .map((option) => [String(option.match_key), option.option_text])
+    );
+    return left
+      .map((item) => `${item.option_text} → ${rightByKey.get(String(item.match_key)) || '—'}`)
+      .join('; ') || '—';
+  }
+
+  if (question.question_type === 'identification') {
+    const accepted = options
+      .filter((option) => Number(option.is_correct) === 1 || option.is_correct === true)
+      .map((option) => option.option_text)
+      .filter(Boolean);
+    return accepted.join(' / ') || '—';
+  }
+
+  const correct = options.find((option) => Number(option.is_correct) === 1 || option.is_correct === true);
+  return correct?.option_text || '—';
 }
 
 function normalizeText(value) {
@@ -733,6 +820,83 @@ const QuizService = {
 
   async getStudentAttempts(studentId, quizId = null) {
     return QuizModel.getStudentAttempts(studentId, quizId);
+  },
+
+  async getAttemptReview(quizId, attemptId, user) {
+    const quiz = await assertTeacherOwnsQuiz(quizId, user);
+    const attempt = await QuizModel.findAttemptWithStudent(attemptId);
+    if (!attempt || Number(attempt.quiz_id) !== Number(quizId)) {
+      throw new AppError('Attempt not found', 404);
+    }
+    if (!attempt.completed_at) {
+      throw new AppError('Attempt is not completed yet', 400);
+    }
+
+    const [questions, answers] = await Promise.all([
+      QuizModel.getQuestions(quizId, { includeCorrect: true }),
+      QuizModel.getAnswersForAttempt(attemptId),
+    ]);
+
+    const answersByQuestionId = new Map(
+      answers.map((answer) => [Number(answer.question_id), answer])
+    );
+    const optionsById = new Map();
+    for (const question of questions) {
+      for (const option of question.options || []) {
+        optionsById.set(Number(option.id), option);
+      }
+    }
+
+    const secureQuestions = withSecureQuestionImages(questions);
+
+    return {
+      quiz: {
+        id: quiz.id,
+        title: quiz.title,
+        courseId: quiz.course_id,
+        passingScore: quiz.passing_score,
+      },
+      attempt: {
+        id: attempt.id,
+        studentId: attempt.student_id,
+        studentFirstName: attempt.first_name,
+        studentLastName: attempt.last_name,
+        studentEmail: attempt.email || null,
+        studentUsername: attempt.username || null,
+        score: attempt.score,
+        earnedPoints: attempt.earned_points,
+        totalPoints: attempt.total_points,
+        isPassed: Boolean(attempt.is_passed),
+        xpEarned: attempt.xp_earned || 0,
+        completedAt: attempt.completed_at,
+      },
+      items: secureQuestions.map((question) => {
+        const answer = answersByQuestionId.get(Number(question.id)) || null;
+        const studentAnswer = formatStudentAnswerDisplay(question, answer, optionsById);
+        return {
+          questionId: question.id,
+          questionText: question.question_text,
+          questionType: question.question_type,
+          points: question.points,
+          imageUrl: question.image_url || null,
+          explanation: question.explanation || null,
+          options: (question.options || []).map((option) => ({
+            id: option.id,
+            optionText: option.option_text,
+            isCorrect: Boolean(option.is_correct),
+            side: option.side || null,
+            matchKey: option.match_key || null,
+          })),
+          correctAnswer: formatCorrectAnswerDisplay(question),
+          studentAnswer: studentAnswer.display,
+          selectedOptionId: studentAnswer.selectedOptionId,
+          textAnswer: studentAnswer.textAnswer,
+          answerPayload: studentAnswer.answerPayload,
+          isCorrect: answer ? Boolean(answer.is_correct) : false,
+          pointsEarned: answer ? Number(answer.points_earned) || 0 : 0,
+        };
+      }),
+    };
   },
 
   async getHint(questionText, topic) {

@@ -52,6 +52,9 @@ const quizService = {
   myAttempts(params) {
     return api.get('/quizzes/attempts/mine', { params });
   },
+  attemptReview(quizId, attemptId) {
+    return api.get(`/quizzes/${quizId}/attempts/${attemptId}`);
+  },
   hint(payload) {
     return api.post('/quizzes/hints', payload);
   },

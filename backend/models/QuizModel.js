@@ -319,6 +319,57 @@ const QuizModel = {
     return rows[0] || null;
   },
 
+  async getAnswersForAttempt(attemptId) {
+    const rows = await query(
+      `SELECT
+         qa.id,
+         qa.attempt_id,
+         qa.question_id,
+         qa.selected_option_id,
+         qa.text_answer,
+         qa.answer_payload,
+         qa.is_correct,
+         qa.points_earned
+       FROM quiz_answers qa
+       WHERE qa.attempt_id = :attemptId
+       ORDER BY qa.id ASC`,
+      { attemptId }
+    );
+
+    return rows.map((row) => {
+      let answerPayload = row.answer_payload;
+      if (typeof answerPayload === 'string') {
+        try {
+          answerPayload = JSON.parse(answerPayload);
+        } catch {
+          answerPayload = null;
+        }
+      }
+      return {
+        ...row,
+        answer_payload: answerPayload,
+      };
+    });
+  },
+
+  async findAttemptWithStudent(attemptId) {
+    const rows = await query(
+      `SELECT
+         qa.*,
+         u.first_name,
+         u.last_name,
+         u.email,
+         u.username
+       FROM quiz_attempts qa
+       INNER JOIN users u ON u.id = qa.student_id
+       WHERE qa.id = :attemptId
+       LIMIT 1`,
+      { attemptId }
+    );
+    return rows[0] || null;
+  },
+
+
   async completeAttempt(attemptId, data) {
     await query(
       `UPDATE quiz_attempts

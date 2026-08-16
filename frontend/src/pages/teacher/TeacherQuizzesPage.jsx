@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
@@ -11,21 +11,22 @@ import {
   TableHead,
   TableRow,
   Typography,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import { Link as RouterLink } from 'react-router-dom';
-import PageHeader from '../../components/common/PageHeader';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import quizService from '../../services/quizService';
-import { getErrorMessage } from '../../services/api';
+} from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import { Link as RouterLink } from "react-router-dom";
+import PageHeader from "../../components/common/PageHeader";
+import LoadingScreen from "../../components/common/LoadingScreen";
+import quizService from "../../services/quizService";
+import { getErrorMessage } from "../../services/api";
 
 export default function TeacherQuizzesPage() {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    quizService.listMine()
+    quizService
+      .listMine()
       .then((response) => setQuizzes(response.data.data || []))
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
@@ -38,7 +39,7 @@ export default function TeacherQuizzesPage() {
       <PageHeader
         title="Quizzes"
         subtitle="Create quizzes manually or continue using the AI Quiz Generator. Students only see published quizzes."
-        action={(
+        action={
           <Stack direction="row" spacing={1}>
             <Button
               component={RouterLink}
@@ -56,7 +57,7 @@ export default function TeacherQuizzesPage() {
               Create Quiz
             </Button>
           </Stack>
-        )}
+        }
       />
 
       {error ? <Alert severity="error">{error}</Alert> : null}
@@ -97,18 +98,25 @@ export default function TeacherQuizzesPage() {
                       {quiz.xp_reward} XP · Pass {quiz.passing_score}%
                     </Typography>
                   </TableCell>
-                  <TableCell>{quiz.course_title || `Subject #${quiz.course_id}`}</TableCell>
+                  <TableCell>
+                    {quiz.course_title || `Subject #${quiz.course_id}`}
+                  </TableCell>
                   <TableCell>{quiz.question_count || 0}</TableCell>
                   <TableCell>
                     <Chip
                       size="small"
-                      color={quiz.is_published ? 'success' : 'default'}
-                      label={quiz.is_published ? 'Published' : 'Draft'}
+                      color={quiz.is_published ? "success" : "default"}
+                      label={quiz.is_published ? "Published" : "Draft"}
                     />
                   </TableCell>
                   <TableCell>
                     {quiz.is_ai_generated ? (
-                      <Chip size="small" color="secondary" variant="outlined" label="AI" />
+                      <Chip
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                        label="AI"
+                      />
                     ) : (
                       <Chip size="small" variant="outlined" label="Manual" />
                     )}
