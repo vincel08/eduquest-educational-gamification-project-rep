@@ -25,7 +25,7 @@ export default function CertificateCard({ certificate }) {
           {certificate.title}
         </Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          {certificate.course_title || 'Course completion certificate'}
+          {certificate.course_title || 'Subject completion certificate'}
         </Typography>
         <Typography variant="caption" color="text.secondary">
           Code: {certificate.certificate_code}

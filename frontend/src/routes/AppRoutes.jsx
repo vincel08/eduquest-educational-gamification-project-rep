@@ -23,6 +23,7 @@ import StudentCertificateViewPage from '../pages/student/StudentCertificateViewP
 import TeacherDashboard from '../pages/teacher/TeacherDashboard';
 import TeacherCoursesPage from '../pages/teacher/TeacherCoursesPage';
 import TeacherCourseDetailPage from '../pages/teacher/TeacherCourseDetailPage';
+import TeacherGradebookPage from '../pages/teacher/TeacherGradebookPage';
 import TeacherAiQuizPage from '../pages/teacher/TeacherAiQuizPage';
 import TeacherAiGamePage from '../pages/teacher/TeacherAiGamePage';
 import TeacherAiContentPage from '../pages/teacher/TeacherAiContentPage';
@@ -82,6 +83,7 @@ export default function AppRoutes() {
           <Route path="dashboard" element={<TeacherDashboard />} />
           <Route path="courses" element={<TeacherCoursesPage />} />
           <Route path="courses/:courseId" element={<TeacherCourseDetailPage />} />
+          <Route path="courses/:courseId/scores" element={<TeacherGradebookPage />} />
           <Route path="quizzes" element={<TeacherQuizzesPage />} />
           <Route path="quizzes/new" element={<TeacherQuizEditorPage />} />
           <Route path="quizzes/:quizId/edit" element={<TeacherQuizEditorPage />} />

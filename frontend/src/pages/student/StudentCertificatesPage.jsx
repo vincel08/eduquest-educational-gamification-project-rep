@@ -36,7 +36,7 @@ export default function StudentCertificatesPage() {
       </Grid>
       {!certificates.length && !error ? (
         <Typography color="text.secondary">
-          No certificates yet. Complete courses to earn them.
+          No certificates yet. Complete subjects to earn them.
         </Typography>
       ) : null}
     </>

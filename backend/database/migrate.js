@@ -24,6 +24,8 @@ const MIGRATION_FILES = [
   '009_ai_usage_events.sql',
   '010_password_reset_tokens.sql',
   '011_lesson_competency.sql',
+  '012_student_username_login.sql',
+  '013_demo_student_usernames.sql',
 ];
 
 async function main() {

@@ -13,6 +13,9 @@ const userService = {
   update(id, payload) {
     return api.put(`/users/${id}`, payload);
   },
+  setPassword(id, payload) {
+    return api.post(`/users/${id}/set-password`, payload);
+  },
   remove(id) {
     return api.delete(`/users/${id}`);
   },

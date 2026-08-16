@@ -20,19 +20,32 @@ import {
   publicUploadUrl,
   safeUnlinkUpload,
 } from '../utils/uploadPaths.js';
+import {
+  isValidUsername,
+  normalizeUsername,
+  USERNAME_INVALID_MESSAGE,
+  USERNAME_REQUIRED_MESSAGE,
+} from '../utils/username.js';
 
-const FORGOT_PASSWORD_MESSAGE =
-  'If an account with that email exists, a password reset link has been sent.';
+const FORGOT_PASSWORD_SENT_MESSAGE =
+  'A password reset link has been sent to that staff email address.';
+
+const FORGOT_PASSWORD_LEARNER_MESSAGE =
+  'Learner accounts cannot reset via email — even if an email is on file. Ask a school administrator to set a new password.';
+
+const FORGOT_PASSWORD_INELIGIBLE_MESSAGE =
+  'This email is not eligible for staff password reset. Learners should ask a school administrator. Staff should check the address and try again.';
 
 const INVALID_RESET_TOKEN_MESSAGE =
   'Your password reset link is invalid or has expired. Please request a new one.';
+
+const INVALID_LOGIN_MESSAGE = 'Invalid username/email or password';
 
 function hashResetToken(rawToken) {
   return crypto.createHash('sha256').update(String(rawToken)).digest('hex');
 }
 
 function createResetToken() {
-  // 32 bytes → base64url (~43 chars), URL-safe, high entropy
   return crypto.randomBytes(32).toString('base64url');
 }
 
@@ -41,10 +54,16 @@ function removeLocalAvatar(avatarUrl) {
   safeUnlinkUpload(avatarUrl);
 }
 
+function normalizeOptionalEmail(email) {
+  const value = String(email || '').trim().toLowerCase();
+  return value || null;
+}
+
 function sanitizeUser(user) {
   return {
     id: user.id,
-    email: user.email,
+    username: user.username || null,
+    email: user.email || null,
     firstName: user.first_name,
     lastName: user.last_name,
     role: user.role,
@@ -56,13 +75,18 @@ function sanitizeUser(user) {
 
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, role: user.role, email: user.email },
+    {
+      id: user.id,
+      role: user.role,
+      email: user.email || null,
+      username: user.username || null,
+    },
     env.jwt.secret,
     { algorithm: 'HS256', expiresIn: env.jwt.expiresIn }
   );
 }
 
-async function buildAuthPayload(user) {
+async function buildAuthPayload(user, extras = {}) {
   let profile = null;
   if (user.role === 'student') {
     profile = await StudentProfileModel.findByUserId(user.id);
@@ -71,14 +95,44 @@ async function buildAuthPayload(user) {
     token: signToken(user),
     user: sanitizeUser(user),
     profile,
+    ...extras,
   };
 }
 
+async function assertUsernameAvailable(username, excludeUserId = null) {
+  const existing = await UserModel.findByUsername(username);
+  if (existing && existing.id !== excludeUserId) {
+    throw new AppError(
+      'Unable to create account. If you already have an account, please sign in.',
+      409
+    );
+  }
+}
+
+async function assertEmailAvailable(email, excludeUserId = null) {
+  if (!email) return;
+  const existing = await UserModel.findByEmail(email);
+  if (existing && existing.id !== excludeUserId) {
+    throw new AppError(
+      'Unable to create account. If you already have an account, please sign in.',
+      409
+    );
+  }
+}
+
 const AuthService = {
-  async register({ email, password, firstName, lastName, role, gradeLevel, schoolName }) {
+  async register({
+    username,
+    email,
+    password,
+    firstName,
+    lastName,
+    role,
+    gradeLevel,
+    schoolName,
+  }) {
     const selectedRole = role || 'student';
 
-    // Public self-registration is student-only. Teachers must be created by an administrator.
     if (selectedRole === 'teacher') {
       throw new AppError(
         'Teacher accounts must be created by an administrator.',
@@ -95,6 +149,22 @@ const AuthService = {
       throw new AppError(passwordError, 400);
     }
 
+    const normalizedUsername = normalizeUsername(username);
+    if (!normalizedUsername) {
+      throw new AppError(USERNAME_REQUIRED_MESSAGE, 400);
+    }
+    if (!isValidUsername(normalizedUsername)) {
+      throw new AppError(USERNAME_INVALID_MESSAGE, 400);
+    }
+
+    const normalizedEmail = normalizeOptionalEmail(email);
+    if (email !== undefined && email !== null && String(email).trim() !== '' && !normalizedEmail) {
+      throw new AppError('Enter a valid email address, or leave it blank.', 400);
+    }
+    if (normalizedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      throw new AppError('Enter a valid email address, or leave it blank.', 400);
+    }
+
     const normalizedGrade = normalizeGradeLevel(gradeLevel);
     if (!normalizedGrade) {
       throw new AppError(GRADE_LEVEL_REQUIRED_MESSAGE, 400);
@@ -103,18 +173,14 @@ const AuthService = {
       throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
     }
 
-    const existing = await UserModel.findByEmail(email.toLowerCase());
-    if (existing) {
-      // Avoid confirming whether a specific email is already registered.
-      throw new AppError(
-        'Unable to create account. If you already have an account, please sign in.',
-        409
-      );
-    }
+    await assertUsernameAvailable(normalizedUsername);
+    await assertEmailAvailable(normalizedEmail);
 
     const passwordHash = await bcrypt.hash(password, 12);
+
     const user = await UserModel.create({
-      email: email.toLowerCase(),
+      username: normalizedUsername,
+      email: normalizedEmail,
       passwordHash,
       firstName,
       lastName,
@@ -129,16 +195,21 @@ const AuthService = {
     return buildAuthPayload(user);
   },
 
-  async login({ email, password }) {
-    const user = await UserModel.findByEmail(email.toLowerCase());
+  async login({ login, email, username, password }) {
+    const identifier = String(login || username || email || '').trim();
+    if (!identifier) {
+      throw new AppError(INVALID_LOGIN_MESSAGE, 401);
+    }
+
+    const user = await UserModel.findByLoginIdentifier(identifier);
 
     if (!user || !user.is_active || !user.password_hash) {
-      throw new AppError('Invalid email or password', 401);
+      throw new AppError(INVALID_LOGIN_MESSAGE, 401);
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      throw new AppError('Invalid email or password', 401);
+      throw new AppError(INVALID_LOGIN_MESSAGE, 401);
     }
 
     return buildAuthPayload(user);
@@ -148,8 +219,6 @@ const AuthService = {
     const user = await UserModel.findById(userId);
     if (!user) throw new AppError('User not found', 404);
 
-    // Avatar is managed only via uploadAvatar/removeAvatar.
-    // Never persist display URLs like /api/files/avatars/:id into avatar_url.
     const updatedUser = await UserModel.update(userId, {
       first_name: firstName ?? user.first_name,
       last_name: lastName ?? user.last_name,
@@ -158,7 +227,6 @@ const AuthService = {
 
     let profile = null;
     if (user.role === 'student') {
-      // Empty string means "leave unchanged" so existing accounts without a grade stay intact.
       const normalizedGrade = normalizeGradeLevel(gradeLevel);
       if (normalizedGrade && !isValidGradeLevel(normalizedGrade)) {
         throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
@@ -233,8 +301,8 @@ const AuthService = {
   },
 
   /**
-   * Always returns the same generic message (email enumeration protection).
-   * Works for student, teacher, and administrator accounts with a password.
+   * Email reset for teachers and administrators only.
+   * Learners (including those with an optional email) get a clear ineligible prompt.
    */
   async requestPasswordReset({ email }) {
     await PasswordResetTokenModel.deleteExpiredOrUsed();
@@ -242,34 +310,56 @@ const AuthService = {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const user = await UserModel.findByEmail(normalizedEmail);
 
-    if (user && user.is_active && user.password_hash) {
-      await PasswordResetTokenModel.invalidateActiveForUser(user.id);
-
-      const rawToken = createResetToken();
-      const tokenHash = hashResetToken(rawToken);
-      const expiresAt = new Date(Date.now() + env.passwordReset.ttlMs);
-
-      await PasswordResetTokenModel.create({
-        userId: user.id,
-        tokenHash,
-        expiresAt,
-      });
-
-      const resetUrl = `${env.clientUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(rawToken)}`;
-
-      try {
-        await EmailService.sendPasswordResetEmail({
-          to: user.email,
-          firstName: user.first_name,
-          resetUrl,
-        });
-      } catch {
-        // Do not reveal delivery failures (enumeration / internals).
-        console.error('[AuthService] Password reset email delivery failed');
-      }
+    if (user && user.role === 'student') {
+      return {
+        message: FORGOT_PASSWORD_LEARNER_MESSAGE,
+        eligible: false,
+        reason: 'learner',
+      };
     }
 
-    return { message: FORGOT_PASSWORD_MESSAGE };
+    const isStaff = user
+      && user.is_active
+      && user.password_hash
+      && (user.role === 'teacher' || user.role === 'administrator');
+
+    if (!isStaff) {
+      return {
+        message: FORGOT_PASSWORD_INELIGIBLE_MESSAGE,
+        eligible: false,
+        reason: 'ineligible',
+      };
+    }
+
+    await PasswordResetTokenModel.invalidateActiveForUser(user.id);
+
+    const rawToken = createResetToken();
+    const tokenHash = hashResetToken(rawToken);
+    const expiresAt = new Date(Date.now() + env.passwordReset.ttlMs);
+
+    await PasswordResetTokenModel.create({
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    });
+
+    const resetUrl = `${env.clientUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(rawToken)}`;
+
+    try {
+      await EmailService.sendPasswordResetEmail({
+        to: user.email,
+        firstName: user.first_name,
+        resetUrl,
+      });
+    } catch {
+      console.error('[AuthService] Password reset email delivery failed');
+    }
+
+    return {
+      message: FORGOT_PASSWORD_SENT_MESSAGE,
+      eligible: true,
+      reason: 'sent',
+    };
   },
 
   async resetPassword({ token, password, confirmPassword }) {
@@ -296,7 +386,11 @@ const AuthService = {
     }
 
     const user = await UserModel.findById(resetRecord.user_id);
-    if (!user || !user.is_active) {
+    if (
+      !user
+      || !user.is_active
+      || user.role === 'student'
+    ) {
       throw new AppError(INVALID_RESET_TOKEN_MESSAGE, 400);
     }
 

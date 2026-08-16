@@ -208,7 +208,11 @@ export default function StudentProfilePage() {
               </Typography>
             </Stack>
             <Typography variant="h5">{form.firstName} {form.lastName}</Typography>
-            <Typography color="text.secondary">{user?.email}</Typography>
+            <Typography color="text.secondary">
+              {user?.username ? `@${user.username}` : null}
+              {user?.username && user?.email ? ' · ' : null}
+              {user?.email || (!user?.username ? 'No email on file' : null)}
+            </Typography>
             <Typography sx={{ mt: 1 }}>
               Grade Level: {studentProfile.grade_level || '—'}
             </Typography>
@@ -284,7 +288,7 @@ export default function StudentProfilePage() {
           <Paper sx={{ p: 3, mb: 2 }}>
             <XpBar xp={studentProfile.xp} />
             <Typography sx={{ mt: 2 }}>
-              Progress: {analytics.averageProgress}% · Completed courses:{' '}
+              Progress: {analytics.averageProgress}% · Completed subjects:{' '}
               {(courses || []).filter((c) => Number(c.progress_percent) >= 100).length}
             </Typography>
             <Typography>

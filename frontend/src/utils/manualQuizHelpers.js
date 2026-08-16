@@ -183,7 +183,7 @@ export function validateEditorQuiz(form, questions) {
   const errors = [];
 
   if (!String(form.title || '').trim()) errors.push('Quiz title is required.');
-  if (!form.courseId) errors.push('Course is required.');
+  if (!form.courseId) errors.push('Subject is required.');
   if (!questions.length) errors.push('Add at least one question.');
 
   questions.forEach((question, index) => {

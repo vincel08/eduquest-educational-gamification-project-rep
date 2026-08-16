@@ -55,7 +55,9 @@ export function AuthProvider({ children }) {
 
   async function register(payload) {
     const response = await authService.register(payload);
-    return applyAuth(response.data.data);
+    const data = response.data.data;
+    applyAuth(data);
+    return data;
   }
 
   function logout() {

@@ -78,7 +78,7 @@ export default function StudentLessonPage() {
         });
         let msg = `${pickMotivationalMessage()} Lesson completed! +${result.progress.xp_earned} XP`;
         if (result.progressPercent != null) {
-          msg += ` · Course progress ${result.progressPercent}%`;
+          msg += ` · Subject progress ${result.progressPercent}%`;
         }
         if (result.certificate) {
           msg += ` · Certificate earned: ${result.certificate.title || result.certificate.certificate_code}`;
@@ -246,7 +246,7 @@ export default function StudentLessonPage() {
                     startIcon={<QuizIcon />}
                     fullWidth
                   >
-                    Back to Course
+                    Back to Subject
                   </Button>
                 ) : null}
                 <Button

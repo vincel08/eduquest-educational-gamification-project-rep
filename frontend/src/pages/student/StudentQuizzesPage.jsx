@@ -27,7 +27,7 @@ export default function StudentQuizzesPage() {
             const response = await courseService.quizzes(course.id);
             return (response.data.data || []).map((quiz) => ({
               ...quiz,
-              courseTitle: course.title,
+              courseTitle: course.subject || course.title,
             }));
           })
         );
@@ -88,8 +88,8 @@ export default function StudentQuizzesPage() {
         <EmptyState
           icon={<QuizIcon sx={{ fontSize: 36 }} />}
           title="No quizzes yet"
-          description="Enroll in a course first — new challenges will appear here."
-          actionLabel="Browse courses"
+          description="Enroll in a subject first — new challenges will appear here."
+          actionLabel="Browse subjects"
           to="/student/courses"
           color="#8B5CF6"
         />

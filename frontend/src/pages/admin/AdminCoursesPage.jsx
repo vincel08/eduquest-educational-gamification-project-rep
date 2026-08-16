@@ -68,8 +68,8 @@ export default function AdminCoursesPage() {
   return (
     <>
       <PageHeader
-        title="Course Management"
-        subtitle="Publish, unpublish, and remove courses across the platform."
+        title="Subject Management"
+        subtitle="Publish, unpublish, and remove subjects across the platform."
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
@@ -84,8 +84,8 @@ export default function AdminCoursesPage() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Title</TableCell>
               <TableCell>Subject</TableCell>
+              <TableCell>Grade</TableCell>
               <TableCell>Teacher</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Timestamps</TableCell>
@@ -95,8 +95,8 @@ export default function AdminCoursesPage() {
           <TableBody>
             {visibleCourses.map((course) => (
               <TableRow key={course.id}>
-                <TableCell>{course.title}</TableCell>
-                <TableCell>{course.subject}</TableCell>
+                <TableCell>{course.subject || course.title}</TableCell>
+                <TableCell>{course.grade_level || '—'}</TableCell>
                 <TableCell>
                   {course.teacher_first_name} {course.teacher_last_name}
                 </TableCell>

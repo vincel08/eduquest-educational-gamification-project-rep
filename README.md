@@ -141,12 +141,15 @@ The backend requires a **long-running Node/Express** host with **MySQL** and a *
 
 After seeding (`npm run seed`), use password `Password123!` for:
 
-| Role          | Email                   |
-| ------------- | ----------------------- |
-| Administrator | `admin@eduwow.local`    |
-| Teacher       | `teacher@eduwow.local`  |
-| Student       | `student@eduwow.local`  |
-| Student       | `student2@eduwow.local` |
+| Role          | Sign in with                          |
+| ------------- | ------------------------------------- |
+| Administrator | Email `admin@eduwow.local`            |
+| Teacher       | Email `teacher@eduwow.local`          |
+| Student       | Username `sam.student` (email optional) |
+| Student       | Username `jamie.learner`              |
+
+Students who forget their password should ask a school administrator to reset it.
+Teachers/admins use email reset (`/forgot-password`).
 
 ---
 

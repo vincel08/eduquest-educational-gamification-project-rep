@@ -135,8 +135,8 @@ export default function StudentCourseDetailPage() {
   return (
     <PageContainer>
       <PageHeader
-        title={course.title}
-        subtitle={course.description}
+        title={course.subject || course.title}
+        subtitle={course.description || 'Subject overview'}
         action={
           canEnroll ? (
             <Button
@@ -216,7 +216,7 @@ export default function StudentCourseDetailPage() {
 
       {!course.is_published ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          This course is not available for enrollment.
+          This subject is not available for enrollment.
         </Alert>
       ) : null}
 
@@ -310,7 +310,7 @@ export default function StudentCourseDetailPage() {
           </Paper>
         ) : canEnroll ? (
           <Alert severity="info">
-            Enroll in this course to track learning progress and unlock
+            Enroll in this subject to track learning progress and unlock
             certificate requirements.
           </Alert>
         ) : null}
@@ -346,11 +346,11 @@ export default function StudentCourseDetailPage() {
                     >
                       {lesson.competency ? (
                         <Typography variant="body2" color="text.secondary">
-                          {lesson.competency}
+                          Competency: {lesson.competency}
                         </Typography>
                       ) : null}
                       <Typography variant="body2" color="text.secondary">
-                        XP reward: {lesson.xp_reward || 25}
+                        XP reward: {lesson.xp_reward || 25} (student progress)
                       </Typography>
                       <ContentTimestamp
                         item={lesson}
@@ -448,7 +448,7 @@ export default function StudentCourseDetailPage() {
           </List>
           {!quizzes.length ? (
             <Typography color="text.secondary">
-              No quizzes published for this course.
+              No quizzes published for this subject.
             </Typography>
           ) : null}
         </Paper>

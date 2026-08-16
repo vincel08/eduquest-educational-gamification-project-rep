@@ -138,9 +138,18 @@ export default function TeacherCourseDetailPage() {
         title={course.subject || course.title}
         subtitle={course.description || 'Manage lessons, quizzes, games, and enrollments.'}
         action={(
-          <Button variant="contained" onClick={() => setOpen(true)}>
-            Add Lesson
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              component={RouterLink}
+              to={`/teacher/courses/${courseId}/scores`}
+              variant="outlined"
+            >
+              Class Scores
+            </Button>
+            <Button variant="contained" onClick={() => setOpen(true)}>
+              Add Lesson
+            </Button>
+          </Stack>
         )}
       />
       <ContentTimestamp item={course} dense sx={{ mb: 2, mt: 0 }} />

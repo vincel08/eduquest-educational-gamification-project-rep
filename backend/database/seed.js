@@ -165,6 +165,9 @@ async function run() {
   const upgrades = [
     `ALTER TABLE users ADD COLUMN google_id VARCHAR(255) NULL UNIQUE AFTER email`,
     `ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NULL`,
+    `ALTER TABLE users ADD COLUMN username VARCHAR(100) NULL UNIQUE AFTER id`,
+    `ALTER TABLE users ADD COLUMN recovery_code_hash VARCHAR(255) NULL AFTER password_hash`,
+    `ALTER TABLE users MODIFY COLUMN email VARCHAR(255) NULL`,
     `ALTER TABLE student_profiles ADD COLUMN current_streak INT UNSIGNED NOT NULL DEFAULT 0`,
     `ALTER TABLE student_profiles ADD COLUMN longest_streak INT UNSIGNED NOT NULL DEFAULT 0`,
     `ALTER TABLE student_profiles ADD COLUMN last_activity_date DATE NULL`,
@@ -272,15 +275,15 @@ async function run() {
   );
 
   const [studentResult] = await connection.execute(
-    `INSERT INTO users (email, password_hash, first_name, last_name, role)
-     VALUES (?, ?, ?, ?, ?)`,
-    ["student@eduwow.local", passwordHash, "Sam", "Student", "student"],
+    `INSERT INTO users (username, email, password_hash, first_name, last_name, role)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    ["sam.student", "student@eduwow.local", passwordHash, "Sam", "Student", "student"],
   );
 
   const [student2Result] = await connection.execute(
-    `INSERT INTO users (email, password_hash, first_name, last_name, role)
-     VALUES (?, ?, ?, ?, ?)`,
-    ["student2@eduwow.local", passwordHash, "Jamie", "Learner", "student"],
+    `INSERT INTO users (username, email, password_hash, first_name, last_name, role)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    ["jamie.learner", "student2@eduwow.local", passwordHash, "Jamie", "Learner", "student"],
   );
 
   const adminId = adminResult.insertId;
@@ -586,10 +589,10 @@ async function run() {
   //   "Modules: Disaster Preparedness, Cyberbullying Awareness, Bullying Prevention",
   // );
   console.log("Demo accounts (password: Password123!):");
-  console.log("  admin@eduwow.local");
-  console.log("  teacher@eduwow.local");
-  console.log("  student@eduwow.local");
-  console.log("  student2@eduwow.local");
+  console.log("  admin@eduwow.local (administrator)");
+  console.log("  teacher@eduwow.local (teacher)");
+  console.log("  sam.student (student username; optional email student@eduwow.local)");
+  console.log("  jamie.learner (student username; optional email student2@eduwow.local)");
 }
 
 run().catch((error) => {

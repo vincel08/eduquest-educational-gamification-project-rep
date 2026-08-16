@@ -22,3 +22,19 @@ export const updateCourseValidation = [
   body('gradeLevel').optional().isString(),
   body('isPublished').optional().isBoolean(),
 ];
+
+export const gradebookQuizScoreValidation = [
+  param('id').isInt({ min: 1 }).withMessage('Invalid course id'),
+  param('quizId').isInt({ min: 1 }).withMessage('Invalid quiz id'),
+  param('studentId').isInt({ min: 1 }).withMessage('Invalid student id'),
+  body('earnedPoints').optional(),
+  body('score').optional(),
+];
+
+export const gradebookGameScoreValidation = [
+  param('id').isInt({ min: 1 }).withMessage('Invalid course id'),
+  param('gameId').isInt({ min: 1 }).withMessage('Invalid game id'),
+  param('studentId').isInt({ min: 1 }).withMessage('Invalid student id'),
+  body('earnedPoints').optional(),
+  body('score').optional(),
+];

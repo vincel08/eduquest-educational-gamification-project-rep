@@ -27,7 +27,7 @@ export default function StudentGamesPage() {
             const response = await courseService.games(course.id);
             return (response.data.data || []).map((game) => ({
               ...game,
-              courseTitle: course.title,
+              courseTitle: course.subject || course.title,
             }));
           })
         );
@@ -89,8 +89,8 @@ export default function StudentGamesPage() {
         <EmptyState
           icon={<SportsEsportsIcon sx={{ fontSize: 36 }} />}
           title="No games unlocked yet"
-          description="Games appear when teachers publish them to your courses."
-          actionLabel="View courses"
+          description="Games appear when teachers publish them to your subjects."
+          actionLabel="View subjects"
           to="/student/courses"
           color="#F97316"
         />

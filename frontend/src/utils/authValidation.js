@@ -5,6 +5,8 @@ import {
 } from './gradeLevels';
 
 const MIN_PASSWORD_LENGTH = 8;
+const USERNAME_MIN = 3;
+const USERNAME_MAX = 64;
 
 export function getPasswordError(password) {
   if (!password || !String(password).trim()) {
@@ -28,6 +30,23 @@ export function getPasswordError(password) {
   return '';
 }
 
+export function getUsernameError(username) {
+  const value = String(username || '').trim().toLowerCase();
+  if (!value) {
+    return 'Username is required';
+  }
+  if (value.length < USERNAME_MIN || value.length > USERNAME_MAX) {
+    return `Username must be ${USERNAME_MIN}–${USERNAME_MAX} characters`;
+  }
+  if (/^\d{6,20}$/.test(value)) {
+    return '';
+  }
+  if (!/^[a-z0-9]+([._-]?[a-z0-9]+)*$/.test(value)) {
+    return 'Use letters, numbers, dots, underscores, or hyphens (or a school/LRN ID)';
+  }
+  return '';
+}
+
 export function validateRegistrationForm(form) {
   const errors = {};
 
@@ -39,10 +58,15 @@ export function validateRegistrationForm(form) {
     errors.lastName = 'Last name is required';
   }
 
-  if (!form.email?.trim()) {
-    errors.email = 'Email is required';
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-    errors.email = 'Enter a valid email address';
+  const usernameError = getUsernameError(form.username);
+  if (usernameError) {
+    errors.username = usernameError;
+  }
+
+  if (form.email?.trim()) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      errors.email = 'Enter a valid email address, or leave it blank';
+    }
   }
 
   const passwordError = getPasswordError(form.password);

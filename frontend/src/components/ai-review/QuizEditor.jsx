@@ -124,18 +124,29 @@ export default function QuizEditor({
         value={quiz.description || ''}
         onChange={(e) => updateQuiz({ description: e.target.value })}
       />
-      <Stack direction="row" spacing={2}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <TextField
-          label="Points default / XP"
+          label="XP reward"
           type="number"
           value={quiz.xpReward || 50}
           onChange={(e) => updateQuiz({ xpReward: Number(e.target.value) })}
+          helperText="Student progress XP (separate from grade score)"
+          inputProps={{ min: 0 }}
+        />
+        <TextField
+          label="Passing score (%)"
+          type="number"
+          value={quiz.passingScore || 60}
+          onChange={(e) => updateQuiz({ passingScore: Number(e.target.value) })}
+          helperText="Minimum grade % to pass"
+          inputProps={{ min: 0, max: 100 }}
         />
         <TextField
           label="Time limit (min)"
           type="number"
           value={quiz.timeLimitMinutes || 15}
           onChange={(e) => updateQuiz({ timeLimitMinutes: Number(e.target.value) })}
+          inputProps={{ min: 1 }}
         />
       </Stack>
 
@@ -144,7 +155,9 @@ export default function QuizEditor({
         <Button
           startIcon={<AddIcon />}
           variant="outlined"
-          onClick={() => updateQuiz({ questions: [...(quiz.questions || []), blankQuestion()] })}
+          onClick={() => updateQuiz({
+            questions: [...(quiz.questions || []), blankQuestion()],
+          })}
         >
           Add question
         </Button>
@@ -206,10 +219,12 @@ export default function QuizEditor({
                   <MenuItem value="identification">Identification</MenuItem>
                 </TextField>
                 <TextField
-                  label="Points"
+                  label="Score points"
                   type="number"
                   value={question.points || 1}
                   onChange={(e) => updateQuestion(index, { points: Number(e.target.value) })}
+                  helperText="Grading weight"
+                  inputProps={{ min: 1 }}
                 />
                 <TextField
                   select

@@ -9,27 +9,37 @@ import {
   safeUnlinkUpload,
 } from '../utils/uploadPaths.js';
 import path from 'path';
+import {
+  isValidUsername,
+  normalizeUsername,
+  USERNAME_INVALID_MESSAGE,
+  USERNAME_REQUIRED_MESSAGE,
+} from '../utils/username.js';
 
 function normalizeStoredAvatarUrl(avatarUrl) {
   if (avatarUrl === null || avatarUrl === '') return null;
   const value = String(avatarUrl);
-  // Display-only API paths must never be persisted.
   if (value.startsWith('/api/files/')) return undefined;
   if (value.startsWith('/uploads/')) {
     return publicUploadUrl(path.basename(value));
   }
-  // Bare filename from trusted admin tooling.
   if (!value.includes('/') && !value.includes('\\')) {
     return publicUploadUrl(value);
   }
   return undefined;
 }
 
+function normalizeOptionalEmail(email) {
+  const value = String(email || '').trim().toLowerCase();
+  return value || null;
+}
+
 function sanitizeUser(user) {
   if (!user) return null;
   return {
     id: user.id,
-    email: user.email,
+    username: user.username || null,
+    email: user.email || null,
     firstName: user.first_name,
     lastName: user.last_name,
     role: user.role,
@@ -38,6 +48,15 @@ function sanitizeUser(user) {
     createdAt: user.created_at,
     updatedAt: user.updated_at,
   };
+}
+
+async function assertAdminCanResetStudentPassword(actor, student) {
+  if (!student || student.role !== 'student') {
+    throw new AppError('Only student accounts can be managed this way', 400);
+  }
+  if (actor.role !== 'administrator') {
+    throw new AppError('Only administrators can reset student passwords', 403);
+  }
 }
 
 const UserService = {
@@ -74,19 +93,47 @@ const UserService = {
       throw new AppError(passwordError, 400);
     }
 
-    const existing = await UserModel.findByEmail(data.email.toLowerCase());
-    if (existing) throw new AppError('Email is already registered', 409);
+    const isStudent = data.role === 'student';
+    const normalizedUsername = normalizeUsername(data.username);
+    const normalizedEmail = normalizeOptionalEmail(data.email);
+
+    if (isStudent) {
+      if (!normalizedUsername) {
+        throw new AppError(USERNAME_REQUIRED_MESSAGE, 400);
+      }
+      if (!isValidUsername(normalizedUsername)) {
+        throw new AppError(USERNAME_INVALID_MESSAGE, 400);
+      }
+      const existingUsername = await UserModel.findByUsername(normalizedUsername);
+      if (existingUsername) {
+        throw new AppError('Username is already taken', 409);
+      }
+      if (normalizedEmail) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+          throw new AppError('Valid email is required when provided', 400);
+        }
+        const existingEmail = await UserModel.findByEmail(normalizedEmail);
+        if (existingEmail) throw new AppError('Email is already registered', 409);
+      }
+    } else {
+      if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        throw new AppError('Valid email is required for teachers and administrators', 400);
+      }
+      const existingEmail = await UserModel.findByEmail(normalizedEmail);
+      if (existingEmail) throw new AppError('Email is already registered', 409);
+    }
 
     const passwordHash = await bcrypt.hash(data.password, 12);
     const user = await UserModel.create({
-      email: data.email.toLowerCase(),
+      username: isStudent ? normalizedUsername : null,
+      email: normalizedEmail,
       passwordHash,
       firstName: data.firstName,
       lastName: data.lastName,
       role: data.role,
     });
 
-    if (data.role === 'student') {
+    if (isStudent) {
       await StudentProfileModel.create(user.id, {
         gradeLevel: data.gradeLevel,
         schoolName: data.schoolName,
@@ -127,6 +174,22 @@ const UserService = {
     }
 
     const updated = await UserModel.update(id, fields);
+    return sanitizeUser(updated);
+  },
+
+  async setStudentPassword(actor, studentId, password) {
+    const student = await UserModel.findById(studentId);
+    if (!student) throw new AppError('User not found', 404);
+
+    await assertAdminCanResetStudentPassword(actor, student);
+
+    const passwordError = validateNewPassword(password);
+    if (passwordError) {
+      throw new AppError(passwordError, 400);
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const updated = await UserModel.update(student.id, { password_hash: passwordHash });
     return sanitizeUser(updated);
   },
 

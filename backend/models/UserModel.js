@@ -1,21 +1,31 @@
 import { query } from '../config/db.js';
+import { normalizeUsername } from '../utils/username.js';
+
+const USER_SELECT = `id, username, email, password_hash, recovery_code_hash, google_id, first_name, last_name, role, avatar_url, is_active, created_at, updated_at`;
 
 const UserModel = {
   async create({
-    email,
+    username = null,
+    email = null,
     passwordHash,
     firstName,
     lastName,
     role,
     googleId = null,
     avatarUrl = null,
+    recoveryCodeHash = null,
   }) {
     const result = await query(
-      `INSERT INTO users (email, password_hash, google_id, first_name, last_name, role, avatar_url)
-       VALUES (:email, :passwordHash, :googleId, :firstName, :lastName, :role, :avatarUrl)`,
+      `INSERT INTO users (
+         username, email, password_hash, recovery_code_hash, google_id, first_name, last_name, role, avatar_url
+       ) VALUES (
+         :username, :email, :passwordHash, :recoveryCodeHash, :googleId, :firstName, :lastName, :role, :avatarUrl
+       )`,
       {
-        email,
+        username: username ? normalizeUsername(username) : null,
+        email: email ? String(email).toLowerCase() : null,
         passwordHash,
+        recoveryCodeHash,
         googleId,
         firstName,
         lastName,
@@ -28,7 +38,7 @@ const UserModel = {
 
   async findById(id) {
     const rows = await query(
-      `SELECT id, email, password_hash, google_id, first_name, last_name, role, avatar_url, is_active, created_at, updated_at
+      `SELECT ${USER_SELECT}
        FROM users WHERE id = :id LIMIT 1`,
       { id }
     );
@@ -36,12 +46,36 @@ const UserModel = {
   },
 
   async findByEmail(email) {
+    if (!email) return null;
     const rows = await query(
-      `SELECT id, email, password_hash, google_id, first_name, last_name, role, avatar_url, is_active, created_at, updated_at
+      `SELECT ${USER_SELECT}
        FROM users WHERE email = :email LIMIT 1`,
-      { email }
+      { email: String(email).toLowerCase() }
     );
     return rows[0] || null;
+  },
+
+  async findByUsername(username) {
+    const normalized = normalizeUsername(username);
+    if (!normalized) return null;
+    const rows = await query(
+      `SELECT ${USER_SELECT}
+       FROM users WHERE username = :username LIMIT 1`,
+      { username: normalized }
+    );
+    return rows[0] || null;
+  },
+
+  /**
+   * Resolve login by email (contains @) or username.
+   */
+  async findByLoginIdentifier(identifier) {
+    const value = String(identifier || '').trim();
+    if (!value) return null;
+    if (value.includes('@')) {
+      return this.findByEmail(value);
+    }
+    return this.findByUsername(value);
   },
 
   async findAll({ role, search, page = 1, limit = 20 }) {
@@ -55,14 +89,16 @@ const UserModel = {
     }
 
     if (search) {
-      filters.push('(first_name LIKE :search OR last_name LIKE :search OR email LIKE :search)');
+      filters.push(
+        '(first_name LIKE :search OR last_name LIKE :search OR email LIKE :search OR username LIKE :search)'
+      );
       params.search = `%${search}%`;
     }
 
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
     const rows = await query(
-      `SELECT id, email, first_name, last_name, role, avatar_url, is_active, created_at, updated_at
+      `SELECT id, username, email, first_name, last_name, role, avatar_url, is_active, created_at, updated_at
        FROM users ${where}
        ORDER BY created_at DESC
        LIMIT :limit OFFSET :offset`,
@@ -78,7 +114,18 @@ const UserModel = {
   },
 
   async update(id, fields) {
-    const allowed = ['first_name', 'last_name', 'avatar_url', 'is_active', 'role', 'password_hash', 'google_id'];
+    const allowed = [
+      'username',
+      'email',
+      'first_name',
+      'last_name',
+      'avatar_url',
+      'is_active',
+      'role',
+      'password_hash',
+      'recovery_code_hash',
+      'google_id',
+    ];
     const sets = [];
     const params = { id };
 
