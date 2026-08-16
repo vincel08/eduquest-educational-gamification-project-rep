@@ -148,9 +148,18 @@ async function run() {
     multipleStatements: true,
   });
 
-  const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
+  const dbName = process.env.DB_NAME || "eduquest";
+  // schema.sql historically hardcodes `eduquest`; rewrite so Railway/custom DB names work.
+  let schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
+  schema = schema
+    .replace(
+      /CREATE DATABASE IF NOT EXISTS\s+`?eduquest`?[^;]*;/i,
+      `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
+    )
+    .replace(/USE\s+`?eduquest`?\s*;/i, `USE \`${dbName}\`;`);
+
   await connection.query(schema);
-  await connection.changeUser({ database: process.env.DB_NAME || "eduquest" });
+  await connection.changeUser({ database: dbName });
 
   // Upgrade existing databases with new columns/tables
   const upgrades = [
