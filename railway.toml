@@ -1,0 +1,7 @@
+# Railway: deploy the Express API from this monorepo.
+# Preferred alternative in the Railway UI: set Root Directory = "backend"
+# and Start Command = "npm start".
+
+[deploy]
+startCommand = "npm start"
+restartPolicyType = "ON_FAILURE"

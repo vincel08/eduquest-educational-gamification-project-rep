@@ -7,6 +7,8 @@
     "node": ">=20 <23"
   },
   "scripts": {
+    "postinstall": "npm install --prefix backend",
+    "start": "npm --prefix backend run start",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "seed": "npm --prefix backend run seed",
