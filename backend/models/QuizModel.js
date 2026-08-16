@@ -325,12 +325,16 @@ const QuizModel = {
          qa.id,
          qa.attempt_id,
          qa.question_id,
+         qa.question_text,
          qa.selected_option_id,
+         qa.selected_option_text,
          qa.text_answer,
          qa.answer_payload,
          qa.is_correct,
-         qa.points_earned
+         qa.points_earned,
+         qo.option_text AS joined_option_text
        FROM quiz_answers qa
+       LEFT JOIN quiz_options qo ON qo.id = qa.selected_option_id
        WHERE qa.attempt_id = :attemptId
        ORDER BY qa.id ASC`,
       { attemptId }
@@ -392,13 +396,35 @@ const QuizModel = {
 
     await query(
       `INSERT INTO quiz_answers
-       (attempt_id, question_id, selected_option_id, text_answer, answer_payload, is_correct, points_earned)
+       (
+         attempt_id,
+         question_id,
+         question_text,
+         selected_option_id,
+         selected_option_text,
+         text_answer,
+         answer_payload,
+         is_correct,
+         points_earned
+       )
        VALUES
-       (:attemptId, :questionId, :selectedOptionId, :textAnswer, :answerPayload, :isCorrect, :pointsEarned)`,
+       (
+         :attemptId,
+         :questionId,
+         :questionText,
+         :selectedOptionId,
+         :selectedOptionText,
+         :textAnswer,
+         :answerPayload,
+         :isCorrect,
+         :pointsEarned
+       )`,
       {
         attemptId: data.attemptId,
         questionId: data.questionId,
+        questionText: data.questionText || null,
         selectedOptionId: data.selectedOptionId || null,
+        selectedOptionText: data.selectedOptionText || null,
         textAnswer: data.textAnswer || null,
         answerPayload: payload,
         isCorrect: data.isCorrect,

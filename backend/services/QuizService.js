@@ -54,13 +54,28 @@ function parseAnswerPayload(value) {
   }
 }
 
+function asBoolFlag(value) {
+  if (value === true || value === 1 || value === '1') return true;
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(value)) {
+    return value.length > 0 && Number(value[0]) === 1;
+  }
+  return Number(value) === 1;
+}
+
 function formatStudentAnswerDisplay(question, answer, optionsById) {
-  if (!answer) return { display: '—', selectedOptionId: null, textAnswer: null, answerPayload: null };
+  if (!answer) {
+    return { display: '—', selectedOptionId: null, textAnswer: null, answerPayload: null };
+  }
 
   if (answer.selected_option_id) {
     const option = optionsById.get(Number(answer.selected_option_id));
     return {
-      display: option?.option_text || `Option #${answer.selected_option_id}`,
+      display:
+        option?.option_text
+        || answer.selected_option_text
+        || answer.joined_option_text
+        || answer.text_answer
+        || `Option #${answer.selected_option_id}`,
       selectedOptionId: Number(answer.selected_option_id),
       textAnswer: answer.text_answer || null,
       answerPayload: parseAnswerPayload(answer.answer_payload),
@@ -68,7 +83,7 @@ function formatStudentAnswerDisplay(question, answer, optionsById) {
   }
 
   const payload = parseAnswerPayload(answer.answer_payload);
-  if (question.question_type === 'matching' && payload && typeof payload === 'object') {
+  if (question?.question_type === 'matching' && payload && typeof payload === 'object') {
     const leftOptions = (question.options || []).filter((option) => option.side === 'left');
     const rightById = new Map(
       (question.options || [])
@@ -80,7 +95,16 @@ function formatStudentAnswerDisplay(question, answer, optionsById) {
       return `${left.option_text} → ${rightById.get(rightId) || '—'}`;
     });
     return {
-      display: pairs.join('; ') || '—',
+      display: pairs.join('; ') || answer.text_answer || '—',
+      selectedOptionId: null,
+      textAnswer: answer.text_answer || null,
+      answerPayload: payload,
+    };
+  }
+
+  if (answer.selected_option_text || answer.joined_option_text) {
+    return {
+      display: answer.selected_option_text || answer.joined_option_text,
       selectedOptionId: null,
       textAnswer: answer.text_answer || null,
       answerPayload: payload,
@@ -329,7 +353,8 @@ function scoreQuestion(question, answer) {
     return {
       isCorrect,
       selectedOptionId,
-      textAnswer: null,
+      selectedOptionText: selected ? optionText(selected) : null,
+      textAnswer: selected ? optionText(selected) : null,
       answerPayload: null,
     };
   }
@@ -343,6 +368,7 @@ function scoreQuestion(question, answer) {
     return {
       isCorrect,
       selectedOptionId: null,
+      selectedOptionText: null,
       textAnswer: textAnswer || null,
       answerPayload: null,
     };
@@ -356,19 +382,21 @@ function scoreQuestion(question, answer) {
     const rightOptions = question.options.filter((option) => option.side === 'right');
 
     let isCorrect = leftOptions.length > 0;
+    const pairLabels = [];
     for (const left of leftOptions) {
       const rightId = payload[String(left.id)] ?? payload[left.id];
       const right = rightOptions.find((option) => Number(option.id) === Number(rightId));
+      pairLabels.push(`${optionText(left)} → ${right ? optionText(right) : '—'}`);
       if (!right || right.match_key !== left.match_key) {
         isCorrect = false;
-        break;
       }
     }
 
     return {
       isCorrect,
       selectedOptionId: null,
-      textAnswer: null,
+      selectedOptionText: null,
+      textAnswer: pairLabels.join('; ') || null,
       answerPayload: payload,
     };
   }
@@ -376,6 +404,7 @@ function scoreQuestion(question, answer) {
   return {
     isCorrect: false,
     selectedOptionId: null,
+    selectedOptionText: null,
     textAnswer: null,
     answerPayload: null,
   };
@@ -740,7 +769,9 @@ const QuizService = {
       await QuizModel.saveAnswer({
         attemptId,
         questionId: question.id,
+        questionText: question.question_text,
         selectedOptionId: scored.selectedOptionId,
+        selectedOptionText: scored.selectedOptionText,
         textAnswer: scored.textAnswer,
         answerPayload: scored.answerPayload,
         isCorrect: scored.isCorrect ? 1 : 0,
@@ -838,7 +869,9 @@ const QuizService = {
     ]);
 
     const answersByQuestionId = new Map(
-      answers.map((answer) => [Number(answer.question_id), answer])
+      answers
+        .filter((answer) => answer.question_id != null)
+        .map((answer) => [Number(answer.question_id), answer])
     );
     const optionsById = new Map();
     for (const question of questions) {
@@ -848,6 +881,70 @@ const QuizService = {
     }
 
     const secureQuestions = withSecureQuestionImages(questions);
+    const matchedQuestionIds = new Set();
+
+    const itemsFromQuestions = secureQuestions.map((question) => {
+      const answer = answersByQuestionId.get(Number(question.id)) || null;
+      if (answer) matchedQuestionIds.add(Number(answer.id));
+      const studentAnswer = formatStudentAnswerDisplay(question, answer, optionsById);
+      const isCorrect = answer ? asBoolFlag(answer.is_correct) : null;
+      return {
+        questionId: question.id,
+        questionText: question.question_text,
+        questionType: question.question_type,
+        points: question.points,
+        imageUrl: question.image_url || null,
+        explanation: question.explanation || null,
+        options: (question.options || []).map((option) => ({
+          id: option.id,
+          optionText: option.option_text,
+          isCorrect: asBoolFlag(option.is_correct),
+          side: option.side || null,
+          matchKey: option.match_key || null,
+        })),
+        correctAnswer: formatCorrectAnswerDisplay(question),
+        studentAnswer: studentAnswer.display,
+        selectedOptionId: studentAnswer.selectedOptionId,
+        textAnswer: studentAnswer.textAnswer,
+        answerPayload: studentAnswer.answerPayload,
+        isCorrect,
+        pointsEarned: answer ? Number(answer.points_earned) || 0 : null,
+        answerStored: Boolean(answer),
+      };
+    });
+
+    // Keep historical answers even if the quiz questions were later replaced.
+    const orphanItems = answers
+      .filter((answer) => !matchedQuestionIds.has(Number(answer.id)))
+      .map((answer, index) => {
+        const studentAnswer = formatStudentAnswerDisplay(
+          { question_type: null, options: [] },
+          answer,
+          optionsById
+        );
+        return {
+          questionId: answer.question_id,
+          questionText: answer.question_text || `Question ${index + 1} (from this attempt)`,
+          questionType: 'recorded',
+          points: Number(answer.points_earned) || 0,
+          imageUrl: null,
+          explanation: null,
+          options: [],
+          correctAnswer: '—',
+          studentAnswer: studentAnswer.display,
+          selectedOptionId: studentAnswer.selectedOptionId,
+          textAnswer: studentAnswer.textAnswer,
+          answerPayload: studentAnswer.answerPayload,
+          isCorrect: asBoolFlag(answer.is_correct),
+          pointsEarned: Number(answer.points_earned) || 0,
+          answerStored: true,
+        };
+      });
+
+    const hasMatchedAnswers = itemsFromQuestions.some((item) => item.answerStored);
+    const items = hasMatchedAnswers
+      ? itemsFromQuestions
+      : (orphanItems.length ? orphanItems : itemsFromQuestions);
 
     return {
       quiz: {
@@ -866,36 +963,13 @@ const QuizService = {
         score: attempt.score,
         earnedPoints: attempt.earned_points,
         totalPoints: attempt.total_points,
-        isPassed: Boolean(attempt.is_passed),
+        isPassed: asBoolFlag(attempt.is_passed),
         xpEarned: attempt.xp_earned || 0,
         completedAt: attempt.completed_at,
       },
-      items: secureQuestions.map((question) => {
-        const answer = answersByQuestionId.get(Number(question.id)) || null;
-        const studentAnswer = formatStudentAnswerDisplay(question, answer, optionsById);
-        return {
-          questionId: question.id,
-          questionText: question.question_text,
-          questionType: question.question_type,
-          points: question.points,
-          imageUrl: question.image_url || null,
-          explanation: question.explanation || null,
-          options: (question.options || []).map((option) => ({
-            id: option.id,
-            optionText: option.option_text,
-            isCorrect: Boolean(option.is_correct),
-            side: option.side || null,
-            matchKey: option.match_key || null,
-          })),
-          correctAnswer: formatCorrectAnswerDisplay(question),
-          studentAnswer: studentAnswer.display,
-          selectedOptionId: studentAnswer.selectedOptionId,
-          textAnswer: studentAnswer.textAnswer,
-          answerPayload: studentAnswer.answerPayload,
-          isCorrect: answer ? Boolean(answer.is_correct) : false,
-          pointsEarned: answer ? Number(answer.points_earned) || 0 : 0,
-        };
-      }),
+      answersAvailable: answers.length > 0,
+      answerCount: answers.length,
+      items,
     };
   },
 

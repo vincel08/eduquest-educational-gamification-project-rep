@@ -250,7 +250,6 @@ export default function TeacherQuizEditorPage() {
                 startIcon={<SaveIcon />}
                 disabled={saving}
                 onClick={saveDraft}
-                sx={{ borderColor: "#fff", color: "#fff" }}
               >
                 Save Draft
               </Button>
@@ -259,7 +258,6 @@ export default function TeacherQuizEditorPage() {
                 startIcon={<VisibilityIcon />}
                 disabled={saving}
                 onClick={handlePreview}
-                sx={{ borderColor: "#fff", color: "#fff" }}
               >
                 Preview
               </Button>
