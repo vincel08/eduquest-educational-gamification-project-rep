@@ -232,14 +232,6 @@ export default function StudentDashboard() {
             variant="outlined"
             size="large"
             startIcon={<SportsEsportsIcon />}
-            sx={{
-              borderColor: "#fff",
-              color: "#fff",
-              "&:hover": {
-                borderColor: "#fff",
-                bgcolor: "rgba(255,255,255,0.12)",
-              },
-            }}
           >
             Play a Game
           </Button>

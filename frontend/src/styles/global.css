@@ -135,6 +135,37 @@ body[data-theme="dark"] .glass-panel {
   box-shadow: 0 16px 40px rgba(99, 102, 241, 0.26);
 }
 
+/* Hero secondary actions: solid white beats primary-blue outline on purple. */
+.page-hero .MuiButton-outlined {
+  color: #1e1b4b !important;
+  background-color: #ffffff !important;
+  border-color: #ffffff !important;
+  font-weight: 700;
+}
+
+.page-hero .MuiButton-outlined:hover {
+  color: #1e1b4b !important;
+  background-color: #f8fafc !important;
+  border-color: #f8fafc !important;
+}
+
+.page-hero .MuiButton-outlined.Mui-disabled {
+  color: rgba(30, 27, 75, 0.45) !important;
+  background-color: rgba(255, 255, 255, 0.55) !important;
+  border-color: transparent !important;
+}
+
+.page-hero .MuiButton-text,
+.page-hero .MuiIconButton-root {
+  color: #ffffff !important;
+}
+
+.page-hero .MuiButton-outlined .MuiSvgIcon-root,
+.page-hero .MuiButton-text .MuiSvgIcon-root,
+.page-hero .MuiIconButton-root .MuiSvgIcon-root {
+  color: inherit !important;
+}
+
 .page-hero::after {
   content: "";
   position: absolute;

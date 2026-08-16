@@ -86,7 +86,6 @@ export default function TeacherDashboard() {
               to="/teacher/ai-quiz"
               variant="outlined"
               startIcon={<AutoAwesomeIcon />}
-              sx={{ borderColor: "#fff", color: "#fff" }}
             >
               AI Quiz
             </Button>
@@ -95,7 +94,6 @@ export default function TeacherDashboard() {
               to="/teacher/ai-game"
               variant="outlined"
               startIcon={<SportsEsportsIcon />}
-              sx={{ borderColor: "#fff", color: "#fff" }}
             >
               AI Game
             </Button>

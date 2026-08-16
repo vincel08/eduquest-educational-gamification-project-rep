@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import quizService from '../../services/quizService';
 import { getErrorMessage } from '../../services/api';
 import { buildAuthenticatedFileUrl } from '../../utils/fileUrls';
@@ -24,6 +25,16 @@ function formatWhen(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString();
+}
+
+function ResultIcon({ isCorrect }) {
+  if (isCorrect === true) {
+    return <CheckCircleIcon color="success" fontSize="small" sx={{ mt: 0.35 }} />;
+  }
+  if (isCorrect === false) {
+    return <CancelIcon color="error" fontSize="small" sx={{ mt: 0.35 }} />;
+  }
+  return <HelpOutlineIcon color="disabled" fontSize="small" sx={{ mt: 0.35 }} />;
 }
 
 export default function TeacherQuizAttemptReviewDialog({
@@ -103,26 +114,33 @@ export default function TeacherQuizAttemptReviewDialog({
               <Chip label={formatWhen(review.attempt.completedAt)} variant="outlined" />
             </Stack>
 
+            {!review.answersAvailable ? (
+              <Alert severity="warning">
+                Per-question answers are not stored for this attempt (the quiz may have been edited
+                after the student submitted). The total score above is still valid. Ask the student
+                to retake the quiz to capture answer details.
+              </Alert>
+            ) : null}
+
             {review.items.map((item, index) => {
               const imageSrc = item.imageUrl
                 ? buildAuthenticatedFileUrl(item.imageUrl)
                 : null;
+              const pointsLabel = item.pointsEarned == null
+                ? `—/${item.points} pts`
+                : `${item.pointsEarned}/${item.points} pts`;
               return (
-                <Box key={item.questionId}>
+                <Box key={`${item.questionId || 'orphan'}-${index}`}>
                   {index > 0 ? <Divider sx={{ mb: 2 }} /> : null}
                   <Stack spacing={1}>
                     <Stack direction="row" spacing={1} alignItems="flex-start">
-                      {item.isCorrect ? (
-                        <CheckCircleIcon color="success" fontSize="small" sx={{ mt: 0.35 }} />
-                      ) : (
-                        <CancelIcon color="error" fontSize="small" sx={{ mt: 0.35 }} />
-                      )}
+                      <ResultIcon isCorrect={item.isCorrect} />
                       <Box sx={{ minWidth: 0, flex: 1 }}>
                         <Typography fontWeight={800}>
                           Q{index + 1}. {item.questionText}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {item.questionType.replaceAll('_', ' ')} · {item.pointsEarned}/{item.points} pts
+                          {String(item.questionType || 'question').replaceAll('_', ' ')} · {pointsLabel}
                         </Typography>
                       </Box>
                     </Stack>

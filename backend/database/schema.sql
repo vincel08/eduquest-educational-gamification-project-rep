@@ -191,8 +191,10 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
 CREATE TABLE IF NOT EXISTS quiz_answers (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   attempt_id INT UNSIGNED NOT NULL,
-  question_id INT UNSIGNED NOT NULL,
+  question_id INT UNSIGNED NULL,
+  question_text TEXT NULL,
   selected_option_id INT UNSIGNED NULL,
+  selected_option_text VARCHAR(500) NULL,
   text_answer VARCHAR(500) NULL,
   answer_payload JSON NULL,
   is_correct TINYINT(1) NOT NULL DEFAULT 0,
@@ -200,7 +202,7 @@ CREATE TABLE IF NOT EXISTS quiz_answers (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_answers_attempt FOREIGN KEY (attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
-  CONSTRAINT fk_answers_question FOREIGN KEY (question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE,
+  CONSTRAINT fk_answers_question FOREIGN KEY (question_id) REFERENCES quiz_questions(id) ON DELETE SET NULL,
   CONSTRAINT fk_answers_option FOREIGN KEY (selected_option_id) REFERENCES quiz_options(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
