@@ -17,6 +17,13 @@ function getActiveProvider() {
   return null;
 }
 
+function missingAiKeyWarning() {
+  if (env.isProduction) {
+    return 'AI is not configured. Set GEMINI_API_KEY on the API host (e.g. Railway Variables), then redeploy.';
+  }
+  return 'AI is not configured. Add GEMINI_API_KEY to backend/.env for free Gemini generation.';
+}
+
 function stripCodeFences(text) {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   return fenced?.[1]?.trim() || text.trim();
@@ -703,7 +710,7 @@ Return compact valid JSON only.`,
         difficulty,
         questionCount: count,
         questionType: selectedType,
-        warning: 'No AI key set. Add GEMINI_API_KEY in backend/.env for free Gemini generation.',
+        warning: missingAiKeyWarning(),
       });
     }
 
@@ -753,7 +760,7 @@ ${contentSnippet ? `\nBase every question on this source material:\n${contentSni
         difficulty,
         questionCount: count,
         questionType: 'multiple_choice',
-        warning: 'No AI key set. Add GEMINI_API_KEY in backend/.env for free Gemini generation.',
+        warning: missingAiKeyWarning(),
       });
       return {
         ...toContentQuizFormat(fallback, difficulty),
@@ -826,7 +833,7 @@ ${contentSnippet}`
         ...buildFallbackGame({
           topic: topic || 'Lesson',
           gameType: resolvedFallbackType,
-          warning: 'No AI key set. Add GEMINI_API_KEY in backend/.env for free Gemini generation.',
+          warning: missingAiKeyWarning(),
         }),
       };
     }

@@ -149,7 +149,6 @@ async function run() {
   });
 
   const dbName = process.env.DB_NAME || "eduquest";
-  // schema.sql historically hardcodes `eduquest`; rewrite so Railway/custom DB names work.
   let schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
   schema = schema
     .replace(
