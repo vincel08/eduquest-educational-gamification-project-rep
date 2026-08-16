@@ -4,10 +4,12 @@ import {
   Box,
   Button,
   Chip,
-  List,
-  ListItemButton,
-  ListItemText,
+  FormControl,
+  InputLabel,
+  Link,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Tab,
   Tabs,
@@ -24,6 +26,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import PageContainer from '../../components/common/PageContainer';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import TeacherQuizAttemptReviewDialog from '../../components/quiz/TeacherQuizAttemptReviewDialog';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
 
@@ -40,24 +43,34 @@ function formatPoints(earned, total) {
   return `${earnedLabel} / ${totalLabel}`;
 }
 
+function sameId(a, b) {
+  if (a == null || b == null || a === '' || b === '') return false;
+  return Number(a) === Number(b);
+}
+
 export default function TeacherGradebookPage() {
   const { courseId } = useParams();
   const [gradebook, setGradebook] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
-  const [selectedQuizId, setSelectedQuizId] = useState(null);
-  const [selectedGameId, setSelectedGameId] = useState(null);
+  const [selectedQuizId, setSelectedQuizId] = useState('');
+  const [selectedGameId, setSelectedGameId] = useState('');
+  const [reviewTarget, setReviewTarget] = useState(null);
 
   function applyGradebook(data) {
     setGradebook(data);
     setSelectedQuizId((prev) => {
-      if (prev && data.quizzes.some((quiz) => quiz.id === prev)) return prev;
-      return data.quizzes[0]?.id || null;
+      if (prev !== '' && data.quizzes.some((quiz) => sameId(quiz.id, prev))) {
+        return String(Number(prev));
+      }
+      return data.quizzes[0] != null ? String(Number(data.quizzes[0].id)) : '';
     });
     setSelectedGameId((prev) => {
-      if (prev && data.games.some((game) => game.id === prev)) return prev;
-      return data.games[0]?.id || null;
+      if (prev !== '' && data.games.some((game) => sameId(game.id, prev))) {
+        return String(Number(prev));
+      }
+      return data.games[0] != null ? String(Number(data.games[0].id)) : '';
     });
   }
 
@@ -83,13 +96,16 @@ export default function TeacherGradebookPage() {
   }, [courseId]);
 
   const selectedQuiz = useMemo(
-    () => gradebook?.quizzes?.find((quiz) => quiz.id === selectedQuizId) || null,
+    () => gradebook?.quizzes?.find((quiz) => sameId(quiz.id, selectedQuizId)) || null,
     [gradebook, selectedQuizId]
   );
   const selectedGame = useMemo(
-    () => gradebook?.games?.find((game) => game.id === selectedGameId) || null,
+    () => gradebook?.games?.find((game) => sameId(game.id, selectedGameId)) || null,
     [gradebook, selectedGameId]
   );
+
+  const quizResults = selectedQuiz?.results || [];
+  const gameResults = selectedGame?.results || [];
 
   const title = useMemo(() => {
     if (!gradebook) return 'Class Scores';
@@ -102,7 +118,7 @@ export default function TeacherGradebookPage() {
     <PageContainer>
       <PageHeader
         title={title}
-        subtitle="Select a quiz or game to view students who took it and the points they earned. XP is separate student progress."
+        subtitle="Choose a quiz or game to view scores. Open View answers to see each student’s quiz responses."
         action={(
           <Button
             component={RouterLink}
@@ -135,87 +151,110 @@ export default function TeacherGradebookPage() {
               !gradebook.quizzes.length ? (
                 <Typography color="text.secondary">No quizzes in this subject yet.</Typography>
               ) : (
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="stretch">
-                  <Paper variant="outlined" sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
-                    <List dense disablePadding>
+                <Stack spacing={2}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="gradebook-quiz-label">Quiz</InputLabel>
+                    <Select
+                      labelId="gradebook-quiz-label"
+                      label="Quiz"
+                      value={selectedQuizId}
+                      onChange={(event) => setSelectedQuizId(String(event.target.value))}
+                    >
                       {gradebook.quizzes.map((quiz) => (
-                        <ListItemButton
-                          key={quiz.id}
-                          selected={quiz.id === selectedQuizId}
-                          onClick={() => setSelectedQuizId(quiz.id)}
-                        >
-                          <ListItemText
-                            primary={quiz.title}
-                            secondary={`${quiz.resultCount} student${quiz.resultCount === 1 ? '' : 's'} · Pass ${quiz.passingScore}%`}
-                          />
-                        </ListItemButton>
+                        <MenuItem key={quiz.id} value={String(Number(quiz.id))}>
+                          {quiz.title}
+                          {' · '}
+                          {quiz.resultCount ?? (quiz.results || []).length}
+                          {' student'}
+                          {(quiz.resultCount ?? (quiz.results || []).length) === 1 ? '' : 's'}
+                        </MenuItem>
                       ))}
-                    </List>
-                  </Paper>
+                    </Select>
+                  </FormControl>
 
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    {!selectedQuiz ? (
-                      <Typography color="text.secondary">Select a quiz.</Typography>
-                    ) : (
-                      <Stack spacing={2}>
-                        <Typography variant="h6" fontWeight={800}>{selectedQuiz.title}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Students who took this quiz (best attempt). Grade score is points earned / total from their answers.
+                  {!selectedQuiz ? (
+                    <Typography color="text.secondary">Choose a quiz to view scores.</Typography>
+                  ) : (
+                    <Stack spacing={2}>
+                      <Box>
+                        <Typography variant="h6" fontWeight={800} color="text.primary">
+                          {selectedQuiz.title}
                         </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Pass {selectedQuiz.passingScore}% · best attempt per student
+                        </Typography>
+                      </Box>
 
-                        {!selectedQuiz.results.length ? (
-                          <Alert severity="info">No students have taken this quiz yet.</Alert>
-                        ) : (
-                          <TableContainer sx={{ overflowX: 'auto' }}>
-                            <Table size="small">
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell sx={{ fontWeight: 800 }}>Student</TableCell>
-                                  <TableCell sx={{ fontWeight: 800 }} align="center">Grade score</TableCell>
-                                  <TableCell sx={{ fontWeight: 800 }} align="center">Status</TableCell>
-                                  <TableCell sx={{ fontWeight: 800 }}>Completed</TableCell>
+                      {!quizResults.length ? (
+                        <Alert severity="info">No students have taken this quiz yet.</Alert>
+                      ) : (
+                        <TableContainer sx={{ overflowX: 'auto' }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell sx={{ fontWeight: 800 }}>Student</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }} align="center">Grade score</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }} align="center">Status</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }}>Completed</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }} align="right">Answers</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {quizResults.map((result) => (
+                                <TableRow key={result.studentId} hover>
+                                  <TableCell>
+                                    <Typography fontWeight={700}>
+                                      {result.firstName} {result.lastName}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {result.attemptCount} attempt{result.attemptCount === 1 ? '' : 's'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Typography fontWeight={800}>
+                                      {formatPoints(
+                                        result.earnedPoints,
+                                        result.totalPoints || selectedQuiz.maxPoints
+                                      )}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                      {result.score != null ? `${Number(result.score).toFixed(1)}%` : '—'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Chip
+                                      size="small"
+                                      label={result.passed ? 'Passed' : 'Not passed'}
+                                      color={result.passed ? 'success' : 'default'}
+                                      variant={result.passed ? 'filled' : 'outlined'}
+                                    />
+                                  </TableCell>
+                                  <TableCell>{formatWhen(result.completedAt)}</TableCell>
+                                  <TableCell align="right">
+                                    {result.attemptId ? (
+                                      <Link
+                                        component="button"
+                                        type="button"
+                                        underline="hover"
+                                        onClick={() => setReviewTarget({
+                                          quizId: selectedQuiz.id,
+                                          attemptId: result.attemptId,
+                                        })}
+                                      >
+                                        View answers
+                                      </Link>
+                                    ) : (
+                                      <Typography variant="body2" color="text.secondary">—</Typography>
+                                    )}
+                                  </TableCell>
                                 </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {selectedQuiz.results.map((result) => (
-                                  <TableRow key={result.studentId} hover>
-                                    <TableCell>
-                                      <Typography fontWeight={700}>
-                                        {result.firstName} {result.lastName}
-                                      </Typography>
-                                      <Typography variant="caption" color="text.secondary">
-                                        {result.attemptCount} attempt{result.attemptCount === 1 ? '' : 's'}
-                                      </Typography>
-                                    </TableCell>
-                                    <TableCell align="center">
-                                      <Typography fontWeight={800}>
-                                        {formatPoints(
-                                          result.earnedPoints,
-                                          result.totalPoints || selectedQuiz.maxPoints
-                                        )}
-                                      </Typography>
-                                      <Typography variant="caption" color="text.secondary" display="block">
-                                        {result.score != null ? `${Number(result.score).toFixed(1)}%` : '—'}
-                                      </Typography>
-                                    </TableCell>
-                                    <TableCell align="center">
-                                      <Chip
-                                        size="small"
-                                        label={result.passed ? 'Passed' : 'Not passed'}
-                                        color={result.passed ? 'success' : 'default'}
-                                        variant={result.passed ? 'filled' : 'outlined'}
-                                      />
-                                    </TableCell>
-                                    <TableCell>{formatWhen(result.completedAt)}</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
-                        )}
-                      </Stack>
-                    )}
-                  </Box>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      )}
+                    </Stack>
+                  )}
                 </Stack>
               )
             ) : null}
@@ -224,78 +263,90 @@ export default function TeacherGradebookPage() {
               !gradebook.games.length ? (
                 <Typography color="text.secondary">No games in this subject yet.</Typography>
               ) : (
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="stretch">
-                  <Paper variant="outlined" sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
-                    <List dense disablePadding>
+                <Stack spacing={2}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="gradebook-game-label">Game</InputLabel>
+                    <Select
+                      labelId="gradebook-game-label"
+                      label="Game"
+                      value={selectedGameId}
+                      onChange={(event) => setSelectedGameId(String(event.target.value))}
+                    >
                       {gradebook.games.map((game) => (
-                        <ListItemButton
-                          key={game.id}
-                          selected={game.id === selectedGameId}
-                          onClick={() => setSelectedGameId(game.id)}
-                        >
-                          <ListItemText
-                            primary={game.title}
-                            secondary={`${game.resultCount} student${game.resultCount === 1 ? '' : 's'}`}
-                          />
-                        </ListItemButton>
+                        <MenuItem key={game.id} value={String(Number(game.id))}>
+                          {game.title}
+                          {' · '}
+                          {game.resultCount ?? (game.results || []).length}
+                          {' student'}
+                          {(game.resultCount ?? (game.results || []).length) === 1 ? '' : 's'}
+                        </MenuItem>
                       ))}
-                    </List>
-                  </Paper>
+                    </Select>
+                  </FormControl>
 
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    {!selectedGame ? (
-                      <Typography color="text.secondary">Select a game.</Typography>
-                    ) : (
-                      <Stack spacing={2}>
-                        <Typography variant="h6" fontWeight={800}>{selectedGame.title}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Students who played this game (best score). Grade score is points earned / 100 from gameplay.
+                  {!selectedGame ? (
+                    <Typography color="text.secondary">Choose a game to view scores.</Typography>
+                  ) : (
+                    <Stack spacing={2}>
+                      <Box>
+                        <Typography variant="h6" fontWeight={800} color="text.primary">
+                          {selectedGame.title}
                         </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Best score per student
+                        </Typography>
+                      </Box>
 
-                        {!selectedGame.results.length ? (
-                          <Alert severity="info">No students have played this game yet.</Alert>
-                        ) : (
-                          <TableContainer sx={{ overflowX: 'auto' }}>
-                            <Table size="small">
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell sx={{ fontWeight: 800 }}>Student</TableCell>
-                                  <TableCell sx={{ fontWeight: 800 }} align="center">Grade score</TableCell>
-                                  <TableCell sx={{ fontWeight: 800 }}>Played</TableCell>
+                      {!gameResults.length ? (
+                        <Alert severity="info">No students have played this game yet.</Alert>
+                      ) : (
+                        <TableContainer sx={{ overflowX: 'auto' }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell sx={{ fontWeight: 800 }}>Student</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }} align="center">Grade score</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }}>Played</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {gameResults.map((result) => (
+                                <TableRow key={result.studentId} hover>
+                                  <TableCell>
+                                    <Typography fontWeight={700}>
+                                      {result.firstName} {result.lastName}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {result.playCount} play{result.playCount === 1 ? '' : 's'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Typography fontWeight={800}>
+                                      {formatPoints(result.earnedPoints, result.totalPoints || 100)}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>{formatWhen(result.playedAt)}</TableCell>
                                 </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {selectedGame.results.map((result) => (
-                                  <TableRow key={result.studentId} hover>
-                                    <TableCell>
-                                      <Typography fontWeight={700}>
-                                        {result.firstName} {result.lastName}
-                                      </Typography>
-                                      <Typography variant="caption" color="text.secondary">
-                                        {result.playCount} play{result.playCount === 1 ? '' : 's'}
-                                      </Typography>
-                                    </TableCell>
-                                    <TableCell align="center">
-                                      <Typography fontWeight={800}>
-                                        {formatPoints(result.earnedPoints, result.totalPoints || 100)}
-                                      </Typography>
-                                    </TableCell>
-                                    <TableCell>{formatWhen(result.playedAt)}</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
-                        )}
-                      </Stack>
-                    )}
-                  </Box>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      )}
+                    </Stack>
+                  )}
                 </Stack>
               )
             ) : null}
           </Paper>
         </Stack>
       )}
+
+      <TeacherQuizAttemptReviewDialog
+        open={Boolean(reviewTarget)}
+        onClose={() => setReviewTarget(null)}
+        quizId={reviewTarget?.quizId}
+        attemptId={reviewTarget?.attemptId}
+      />
     </PageContainer>
   );
 }

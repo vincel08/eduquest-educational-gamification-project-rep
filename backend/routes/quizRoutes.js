@@ -46,6 +46,11 @@ router.post(
   QuizController.attachImage
 );
 router.get('/:id/preview', authorize('teacher', 'administrator'), QuizController.preview);
+router.get(
+  '/:id/attempts/:attemptId',
+  authorize('teacher', 'administrator'),
+  QuizController.attemptReview
+);
 router.get('/:id', QuizController.getById);
 router.put(
   '/:id',

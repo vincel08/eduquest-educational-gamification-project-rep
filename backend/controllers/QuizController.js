@@ -186,6 +186,20 @@ const QuizController = {
     }
   },
 
+  async attemptReview(req, res, next) {
+    try {
+      const data = await QuizService.getAttemptReview(
+        Number(req.params.id),
+        Number(req.params.attemptId),
+        req.user
+      );
+      return successResponse(res, 'Attempt review retrieved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+
   async hint(req, res, next) {
     try {
       const data = await QuizService.getHint(req.body.questionText, req.body.topic);
