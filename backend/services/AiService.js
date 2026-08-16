@@ -17,6 +17,19 @@ function getActiveProvider() {
   return null;
 }
 
+function missingAiKeyWarning() {
+  if (env.isProduction) {
+    return 'AI is not configured. Set GEMINI_API_KEY on the API host (e.g. Railway Variables), then redeploy.';
+  }
+  return 'AI is not configured. Add GEMINI_API_KEY to backend/.env for free Gemini generation.';
+}
+
+function assertAiConfigured() {
+  if (!getActiveProvider()) {
+    throw new AppError(missingAiKeyWarning(), 503);
+  }
+}
+
 function stripCodeFences(text) {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   return fenced?.[1]?.trim() || text.trim();
@@ -195,101 +208,6 @@ async function chatJson(systemPrompt, userPrompt) {
   }
 }
 
-function buildFallbackQuiz({
-  topic,
-  difficulty,
-  questionCount,
-  questionType = 'multiple_choice',
-  warning = null,
-}) {
-  const count = clampQuestionCount(questionCount);
-  const questions = [];
-  const selectedType = [
-    'multiple_choice',
-    'true_false',
-    'matching',
-    'identification',
-    'image_question',
-  ].includes(questionType)
-    ? questionType
-    : 'multiple_choice';
-
-  for (let i = 1; i <= count; i += 1) {
-    if (selectedType === 'true_false') {
-      const isTrue = i % 2 === 1;
-      questions.push({
-        questionText: `${topic} (${difficulty}): Sample statement ${i} about this topic is scientifically accurate.`,
-        questionType: 'true_false',
-        points: 1,
-        explanation: `This true/false item checks understanding of ${topic}.`,
-        options: [
-          { optionText: 'True', isCorrect: isTrue },
-          { optionText: 'False', isCorrect: !isTrue },
-        ],
-      });
-    } else if (selectedType === 'matching') {
-      questions.push({
-        questionText: `Match each ${topic} term with its correct definition (item ${i}).`,
-        questionType: 'matching',
-        points: 1,
-        explanation: `Matching checks vocabulary related to ${topic}.`,
-        options: [
-          { optionText: `Term A${i}`, isCorrect: false, side: 'left', matchKey: `p${i}a` },
-          { optionText: `Term B${i}`, isCorrect: false, side: 'left', matchKey: `p${i}b` },
-          { optionText: `Definition A${i}`, isCorrect: false, side: 'right', matchKey: `p${i}a` },
-          { optionText: `Definition B${i}`, isCorrect: false, side: 'right', matchKey: `p${i}b` },
-        ],
-      });
-    } else if (selectedType === 'identification') {
-      questions.push({
-        questionText: `Identify the key concept in ${topic} for sample item ${i}.`,
-        questionType: 'identification',
-        points: 1,
-        explanation: `Accepted answers for this identification item.`,
-        options: [
-          { optionText: `Concept ${i}`, isCorrect: true },
-          { optionText: `concept ${i}`, isCorrect: true },
-        ],
-      });
-    } else if (selectedType === 'image_question') {
-      questions.push({
-        questionText: `Based on the ${topic} diagram (sample ${i}), which statement is correct?`,
-        questionType: 'image_question',
-        points: 1,
-        explanation: `Attach an image for this question, then review the options.`,
-        imageUrl: null,
-        options: [
-          { optionText: `Correct observation about ${topic}`, isCorrect: true },
-          { optionText: 'Unrelated distractor A', isCorrect: false },
-          { optionText: 'Unrelated distractor B', isCorrect: false },
-          { optionText: 'Unrelated distractor C', isCorrect: false },
-        ],
-      });
-    } else {
-      questions.push({
-        questionText: `${topic} (${difficulty}): Sample question ${i} — which statement is correct?`,
-        questionType: 'multiple_choice',
-        points: 1,
-        explanation: `This question checks understanding of ${topic}.`,
-        options: [
-          { optionText: `Correct concept related to ${topic}`, isCorrect: true },
-          { optionText: 'Unrelated distractor A', isCorrect: false },
-          { optionText: 'Unrelated distractor B', isCorrect: false },
-          { optionText: 'Unrelated distractor C', isCorrect: false },
-        ],
-      });
-    }
-  }
-
-  return {
-    title: `${topic} Quiz`,
-    description: `Auto-generated ${difficulty} ${selectedType.replace(/_/g, ' ')} quiz about ${topic}.`,
-    questions,
-    source: 'fallback',
-    warning: warning || 'AI is unavailable, so sample fallback questions were used.',
-  };
-}
-
 function pickOptionText(option, fallback = '') {
   if (typeof option === 'string') return option;
   return option?.optionText
@@ -304,26 +222,6 @@ function normalizeDifficultyLabel(value, fallback = 'Medium') {
   if (raw === 'easy') return 'Easy';
   if (raw === 'hard') return 'Hard';
   return 'Medium';
-}
-
-function toContentQuizFormat(quiz, difficulty = 'medium') {
-  return {
-    title: quiz.title,
-    description: quiz.description,
-    difficulty: normalizeDifficultyLabel(difficulty),
-    timeLimit: 15,
-    passingScore: 70,
-    questions: (quiz.questions || []).map((question) => {
-      const choices = (question.options || []).map((option) => pickOptionText(option));
-      const correct = (question.options || []).find((option) => option.isCorrect || option.is_correct);
-      return {
-        question: question.questionText || question.question_text || question.question,
-        choices,
-        answer: pickOptionText(correct, choices[0] || ''),
-        explanation: question.explanation || '',
-      };
-    }),
-  };
 }
 
 function normalizeContentQuiz(data, topic, difficulty, questionCount) {
@@ -459,129 +357,6 @@ function normalizeGeneratedQuestions(rawQuestions, selectedType) {
     .filter((question) => Array.isArray(question.options) && question.options.length > 0);
 }
 
-function buildFallbackGame({ topic, gameType, warning = null }) {
-  const pairs = [
-    { term: `${topic} Concept A`, definition: `Core idea of ${topic}` },
-    { term: `${topic} Concept B`, definition: 'Repeated practice builds mastery' },
-    { term: `${topic} Concept C`, definition: 'Evidence supports the main claim' },
-    { term: `${topic} Concept D`, definition: 'Review reinforces long-term memory' },
-  ];
-
-  const words = pairs.map((item) => item.term.split(' ').pop().toUpperCase().slice(0, 8) || 'LEARN');
-
-  const payloads = {
-    flashcards: { items: pairs },
-    memory_match: { items: pairs, pairs },
-    crossword: {
-      items: pairs.slice(0, 4).map((item, index) => ({
-        clue: item.definition,
-        answer: words[index],
-        direction: index % 2 === 0 ? 'across' : 'down',
-        row: index,
-        col: 0,
-      })),
-    },
-    word_search: ensureWordSearchData({
-      words,
-      gridSize: 10,
-      items: pairs.map((item, index) => ({ term: words[index], definition: item.definition })),
-    }),
-    quiz_show: {
-      items: pairs.map((item) => ({
-        question: `What best describes "${item.term}"?`,
-        choices: [item.definition, 'An unrelated fact', 'A random distractor', 'None of these'],
-        correctIndex: 0,
-      })),
-      rounds: pairs.map((item) => ({
-        prompt: `What best describes "${item.term}"?`,
-        choices: [item.definition, 'An unrelated fact', 'A random distractor', 'None of these'],
-        correctIndex: 0,
-        timeLimitSeconds: 20,
-      })),
-    },
-    jeopardy: {
-      categories: [
-        {
-          name: topic.slice(0, 20) || 'Topic',
-          clues: pairs.map((item, index) => ({
-            points: (index + 1) * 100,
-            clue: item.definition,
-            answer: item.term,
-          })),
-        },
-      ],
-    },
-    drag_drop: { items: pairs },
-    spin_wheel: {
-      items: pairs.map((item) => ({
-        label: item.term,
-        question: `What is "${item.term}"?`,
-        choices: [item.definition, 'Unrelated option A', 'Unrelated option B', 'Unrelated option C'],
-        correctIndex: 0,
-      })),
-    },
-    millionaire: {
-      items: pairs.map((item, index) => ({
-        question: `What best describes "${item.term}"?`,
-        choices: [item.definition, 'Unrelated option A', 'Unrelated option B', 'Unrelated option C'],
-        correctIndex: 0,
-        difficulty: ['easy', 'medium', 'hard', 'hard'][index] || 'medium',
-      })),
-    },
-    escape_room: {
-      stages: pairs.slice(0, 4).map((item, index) => ({
-        name: `Stage ${index + 1}`,
-        clue: item.definition,
-        answer: words[index],
-        hint: `Think about ${item.term}`,
-      })),
-    },
-    mission_adventure: {
-      missions: pairs.slice(0, 4).map((item, index) => ({
-        title: `Mission ${index + 1}: ${item.term}`,
-        prompt: item.definition,
-        choices: [item.term, 'Distractor A', 'Distractor B'],
-        correctIndex: 0,
-        xp: (index + 1) * 10,
-      })),
-    },
-    puzzle_challenge: {
-      items: pairs.map((item, index) => ({
-        prompt: item.definition,
-        answer: words[index],
-        hint: `Starts with ${words[index][0]}`,
-      })),
-    },
-    quiz_rush: {
-      rounds: pairs.map((item, index) => ({
-        prompt: `What best describes "${item.term}"?`,
-        choices: [item.definition, 'An unrelated fact', 'A random distractor', 'None of these'],
-        correctIndex: 0,
-        timeLimitSeconds: 20,
-        order: index + 1,
-      })),
-    },
-    word_scramble: {
-      words: pairs.map((item) => ({
-        word: item.term.replace(/\s+/g, '').slice(0, 12).toUpperCase() || 'LEARN',
-        hint: item.definition,
-      })),
-    },
-  };
-
-  return {
-    title: `${topic} Challenge`,
-    description: `Educational ${String(gameType).replace(/_/g, ' ')} game about ${topic}.`,
-    gameType,
-    difficulty: 'medium',
-    estimatedTime: 10,
-    xpReward: 100,
-    gameData: payloads[gameType] || payloads.flashcards,
-    source: 'fallback',
-    warning: warning || 'AI is unavailable, so a sample fallback game was used.',
-  };
-}
-
 function limitGameCollection(list) {
   if (!Array.isArray(list)) return list;
   const max = env.aiLimits.maxGameItems;
@@ -696,16 +471,7 @@ Return compact valid JSON only.`,
     }[selectedType];
 
     const count = clampQuestionCount(questionCount);
-    const provider = getActiveProvider();
-    if (!provider) {
-      return buildFallbackQuiz({
-        topic,
-        difficulty,
-        questionCount: count,
-        questionType: selectedType,
-        warning: 'No AI key set. Add GEMINI_API_KEY in backend/.env for free Gemini generation.',
-      });
-    }
+    assertAiConfigured();
 
     try {
       const contentSnippet = String(lessonContent || '').slice(0, env.aiLimits.maxPromptCharacters);
@@ -745,22 +511,7 @@ ${contentSnippet ? `\nBase every question on this source material:\n${contentSni
   }) {
     const count = clampQuestionCount(questionCount);
     const contentSnippet = String(lessonContent || topic || '').slice(0, env.aiLimits.maxPromptCharacters);
-    const provider = getActiveProvider();
-
-    if (!provider) {
-      const fallback = buildFallbackQuiz({
-        topic: topic || 'Lesson',
-        difficulty,
-        questionCount: count,
-        questionType: 'multiple_choice',
-        warning: 'No AI key set. Add GEMINI_API_KEY in backend/.env for free Gemini generation.',
-      });
-      return {
-        ...toContentQuizFormat(fallback, difficulty),
-        source: 'fallback',
-        warning: fallback.warning,
-      };
-    }
+    assertAiConfigured();
 
     try {
       const { data, source } = await chatJson(
@@ -819,17 +570,7 @@ ${contentSnippet}`
 
     const resolvedFallbackType = requestedType === 'auto' ? 'flashcards' : (normalizeGameType(requestedType) || 'flashcards');
     const contentSnippet = String(lessonContent || topic || '').slice(0, env.aiLimits.maxPromptCharacters);
-    const provider = getActiveProvider();
-
-    if (!provider) {
-      return {
-        ...buildFallbackGame({
-          topic: topic || 'Lesson',
-          gameType: resolvedFallbackType,
-          warning: 'No AI key set. Add GEMINI_API_KEY in backend/.env for free Gemini generation.',
-        }),
-      };
-    }
+    assertAiConfigured();
 
     try {
       const typeInstruction = requestedType === 'auto'
