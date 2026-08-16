@@ -138,6 +138,15 @@ export default function StudentLessonPage() {
                 <Typography sx={{ whiteSpace: 'pre-wrap' }}>{lesson.learning_objectives}</Typography>
               </Paper>
             ) : null}
+
+            {lesson.competency ? (
+              <Paper sx={{ p: { xs: 2, md: 3 } }}>
+                <Typography variant="h6" fontWeight={800} gutterBottom>
+                  Competency
+                </Typography>
+                <Typography sx={{ whiteSpace: 'pre-wrap' }}>{lesson.competency}</Typography>
+              </Paper>
+            ) : null}
           </Stack>
         </Grid>
 

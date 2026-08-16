@@ -68,14 +68,15 @@ async function seedModule(
   for (let i = 0; i < module.lessons.length; i += 1) {
     const lesson = module.lessons[i];
     const [row] = await connection.execute(
-      `INSERT INTO lessons (course_id, title, content, summary, learning_objectives, order_index, xp_reward, estimated_minutes)
-       VALUES (?, ?, ?, ?, ?, ?, 30, 20)`,
+      `INSERT INTO lessons (course_id, title, content, summary, learning_objectives, competency, order_index, xp_reward, estimated_minutes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 30, 20)`,
       [
         courseId,
         lesson.title,
         lesson.content,
         lesson.summary,
         lesson.objectives,
+        lesson.competency || lesson.objectives || null,
         i + 1,
       ],
     );
@@ -202,6 +203,7 @@ async function run() {
     `ALTER TABLE courses ADD COLUMN updated_by INT UNSIGNED NULL AFTER teacher_id`,
     `ALTER TABLE lessons ADD COLUMN created_by INT UNSIGNED NULL AFTER is_published`,
     `ALTER TABLE lessons ADD COLUMN updated_by INT UNSIGNED NULL AFTER created_by`,
+    `ALTER TABLE lessons ADD COLUMN competency TEXT NULL AFTER learning_objectives`,
     `ALTER TABLE quizzes ADD COLUMN updated_by INT UNSIGNED NULL AFTER created_by`,
     `ALTER TABLE educational_games ADD COLUMN updated_by INT UNSIGNED NULL AFTER created_by`,
     `ALTER TABLE ai_review_drafts ADD COLUMN updated_by INT UNSIGNED NULL AFTER generated_by`,

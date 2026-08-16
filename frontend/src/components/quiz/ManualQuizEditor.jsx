@@ -147,7 +147,7 @@ export default function ManualQuizEditor({
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <TextField
                 select
-                label="Course"
+                label="Subject"
                 fullWidth
                 required
                 disabled={courseLocked}
@@ -157,11 +157,11 @@ export default function ManualQuizEditor({
                   courseId: e.target.value,
                   lessonId: '',
                 }))}
-                helperText={courseLocked ? 'Course cannot be changed after the quiz is created' : undefined}
+                helperText={courseLocked ? 'Subject cannot be changed after the quiz is created' : undefined}
               >
                 {courses.map((course) => (
                   <MenuItem key={course.id} value={String(course.id)}>
-                    {course.title}
+                    {course.subject || course.title}
                   </MenuItem>
                 ))}
               </TextField>

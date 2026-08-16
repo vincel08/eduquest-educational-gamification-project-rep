@@ -4,15 +4,16 @@ const LessonModel = {
   async create(data) {
     const result = await query(
       `INSERT INTO lessons
-       (course_id, title, content, summary, learning_objectives, order_index, xp_reward, estimated_minutes, is_published, created_by, updated_by)
+       (course_id, title, content, summary, learning_objectives, competency, order_index, xp_reward, estimated_minutes, is_published, created_by, updated_by)
        VALUES
-       (:courseId, :title, :content, :summary, :learningObjectives, :orderIndex, :xpReward, :estimatedMinutes, :isPublished, :createdBy, :updatedBy)`,
+       (:courseId, :title, :content, :summary, :learningObjectives, :competency, :orderIndex, :xpReward, :estimatedMinutes, :isPublished, :createdBy, :updatedBy)`,
       {
         courseId: data.courseId,
         title: data.title,
         content: data.content || null,
         summary: data.summary || null,
         learningObjectives: data.learningObjectives || null,
+        competency: data.competency || null,
         orderIndex: data.orderIndex || 1,
         xpReward: data.xpReward || 25,
         estimatedMinutes: data.estimatedMinutes || null,
@@ -52,6 +53,7 @@ const LessonModel = {
       content: 'content',
       summary: 'summary',
       learningObjectives: 'learning_objectives',
+      competency: 'competency',
       orderIndex: 'order_index',
       xpReward: 'xp_reward',
       estimatedMinutes: 'estimated_minutes',
@@ -107,7 +109,7 @@ const LessonModel = {
 
   async getStudentProgressForCourse(courseId, studentId) {
     return query(
-      `SELECT l.id, l.title, l.order_index, l.xp_reward,
+      `SELECT l.id, l.title, l.order_index, l.xp_reward, l.competency,
               l.created_at, l.updated_at, l.is_published,
               COALESCE(lp.status, 'not_started') AS status,
               lp.xp_earned, lp.completed_at

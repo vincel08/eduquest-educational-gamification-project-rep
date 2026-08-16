@@ -175,12 +175,12 @@ export default function TeacherAiGamePage() {
         <Stack component="form" spacing={2} onSubmit={handleGenerate}>
           <TextField
             select
-            label="Course"
+            label="Subject"
             value={form.courseId}
             onChange={(e) => setForm((p) => ({ ...p, courseId: e.target.value, lessonId: '' }))}
           >
             {courses.map((course) => (
-              <MenuItem key={course.id} value={String(course.id)}>{course.title}</MenuItem>
+              <MenuItem key={course.id} value={String(course.id)}>{course.subject || course.title}</MenuItem>
             ))}
           </TextField>
 

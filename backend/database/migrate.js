@@ -23,6 +23,7 @@ const MIGRATION_FILES = [
   '008_certificate_eligibility.sql',
   '009_ai_usage_events.sql',
   '010_password_reset_tokens.sql',
+  '011_lesson_competency.sql',
 ];
 
 async function main() {

@@ -81,7 +81,7 @@ export default function TeacherQuizzesPage() {
             <TableHead>
               <TableRow>
                 <TableCell>Title</TableCell>
-                <TableCell>Course</TableCell>
+                <TableCell>Subject</TableCell>
                 <TableCell>Questions</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Source</TableCell>

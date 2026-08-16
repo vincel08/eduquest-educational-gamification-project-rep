@@ -87,7 +87,7 @@ export default function TeacherDashboard() {
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Courses" value={data.totalCourses} icon={<MenuBookIcon />} />
+          <StatCard label="Subjects" value={data.totalCourses} icon={<MenuBookIcon />} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard label="Students" value={data.totalStudents} icon={<GroupsIcon />} color="#8B5CF6" />
@@ -162,7 +162,7 @@ export default function TeacherDashboard() {
             <Typography variant="h6" fontWeight={800} gutterBottom>Quick Actions</Typography>
             <Stack spacing={1}>
               <Button component={RouterLink} to="/teacher/courses" variant="contained">
-                Manage Courses
+                Manage Subjects
               </Button>
               <Button component={RouterLink} to="/teacher/quizzes/new" variant="contained" color="secondary">
                 Create Quiz
