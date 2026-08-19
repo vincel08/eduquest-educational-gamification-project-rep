@@ -1,10 +1,6 @@
 import { query } from "../config/db.js";
 import { calculateLevel } from "../utils/levelCalculator.js";
 import {
-  getSchoolYearBounds,
-  parseSchoolYearLabel,
-} from "../utils/schoolYears.js";
-import {
   appendStudentRosterFilters,
   normalizeRosterFilterValue,
 } from "../utils/rosterFilters.js";
@@ -67,20 +63,17 @@ const StudentProfileModel = {
     const normalized = ["weekly", "monthly", "overall"].includes(period)
       ? period
       : "overall";
-    const hasSchoolYear = Boolean(parseSchoolYearLabel(schoolYear));
-    const rosterGrade = normalizeRosterFilterValue(gradeLevel);
-    const rosterSection = normalizeRosterFilterValue(section);
+    const roster = {
+      schoolYear: normalizeRosterFilterValue(schoolYear),
+      gradeLevel: normalizeRosterFilterValue(gradeLevel),
+      section: normalizeRosterFilterValue(section),
+    };
 
-    // Lifetime overall (no school-year window): use cumulative profile XP.
-    if (normalized === "overall" && !hasSchoolYear) {
+    // Overall: cumulative profile XP, scoped to students enrolled in the SY.
+    if (normalized === "overall") {
       const filters = ["u.is_active = 1", "sp.xp > 0"];
       const params = { limit: Number(limit) };
-      appendStudentRosterFilters(
-        filters,
-        params,
-        { gradeLevel: rosterGrade, section: rosterSection },
-        "sp",
-      );
+      appendStudentRosterFilters(filters, params, roster, "sp");
 
       return query(
         `SELECT sp.user_id, sp.xp, sp.level, u.first_name, u.last_name, u.avatar_url,
@@ -95,31 +88,17 @@ const StudentProfileModel = {
       );
     }
 
+    // Weekly / monthly: XP earned in the period, still scoped by roster SY.
     const params = { limit: Number(limit) };
     const filters = ["u.is_active = 1"];
 
-    if (hasSchoolYear) {
-      const bounds = getSchoolYearBounds(schoolYear);
-      params.syStart = bounds.start;
-      params.syEnd = bounds.endExclusive;
-      filters.push("xt.created_at >= :syStart");
-      filters.push("xt.created_at < :syEnd");
-    }
-
     if (normalized === "weekly") {
       filters.push("xt.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
-    } else if (normalized === "monthly") {
+    } else {
       filters.push("xt.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)");
     }
 
-    appendStudentRosterFilters(
-      filters,
-      params,
-      { gradeLevel: rosterGrade, section: rosterSection },
-      "sp",
-    );
-
-    const whereSql = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+    appendStudentRosterFilters(filters, params, roster, "sp");
 
     return query(
       `SELECT sp.user_id, sp.xp, sp.level, u.first_name, u.last_name, u.avatar_url,
@@ -128,7 +107,7 @@ const StudentProfileModel = {
        FROM student_profiles sp
        INNER JOIN users u ON u.id = sp.user_id
        INNER JOIN xp_transactions xt ON xt.student_id = sp.user_id
-       ${whereSql}
+       WHERE ${filters.join(" AND ")}
        GROUP BY sp.user_id, sp.xp, sp.level, u.first_name, u.last_name, u.avatar_url
        HAVING COALESCE(SUM(xt.amount), 0) > 0
        ORDER BY period_xp DESC, sp.xp DESC, u.first_name ASC

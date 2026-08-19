@@ -19,7 +19,14 @@ import { getErrorMessage } from "../../services/api";
 import { useAdminFilters } from "../../contexts/AdminFiltersContext";
 
 export default function AdminLeaderboardPage() {
-  const { toQueryParams, schoolYear, gradeLevel, section } = useAdminFilters();
+  const {
+    toQueryParams,
+    schoolYear,
+    setSchoolYear,
+    schoolYearOptions,
+    gradeLevel,
+    section,
+  } = useAdminFilters();
   const [period, setPeriod] = useState("overall");
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
@@ -51,6 +58,20 @@ export default function AdminLeaderboardPage() {
         subtitle={`XP rankings for ${schoolYearLabel} · ${gradeLabel} · ${sectionLabel} (${period}).`}
       />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 2 }}>
+        <TextField
+          select
+          size="small"
+          label="School year"
+          value={schoolYear}
+          onChange={(event) => setSchoolYear(event.target.value)}
+          sx={{ minWidth: 200 }}
+        >
+          {schoolYearOptions.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
         <TextField
           select
           size="small"
