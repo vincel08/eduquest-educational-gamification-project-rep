@@ -1,5 +1,6 @@
 /**
  * Supported student grade levels (must stay aligned with backend/utils/gradeLevels.js).
+ * EduWow is junior high only (Grades 7–10).
  * Stored as display strings — do not hard-code grade-specific business logic elsewhere.
  */
 export const GRADE_LEVELS = ["Grade 7", "Grade 8", "Grade 9", "Grade 10"];

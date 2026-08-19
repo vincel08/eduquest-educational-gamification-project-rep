@@ -1,6 +1,19 @@
 import { body, param } from 'express-validator';
+import {
+  GRADE_LEVEL_INVALID_MESSAGE,
+  isValidGradeLevel,
+} from '../utils/gradeLevels.js';
 
 export const courseIdParam = [param('id').isInt({ min: 1 }).withMessage('Invalid course id')];
+
+const gradeLevelRule = body('gradeLevel')
+  .optional({ values: 'falsy' })
+  .custom((value) => {
+    if (!isValidGradeLevel(value)) {
+      throw new Error(GRADE_LEVEL_INVALID_MESSAGE);
+    }
+    return true;
+  });
 
 export const createCourseValidation = [
   body('subject').trim().notEmpty().withMessage('Subject is required'),
@@ -10,7 +23,7 @@ export const createCourseValidation = [
     .isLength({ min: 1 })
     .withMessage('Title cannot be empty when provided'),
   body('description').optional().isString(),
-  body('gradeLevel').optional().isString(),
+  gradeLevelRule,
   body('isPublished').optional().isBoolean(),
 ];
 
@@ -19,7 +32,7 @@ export const updateCourseValidation = [
   body('title').optional().trim().notEmpty(),
   body('subject').optional().trim().notEmpty(),
   body('description').optional().isString(),
-  body('gradeLevel').optional().isString(),
+  gradeLevelRule,
   body('isPublished').optional().isBoolean(),
 ];
 

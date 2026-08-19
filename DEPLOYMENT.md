@@ -12,15 +12,15 @@ EduWow is a **traditional long-running Node.js + Express + MySQL** application w
 
 ## 1. Architecture
 
-| Layer | Stack | Notes |
-|-------|--------|------|
-| Frontend | React 19 + Vite | Static SPA; talks to API via `VITE_API_URL` |
-| Backend | Node.js + Express | Long-running process (`npm start`) |
-| Database | MySQL 8+ | Required |
-| Files | Local disk (`UPLOAD_DIR` or `backend/uploads/`) | **Persistent volume required** |
-| Auth | JWT | Set strong `JWT_SECRET` |
-| Email | SMTP (optional) | Password reset delivery |
-| AI | Gemini / OpenAI / local fallback | Optional keys |
+| Layer    | Stack                                           | Notes                                       |
+| -------- | ----------------------------------------------- | ------------------------------------------- |
+| Frontend | React 19 + Vite                                 | Static SPA; talks to API via `VITE_API_URL` |
+| Backend  | Node.js + Express                               | Long-running process (`npm start`)          |
+| Database | MySQL 8+                                        | Required                                    |
+| Files    | Local disk (`UPLOAD_DIR` or `backend/uploads/`) | **Persistent volume required**              |
+| Auth     | JWT                                             | Set strong `JWT_SECRET`                     |
+| Email    | SMTP (optional)                                 | Password reset delivery                     |
+| AI       | Gemini / OpenAI / local fallback                | Optional keys                               |
 
 ---
 
@@ -89,30 +89,30 @@ Serve the `frontend/dist/` directory from any static host. Set CORS `CLIENT_URL`
 
 ### Backend (required in production)
 
-| Variable | Notes |
-|----------|--------|
-| `NODE_ENV` | `production` |
-| `PORT` | Listening port (required in production) |
-| `DB_HOST` | MySQL host |
-| `DB_NAME` | Database name |
-| `DB_USER` | Database user |
-| `DB_PASSWORD` | Must be set (can be empty only if intentional) |
-| `JWT_SECRET` | ≥32 chars, not a known weak placeholder |
-| `CLIENT_URL` | Exact frontend origin, e.g. `https://app.example.com` (no `*`) |
+| Variable      | Notes                                                          |
+| ------------- | -------------------------------------------------------------- |
+| `NODE_ENV`    | `production`                                                   |
+| `PORT`        | Listening port (required in production)                        |
+| `DB_HOST`     | MySQL host                                                     |
+| `DB_NAME`     | Database name                                                  |
+| `DB_USER`     | Database user                                                  |
+| `DB_PASSWORD` | Must be set (can be empty only if intentional)                 |
+| `JWT_SECRET`  | ≥32 chars, not a known weak placeholder                        |
+| `CLIENT_URL`  | Exact frontend origin, e.g. `https://app.example.com` (no `*`) |
 
 ### Backend (recommended)
 
-| Variable | Notes |
-|----------|--------|
-| `UPLOAD_DIR` | Absolute persistent path for uploads |
-| `JWT_EXPIRES_IN` | Default `1d` in production |
-| `GEMINI_API_KEY` / `OPENAI_API_KEY` | Optional AI |
-| `MAIL_HOST` (+ port/user/password/from) | Optional SMTP |
+| Variable                                | Notes                                |
+| --------------------------------------- | ------------------------------------ |
+| `UPLOAD_DIR`                            | Absolute persistent path for uploads |
+| `JWT_EXPIRES_IN`                        | Default `1d` in production           |
+| `GEMINI_API_KEY` / `OPENAI_API_KEY`     | Optional AI                          |
+| `MAIL_HOST` (+ port/user/password/from) | Optional SMTP                        |
 
 ### Frontend
 
-| Variable | Notes |
-|----------|--------|
+| Variable       | Notes                                                     |
+| -------------- | --------------------------------------------------------- |
 | `VITE_API_URL` | **Required for production builds**; must not be localhost |
 
 See `backend/.env.example` and `frontend/.env.example`.
@@ -152,12 +152,12 @@ This records applied files in `schema_migrations` and skips ones already applied
 
 ## 7. Migrations 007–010
 
-| File | Purpose |
-|------|---------|
-| `007_xp_reward_idempotency.sql` | XP one-time reward uniqueness |
+| File                              | Purpose                           |
+| --------------------------------- | --------------------------------- |
+| `007_xp_reward_idempotency.sql`   | XP one-time reward uniqueness     |
 | `008_certificate_eligibility.sql` | Certificate override audit fields |
-| `009_ai_usage_events.sql` | AI usage/quota table |
-| `010_password_reset_tokens.sql` | Password reset token hashes |
+| `009_ai_usage_events.sql`         | AI usage/quota table              |
+| `010_password_reset_tokens.sql`   | Password reset token hashes       |
 
 Fresh `schema.sql` (via seed) already includes these structures.  
 Existing installs should run `npm run db:migrate`.
@@ -216,11 +216,11 @@ Never commit or log credentials.
 
 ## 12. AI configuration (optional)
 
-| Option | Behavior |
-|--------|----------|
-| A | `GEMINI_API_KEY` set → Gemini preferred |
-| B | `OPENAI_API_KEY` set (no Gemini) → OpenAI |
-| C | Neither set → local/demo fallback where supported |
+| Option | Behavior                                          |
+| ------ | ------------------------------------------------- |
+| A      | `GEMINI_API_KEY` set → Gemini preferred           |
+| B      | `OPENAI_API_KEY` set (no Gemini) → OpenAI         |
+| C      | Neither set → local/demo fallback where supported |
 
 AI keys must stay on the backend only (never `VITE_*`).
 
@@ -259,13 +259,13 @@ Does not expose credentials or filesystem paths.
 
 ## 15. Production smoke test
 
-1. `GET /api/health` → database up  
-2. Login as admin / teacher / student  
-3. Teacher uploads a material; student can open it when enrolled  
-4. Student completes a lesson / quiz / game (XP once)  
-5. Leaderboard shows only XP > 0  
-6. Forgot-password (if SMTP configured, confirm email arrives)  
-7. Confirm CORS works from the real frontend origin  
+1. `GET /api/health` → database up
+2. Login as admin / teacher / student
+3. Teacher uploads a material; student can open it when enrolled
+4. Student completes a lesson / quiz / game (XP once)
+5. Leaderboard shows only XP > 0
+6. Forgot-password (if SMTP configured, confirm email arrives)
+7. Confirm CORS works from the real frontend origin
 
 ---
 
@@ -279,9 +279,9 @@ Does not expose credentials or filesystem paths.
 
 ## 17. Destructive demo commands (warning)
 
-| Command | Risk |
-|---------|------|
-| `npm run seed` | Wipes and reseeds demo data |
+| Command                 | Risk                              |
+| ----------------------- | --------------------------------- |
+| `npm run seed`          | Wipes and reseeds demo data       |
 | `npm run db:reset-demo` | Clears learning data; keeps users |
 
 Blocked when `NODE_ENV=production` unless `ALLOW_DEMO_SEED=true`.

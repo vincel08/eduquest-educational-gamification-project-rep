@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
@@ -7,18 +7,18 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material';
-import PageHeader from '../../components/common/PageHeader';
-import courseService from '../../services/courseService';
-import gamificationService from '../../services/gamificationService';
-import { getErrorMessage } from '../../services/api';
+} from "@mui/material";
+import PageHeader from "../../components/common/PageHeader";
+import courseService from "../../services/courseService";
+import gamificationService from "../../services/gamificationService";
+import { getErrorMessage } from "../../services/api";
 
 export default function TeacherAwardsPage() {
   const [badges, setBadges] = useState([]);
   const [students, setStudents] = useState([]);
-  const [form, setForm] = useState({ studentId: '', badgeId: '' });
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [form, setForm] = useState({ studentId: "", badgeId: "" });
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function TeacherAwardsPage() {
 
         const courses = coursesRes.data.data.courses || [];
         const enrollmentGroups = await Promise.all(
-          courses.map((course) => courseService.enrollments(course.id))
+          courses.map((course) => courseService.enrollments(course.id)),
         );
         const map = new Map();
         enrollmentGroups.forEach((response) => {
@@ -51,14 +51,14 @@ export default function TeacherAwardsPage() {
   async function handleAward(event) {
     event.preventDefault();
     setLoading(true);
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     try {
       await gamificationService.awardBadge({
         studentId: Number(form.studentId),
         badgeId: Number(form.badgeId),
       });
-      setMessage('Badge awarded successfully');
+      setMessage("Badge awarded successfully");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -72,8 +72,16 @@ export default function TeacherAwardsPage() {
         title="Award Badges"
         subtitle="Manually recognize outstanding student performance."
       />
-      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-      {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
+      {message ? (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {message}
+        </Alert>
+      ) : null}
 
       <Paper sx={{ p: 3 }}>
         <Stack component="form" spacing={2} onSubmit={handleAward}>
@@ -81,7 +89,9 @@ export default function TeacherAwardsPage() {
             select
             label="Student"
             value={form.studentId}
-            onChange={(e) => setForm((p) => ({ ...p, studentId: e.target.value }))}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, studentId: e.target.value }))
+            }
           >
             {students.map((student) => (
               <MenuItem key={student.student_id} value={student.student_id}>
@@ -93,14 +103,22 @@ export default function TeacherAwardsPage() {
             select
             label="Badge"
             value={form.badgeId}
-            onChange={(e) => setForm((p) => ({ ...p, badgeId: e.target.value }))}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, badgeId: e.target.value }))
+            }
           >
             {badges.map((badge) => (
-              <MenuItem key={badge.id} value={badge.id}>{badge.name}</MenuItem>
+              <MenuItem key={badge.id} value={badge.id}>
+                {badge.name}
+              </MenuItem>
             ))}
           </TextField>
-          <Button type="submit" variant="contained" disabled={loading || !form.studentId || !form.badgeId}>
-            {loading ? 'Awarding...' : 'Award Badge'}
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading || !form.studentId || !form.badgeId}
+          >
+            {loading ? "Awarding..." : "Award Badge"}
           </Button>
         </Stack>
         {!students.length ? (

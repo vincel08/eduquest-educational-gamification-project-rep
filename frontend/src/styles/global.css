@@ -198,22 +198,6 @@ body[data-theme="dark"] .glass-panel {
   pointer-events: none;
 }
 
-.certificate-sheet {
-  width: 100%;
-  min-height: 420px;
-  border: 10px double #8b5cf6;
-  border-radius: 18px;
-  padding: clamp(24px, 4vw, 40px);
-  text-align: center;
-  background:
-    radial-gradient(
-      circle at center,
-      rgba(250, 204, 21, 0.22),
-      transparent 55%
-    ),
-    linear-gradient(180deg, #eff6ff, #ffffff);
-}
-
 .MuiLinearProgress-bar {
   transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
@@ -354,11 +338,6 @@ body[data-theme="dark"] .glass-panel {
 @media (max-width: 600px) {
   .page-hero {
     border-radius: 16px;
-  }
-
-  .certificate-sheet {
-    border-width: 6px;
-    min-height: 320px;
   }
 }
 

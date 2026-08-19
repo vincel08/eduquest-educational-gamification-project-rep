@@ -1,8 +1,8 @@
 # EduWow
 
-AI-powered Gamified Learning Management System for high school students.
+AI-powered Gamified Learning Management System for junior high school students (Grades 7–10).
 
-Thesis focus: improving student engagement through XP, levels, badges, medals, certificates, leaderboards, quizzes, and AI-generated educational content.
+Thesis focus: improving student engagement through XP, levels, badges, medals, leaderboards, quizzes, and AI-generated educational content.
 
 ---
 

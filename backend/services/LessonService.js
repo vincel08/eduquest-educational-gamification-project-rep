@@ -1,21 +1,22 @@
-import CourseModel from '../models/CourseModel.js';
-import LessonModel from '../models/LessonModel.js';
-import GamificationService from './GamificationService.js';
-import StreakService from './StreakService.js';
-import AiService from './AiService.js';
-import AppError from '../utils/AppError.js';
+import CourseModel from "../models/CourseModel.js";
+import LessonModel from "../models/LessonModel.js";
+import GamificationService from "./GamificationService.js";
+import StreakService from "./StreakService.js";
+import AiService from "./AiService.js";
+import CourseService from "./CourseService.js";
+import AppError from "../utils/AppError.js";
 import {
   materialFileApiPath,
   safeUnlinkUpload,
   sanitizeOriginalName,
-} from '../utils/uploadPaths.js';
+} from "../utils/uploadPaths.js";
 
 async function assertCourseAccess(courseId, user) {
   const course = await CourseModel.findById(courseId);
-  if (!course) throw new AppError('Course not found', 404);
+  if (!course) throw new AppError("Course not found", 404);
 
-  if (user.role === 'teacher' && course.teacher_id !== user.id) {
-    throw new AppError('Access denied', 403);
+  if (user.role === "teacher" && course.teacher_id !== user.id) {
+    throw new AppError("Access denied", 403);
   }
 
   return course;
@@ -31,15 +32,15 @@ const LessonService = {
     if (data.content && data.generateAiExtras) {
       const aiResult = await AiService.summarizeLesson(data.content);
       summary = summary || aiResult.summary;
-      learningObjectives = learningObjectives
-        || (Array.isArray(aiResult.learningObjectives)
-          ? aiResult.learningObjectives.join('\n')
+      learningObjectives =
+        learningObjectives ||
+        (Array.isArray(aiResult.learningObjectives)
+          ? aiResult.learningObjectives.join("\n")
           : null);
     }
 
-    const competency = data.competency != null
-      ? String(data.competency).trim() || null
-      : null;
+    const competency =
+      data.competency != null ? String(data.competency).trim() || null : null;
 
     return LessonModel.create({
       ...data,
@@ -54,18 +55,19 @@ const LessonService = {
 
   async getLessonsByCourse(courseId, user) {
     const course = await CourseModel.findById(courseId);
-    if (!course) throw new AppError('Course not found', 404);
+    if (!course) throw new AppError("Course not found", 404);
 
-    if (user.role === 'student') {
+    if (user.role === "student") {
       const enrolled = await CourseModel.isEnrolled(courseId, user.id);
       if (!enrolled && !course.is_published) {
-        throw new AppError('Access denied', 403);
+        throw new AppError("Access denied", 403);
       }
+      await CourseService.assertStudentCourseAccess(courseId, user.id);
       return LessonModel.getStudentProgressForCourse(courseId, user.id);
     }
 
-    if (user.role === 'teacher' && course.teacher_id !== user.id) {
-      throw new AppError('Access denied', 403);
+    if (user.role === "teacher" && course.teacher_id !== user.id) {
+      throw new AppError("Access denied", 403);
     }
 
     // Teachers/admins: include materials with authenticated download URLs (never file paths).
@@ -87,15 +89,17 @@ const LessonService = {
 
   async getLessonById(id, user) {
     const lesson = await LessonModel.findById(id);
-    if (!lesson) throw new AppError('Lesson not found', 404);
+    if (!lesson) throw new AppError("Lesson not found", 404);
 
-    if (user.role === 'student') {
+    if (user.role === "student") {
       const enrolled = await CourseModel.isEnrolled(lesson.course_id, user.id);
-      if (!enrolled) throw new AppError('Enroll in the course to view this lesson', 403);
+      if (!enrolled)
+        throw new AppError("Enroll in the course to view this lesson", 403);
+      await CourseService.assertStudentCourseAccess(lesson.course_id, user.id);
     }
 
-    if (user.role === 'teacher' && lesson.teacher_id !== user.id) {
-      throw new AppError('Access denied', 403);
+    if (user.role === "teacher" && lesson.teacher_id !== user.id) {
+      throw new AppError("Access denied", 403);
     }
 
     const materials = await LessonModel.getMaterials(id);
@@ -107,7 +111,7 @@ const LessonService = {
     }));
     let progress = null;
 
-    if (user.role === 'student') {
+    if (user.role === "student") {
       progress = await LessonModel.getProgress(id, user.id);
     }
 
@@ -116,10 +120,10 @@ const LessonService = {
 
   async updateLesson(id, data, user) {
     const lesson = await LessonModel.findById(id);
-    if (!lesson) throw new AppError('Lesson not found', 404);
+    if (!lesson) throw new AppError("Lesson not found", 404);
 
-    if (user.role === 'teacher' && lesson.teacher_id !== user.id) {
-      throw new AppError('Access denied', 403);
+    if (user.role === "teacher" && lesson.teacher_id !== user.id) {
+      throw new AppError("Access denied", 403);
     }
 
     return LessonModel.update(id, { ...data, updatedBy: user.id });
@@ -127,10 +131,10 @@ const LessonService = {
 
   async deleteLesson(id, user) {
     const lesson = await LessonModel.findById(id);
-    if (!lesson) throw new AppError('Lesson not found', 404);
+    if (!lesson) throw new AppError("Lesson not found", 404);
 
-    if (user.role === 'teacher' && lesson.teacher_id !== user.id) {
-      throw new AppError('Access denied', 403);
+    if (user.role === "teacher" && lesson.teacher_id !== user.id) {
+      throw new AppError("Access denied", 403);
     }
 
     const materials = await LessonModel.getMaterials(id);
@@ -144,20 +148,21 @@ const LessonService = {
 
   async completeLesson(lessonId, studentId) {
     const lesson = await LessonModel.findById(lessonId);
-    if (!lesson) throw new AppError('Lesson not found', 404);
+    if (!lesson) throw new AppError("Lesson not found", 404);
 
     const enrolled = await CourseModel.isEnrolled(lesson.course_id, studentId);
-    if (!enrolled) throw new AppError('Enroll in the course first', 403);
+    if (!enrolled) throw new AppError("Enroll in the course first", 403);
+    await CourseService.assertStudentCourseAccess(lesson.course_id, studentId);
 
     const existing = await LessonModel.getProgress(lessonId, studentId);
-    if (existing?.status === 'completed') {
+    if (existing?.status === "completed") {
       return { progress: existing, xpAward: null, alreadyCompleted: true };
     }
 
     const progress = await LessonModel.upsertProgress({
       lessonId,
       studentId,
-      status: 'completed',
+      status: "completed",
       xpEarned: lesson.xp_reward,
       completedAt: new Date(),
     });
@@ -167,26 +172,25 @@ const LessonService = {
       const xpResult = await GamificationService.awardXpOnce({
         studentId,
         amount: lesson.xp_reward,
-        sourceType: 'lesson',
+        sourceType: "lesson",
         sourceId: lessonId,
         description: `Completed lesson: ${lesson.title}`,
       });
       xpAward = xpResult.alreadyAwarded ? null : xpResult.xpAward;
     }
 
-    const counts = await LessonModel.countCompleted(lesson.course_id, studentId);
+    const counts = await LessonModel.countCompleted(
+      lesson.course_id,
+      studentId,
+    );
     const progressPercent = counts.total
       ? Number(((counts.completed / counts.total) * 100).toFixed(2))
       : 0;
-    await CourseModel.updateProgress(lesson.course_id, studentId, progressPercent);
-
-    let certificate = null;
-    if (progressPercent >= 100) {
-      certificate = await GamificationService.autoIssueCourseCertificate({
-        courseId: lesson.course_id,
-        studentId,
-      });
-    }
+    await CourseModel.updateProgress(
+      lesson.course_id,
+      studentId,
+      progressPercent,
+    );
 
     const streak = await StreakService.recordActivity(studentId);
 
@@ -195,20 +199,19 @@ const LessonService = {
       xpAward,
       alreadyCompleted: false,
       progressPercent,
-      certificate,
       streak,
     };
   },
 
   async uploadMaterial(lessonId, file, user) {
     const lesson = await LessonModel.findById(lessonId);
-    if (!lesson) throw new AppError('Lesson not found', 404);
+    if (!lesson) throw new AppError("Lesson not found", 404);
 
-    if (user.role === 'teacher' && lesson.teacher_id !== user.id) {
-      throw new AppError('Access denied', 403);
+    if (user.role === "teacher" && lesson.teacher_id !== user.id) {
+      throw new AppError("Access denied", 403);
     }
 
-    if (!file) throw new AppError('No file uploaded', 400);
+    if (!file) throw new AppError("No file uploaded", 400);
 
     const material = await LessonModel.addMaterial({
       lessonId,
@@ -229,11 +232,11 @@ const LessonService = {
 
   async deleteMaterial(materialId, user) {
     const material = await LessonModel.findMaterialById(materialId);
-    if (!material) throw new AppError('Material not found', 404);
+    if (!material) throw new AppError("Material not found", 404);
 
     const lesson = await LessonModel.findById(material.lesson_id);
-    if (user.role === 'teacher' && lesson.teacher_id !== user.id) {
-      throw new AppError('Access denied', 403);
+    if (user.role === "teacher" && lesson.teacher_id !== user.id) {
+      throw new AppError("Access denied", 403);
     }
 
     safeUnlinkUpload(material.file_name || material.file_path);

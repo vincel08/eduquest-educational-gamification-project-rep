@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -13,51 +13,73 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material';
-import LightbulbIcon from '@mui/icons-material/Lightbulb';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import BoltIcon from '@mui/icons-material/Bolt';
-import { useParams, Link as RouterLink } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import PageHeader from '../../components/common/PageHeader';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import ContentTimestamp from '../../components/common/ContentTimestamp';
-import quizService from '../../services/quizService';
-import { getErrorMessage } from '../../services/api';
-import { celebrateAchievement } from '../../utils/confetti';
-import { pickMotivationalMessage } from '../../utils/feedbackMessages';
-import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
-import { useAuth } from '../../contexts/AuthContext';
-import { buildAuthenticatedFileUrl } from '../../utils/fileUrls';
-import { useRewards } from '../../contexts/RewardsContext';
+} from "@mui/material";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import BoltIcon from "@mui/icons-material/Bolt";
+import { useParams, Link as RouterLink } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import PageHeader from "../../components/common/PageHeader";
+import LoadingScreen from "../../components/common/LoadingScreen";
+import ContentTimestamp from "../../components/common/ContentTimestamp";
+import quizService from "../../services/quizService";
+import { getErrorMessage } from "../../services/api";
+import { celebrateAchievement } from "../../utils/confetti";
+import { pickMotivationalMessage } from "../../utils/feedbackMessages";
+import { playSound, SOUND_KEYS } from "../../utils/soundEffects";
+import { useAuth } from "../../contexts/AuthContext";
+import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
+import { useRewards } from "../../contexts/RewardsContext";
 
 export default function StudentQuizPage() {
   const { quizId } = useParams();
   const { updateProfile } = useAuth();
   const { notifyReward } = useRewards();
   const [quiz, setQuiz] = useState(null);
-  const [motivation, setMotivation] = useState('');
+  const [motivation, setMotivation] = useState("");
   const [questions, setQuestions] = useState([]);
   const [attemptId, setAttemptId] = useState(null);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
-  const [hint, setHint] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [startedAt, setStartedAt] = useState(null);
   const [reviewMode, setReviewMode] = useState(false);
+  const [attemptMeta, setAttemptMeta] = useState({
+    attemptsUsed: 0,
+    attemptsRemaining: 3,
+    maxAttempts: 3,
+    dueAt: null,
+    isClosed: false,
+    outOfAttempts: false,
+    hasOverride: false,
+    extraAttempts: 0,
+  });
+
+  function applyStartPayload(data) {
+    setQuiz(data.quiz);
+    setQuestions(data.questions);
+    setAttemptId(data.attempt.id);
+    setStartedAt(Date.now());
+    setReviewMode(false);
+    setAttemptMeta({
+      attemptsUsed: data.attemptsUsed ?? 0,
+      attemptsRemaining: data.attemptsRemaining ?? 3,
+      maxAttempts: data.maxAttempts ?? 3,
+      dueAt: data.dueAt ?? data.quiz?.due_at ?? null,
+      isClosed: Boolean(data.isClosed),
+      outOfAttempts: Boolean(data.outOfAttempts),
+      hasOverride: Boolean(data.hasOverride),
+      extraAttempts: Number(data.extraAttempts || 0),
+    });
+  }
 
   useEffect(() => {
     async function load() {
       try {
         const response = await quizService.start(quizId);
-        setQuiz(response.data.data.quiz);
-        setQuestions(response.data.data.questions);
-        setAttemptId(response.data.data.attempt.id);
-        setStartedAt(Date.now());
-        setReviewMode(false);
+        applyStartPayload(response.data.data);
       } catch (err) {
         setError(getErrorMessage(err));
       } finally {
@@ -68,7 +90,7 @@ export default function StudentQuizPage() {
   }, [quizId]);
 
   function formatDuration(ms) {
-    if (!ms || ms < 0) return '—';
+    if (!ms || ms < 0) return "—";
     const totalSec = Math.round(ms / 1000);
     const mins = Math.floor(totalSec / 60);
     const secs = totalSec % 60;
@@ -80,18 +102,6 @@ export default function StudentQuizPage() {
     if (!questions.length) return 0;
     return Math.round(((currentIndex + 1) / questions.length) * 100);
   }, [currentIndex, questions.length]);
-
-  async function handleHint(question) {
-    try {
-      const response = await quizService.hint({
-        questionText: question.question_text,
-        topic: quiz.title,
-      });
-      setHint(response.data.data.hint);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }
 
   function setOptionAnswer(questionId, optionId) {
     setAnswers((prev) => ({
@@ -124,7 +134,7 @@ export default function StudentQuizPage() {
 
   async function handleSubmit() {
     setSubmitting(true);
-    setError('');
+    setError("");
     try {
       const payload = questions.map((question) => {
         const answer = answers[question.id] || {};
@@ -139,6 +149,16 @@ export default function StudentQuizPage() {
       const data = response.data.data;
       const timeTakenMs = startedAt ? Date.now() - startedAt : null;
       setResult({ ...data, timeTakenMs });
+      setAttemptMeta({
+        attemptsUsed: data.attemptsUsed ?? attemptMeta.attemptsUsed + 1,
+        attemptsRemaining: data.attemptsRemaining ?? 0,
+        maxAttempts: data.maxAttempts ?? 3,
+        dueAt: data.dueAt ?? attemptMeta.dueAt ?? null,
+        isClosed: Boolean(data.isClosed),
+        outOfAttempts: Boolean(data.outOfAttempts),
+        hasOverride: Boolean(data.hasOverride),
+        extraAttempts: Number(data.extraAttempts || 0),
+      });
       setMotivation(pickMotivationalMessage());
       playSound(SOUND_KEYS.quizComplete);
       if (data.xpAward?.profile) {
@@ -148,7 +168,6 @@ export default function StudentQuizPage() {
         xpEarned: data.attempt?.xp_earned || data.xpAward?.amount || 0,
         badges: data.xpAward?.newlyUnlocked?.badges || [],
         medals: data.xpAward?.newlyUnlocked?.medals || [],
-        certificate: data.certificate || null,
         celebrateWin: Boolean(data.isPassed),
       });
       if (data.perfect) celebrateAchievement();
@@ -160,11 +179,11 @@ export default function StudentQuizPage() {
   }
 
   function renderQuestion(question, index) {
-    const type = question.question_type || 'multiple_choice';
+    const type = question.question_type || "multiple_choice";
     const answer = answers[question.id] || {};
     const locked = Boolean(reviewMode);
 
-    if (type === 'identification') {
+    if (type === "identification") {
       return (
         <Stack spacing={2}>
           <Typography variant="h5" fontWeight={900}>
@@ -173,7 +192,7 @@ export default function StudentQuizPage() {
           <TextField
             fullWidth
             label="Your answer"
-            value={answer.textAnswer || ''}
+            value={answer.textAnswer || ""}
             disabled={locked}
             onChange={(event) => setTextAnswer(question.id, event.target.value)}
           />
@@ -181,9 +200,13 @@ export default function StudentQuizPage() {
       );
     }
 
-    if (type === 'matching') {
-      const leftOptions = question.options.filter((option) => option.side === 'left');
-      const rightOptions = question.options.filter((option) => option.side === 'right');
+    if (type === "matching") {
+      const leftOptions = question.options.filter(
+        (option) => option.side === "left",
+      );
+      const rightOptions = question.options.filter(
+        (option) => option.side === "right",
+      );
       const payload = answer.answerPayload || {};
 
       return (
@@ -195,18 +218,22 @@ export default function StudentQuizPage() {
             {leftOptions.map((left) => (
               <Stack
                 key={left.id}
-                direction={{ xs: 'column', sm: 'row' }}
+                direction={{ xs: "column", sm: "row" }}
                 spacing={1}
-                sx={{ alignItems: { sm: 'center' } }}
+                sx={{ alignItems: { sm: "center" } }}
               >
-                <Typography sx={{ minWidth: { sm: 180 } }} fontWeight={700}>{left.option_text}</Typography>
+                <Typography sx={{ minWidth: { sm: 180 } }} fontWeight={700}>
+                  {left.option_text}
+                </Typography>
                 <TextField
                   select
                   size="small"
                   label="Match with"
-                  value={payload[String(left.id)] || ''}
+                  value={payload[String(left.id)] || ""}
                   disabled={locked}
-                  onChange={(event) => setMatchingAnswer(question.id, left.id, event.target.value)}
+                  onChange={(event) =>
+                    setMatchingAnswer(question.id, left.id, event.target.value)
+                  }
                   sx={{ minWidth: 220 }}
                 >
                   {rightOptions.map((right) => (
@@ -228,13 +255,18 @@ export default function StudentQuizPage() {
           {index + 1}. {question.question_text}
         </Typography>
 
-        {type === 'image_question' ? (
+        {type === "image_question" ? (
           question.image_url ? (
             <Box
               component="img"
               src={buildAuthenticatedFileUrl(question.image_url)}
               alt="Question visual"
-              sx={{ maxWidth: '100%', maxHeight: 260, borderRadius: 3, display: 'block' }}
+              sx={{
+                maxWidth: "100%",
+                maxHeight: 260,
+                borderRadius: 3,
+                display: "block",
+              }}
             />
           ) : (
             <Alert severity="info">
@@ -244,7 +276,7 @@ export default function StudentQuizPage() {
         ) : null}
 
         <RadioGroup
-          value={answer.selectedOptionId || ''}
+          value={answer.selectedOptionId || ""}
           onChange={(event) => setOptionAnswer(question.id, event.target.value)}
         >
           {question.options.map((option) => (
@@ -254,8 +286,10 @@ export default function StudentQuizPage() {
               className="answer-choice"
               disabled={locked}
               control={<Radio />}
-              label={<Typography fontWeight={800}>{option.option_text}</Typography>}
-              sx={{ mx: 0, width: '100%' }}
+              label={
+                <Typography fontWeight={800}>{option.option_text}</Typography>
+              }
+              sx={{ mx: 0, width: "100%" }}
             />
           ))}
         </RadioGroup>
@@ -264,20 +298,77 @@ export default function StudentQuizPage() {
   }
 
   if (loading) return <LoadingScreen />;
-  if (error && !quiz) return <Alert severity="error">{error}</Alert>;
+  if (error && !quiz) {
+    return (
+      <Stack spacing={2}>
+        <PageHeader
+          title="Quiz unavailable"
+          subtitle="This quiz may be locked, closed, or out of attempts."
+        />
+        <Alert severity="warning">{error}</Alert>
+        <Button component={RouterLink} to="/student/courses" variant="contained">
+          Back to subjects
+        </Button>
+      </Stack>
+    );
+  }
 
   const question = questions[currentIndex];
+  const startBlocked =
+    Boolean(attemptMeta.isClosed) || Boolean(attemptMeta.outOfAttempts);
 
   return (
     <>
       <PageHeader title={quiz.title} subtitle={quiz.description} />
-      <ContentTimestamp item={quiz} variant="date" showUpdated={false} sx={{ mb: 2, mt: 0 }} />
-      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-      {hint ? (
-        <Alert severity="info" icon={<LightbulbIcon />} sx={{ mb: 2 }}>
-          {hint}
+      <ContentTimestamp
+        item={quiz}
+        variant="date"
+        showUpdated={false}
+        sx={{ mb: 2, mt: 0 }}
+      />
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
         </Alert>
       ) : null}
+
+      <Stack
+        direction="row"
+        spacing={1}
+        flexWrap="wrap"
+        useFlexGap
+        sx={{ mb: 2 }}
+      >
+        <Chip
+          size="small"
+          label={`Attempts ${attemptMeta.attemptsUsed}/${attemptMeta.maxAttempts}`}
+          variant="outlined"
+        />
+        {attemptMeta.hasOverride ? (
+          <Chip size="small" color="info" label="Extended access" />
+        ) : null}
+        {attemptMeta.extraAttempts > 0 ? (
+          <Chip
+            size="small"
+            variant="outlined"
+            label={`+${attemptMeta.extraAttempts} extra`}
+          />
+        ) : null}
+        {attemptMeta.dueAt ? (
+          <Chip
+            size="small"
+            color={attemptMeta.isClosed ? "warning" : "default"}
+            label={
+              attemptMeta.isClosed
+                ? "Closed"
+                : `Due ${new Date(attemptMeta.dueAt).toLocaleString()}`
+            }
+          />
+        ) : null}
+        {attemptMeta.outOfAttempts ? (
+          <Chip size="small" color="warning" label="No attempts left" />
+        ) : null}
+      </Stack>
 
       {result && !reviewMode ? (
         <Paper
@@ -287,71 +378,147 @@ export default function StudentQuizPage() {
           className="eq-fade-in"
           sx={{
             p: { xs: 3, md: 4 },
-            textAlign: 'center',
-            background: 'linear-gradient(145deg, rgba(59,130,246,0.1), rgba(139,92,246,0.12))',
+            textAlign: "center",
+            background:
+              "linear-gradient(145deg, rgba(59,130,246,0.1), rgba(139,92,246,0.12))",
             borderRadius: 4,
           }}
         >
-          <CheckCircleIcon sx={{ fontSize: 72, color: result.isPassed ? 'success.main' : 'warning.main', mb: 1 }} />
+          <CheckCircleIcon
+            sx={{
+              fontSize: 72,
+              color: result.isPassed ? "success.main" : "warning.main",
+              mb: 1,
+            }}
+          />
           <Typography variant="h3" fontWeight={800} gutterBottom>
-            {result.isPassed ? 'Quest Complete!' : 'Keep Going!'}
+            {result.isPassed ? "Quest Complete!" : "Keep Going!"}
           </Typography>
-          <Typography variant="h6" color="secondary.main" fontWeight={700} sx={{ mb: 1 }}>
-            {motivation || 'Excellent work!'}
+          <Typography
+            variant="h6"
+            color="secondary.main"
+            fontWeight={700}
+            sx={{ mb: 1 }}
+          >
+            {motivation || "Excellent work!"}
           </Typography>
-          <Typography variant="h2" fontWeight={800} color="primary.main" sx={{ mb: 0.5, fontSize: { xs: '2.4rem', md: '3rem' } }}>
-            {result.attempt?.earned_points ?? '—'} / {result.attempt?.total_points ?? '—'}
+          <Typography
+            variant="h2"
+            fontWeight={800}
+            color="primary.main"
+            sx={{ mb: 0.5, fontSize: { xs: "2.4rem", md: "3rem" } }}
+          >
+            {result.attempt?.earned_points ?? "—"} /{" "}
+            {result.attempt?.total_points ?? "—"}
           </Typography>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
             Grade score · {result.score}% · {formatDuration(result.timeTakenMs)}
           </Typography>
-          <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
-            <Chip label={result.isPassed ? 'Passed' : 'Not passed yet'} color={result.isPassed ? 'success' : 'warning'} />
+          <Stack
+            direction="row"
+            spacing={1}
+            justifyContent="center"
+            flexWrap="wrap"
+            useFlexGap
+            sx={{ mb: 2 }}
+          >
+            <Chip
+              label={result.isPassed ? "Passed" : "Not passed yet"}
+              color={result.isPassed ? "success" : "warning"}
+            />
             {result.attempt?.xp_earned ? (
-              <Chip icon={<BoltIcon />} label={`+${result.attempt.xp_earned} XP progress`} sx={{ bgcolor: 'rgba(250,204,21,0.28)', fontWeight: 800 }} />
+              <Chip
+                icon={<BoltIcon />}
+                label={`+${result.attempt.xp_earned} XP progress`}
+                sx={{ bgcolor: "rgba(250,204,21,0.28)", fontWeight: 800 }}
+              />
             ) : result.xpAlreadyAwarded ? (
               <Chip label="XP already earned earlier" variant="outlined" />
             ) : null}
             {(result.xpAward?.newlyUnlocked?.badges || []).length ? (
-              <Chip color="secondary" label={`${result.xpAward.newlyUnlocked.badges.length} badge(s) unlocked`} />
+              <Chip
+                color="secondary"
+                label={`${result.xpAward.newlyUnlocked.badges.length} badge(s) unlocked`}
+              />
             ) : null}
             {result.perfectMedalAwarded ? (
               <Chip color="warning" label="Perfect score medal!" />
             ) : null}
           </Stack>
-          <Typography color="text.secondary" sx={{ mb: 3, maxWidth: 480, mx: 'auto' }}>
+          <Typography
+            color="text.secondary"
+            sx={{ mb: 2, maxWidth: 480, mx: "auto" }}
+          >
             {result.isPassed
-              ? 'Amazing work — rewards are saved to your profile.'
-              : 'Review the material and try again to pass. Friendly tip: focus on the missed questions.'}
+              ? "Amazing work — rewards are saved to your profile."
+              : "Review the pointers below, then retry if you still have attempts left."}
           </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="center">
-            <Button variant="outlined" onClick={() => { setReviewMode(true); setCurrentIndex(0); }}>
+          {!result.isPassed && (result.reviewItems || []).length ? (
+            <Stack
+              spacing={1}
+              sx={{ textAlign: "left", maxWidth: 560, mx: "auto", mb: 3 }}
+            >
+              <Typography fontWeight={800}>Study pointers</Typography>
+              {result.reviewItems.map((item) => (
+                <Alert
+                  key={item.questionId}
+                  severity="info"
+                  sx={{ textAlign: "left" }}
+                >
+                  <Typography variant="body2" fontWeight={700} sx={{ mb: 0.5 }}>
+                    {item.questionText}
+                  </Typography>
+                  <Typography variant="body2">{item.pointer}</Typography>
+                </Alert>
+              ))}
+            </Stack>
+          ) : null}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Attempts used: {attemptMeta.attemptsUsed}/{attemptMeta.maxAttempts}
+            {attemptMeta.attemptsRemaining === 0 ? " · No retries left" : ""}
+          </Typography>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            justifyContent="center"
+          >
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setReviewMode(true);
+                setCurrentIndex(0);
+              }}
+            >
               Review Answers
             </Button>
             <Button
               variant="outlined"
+              disabled={
+                attemptMeta.attemptsRemaining <= 0 || attemptMeta.isClosed
+              }
               onClick={() => {
                 setResult(null);
                 setReviewMode(false);
                 setAnswers({});
                 setCurrentIndex(0);
-                setHint('');
-                setMotivation('');
+                setMotivation("");
                 setLoading(true);
-                quizService.start(quizId)
-                  .then((response) => {
-                    setQuiz(response.data.data.quiz);
-                    setQuestions(response.data.data.questions);
-                    setAttemptId(response.data.data.attempt.id);
-                    setStartedAt(Date.now());
-                  })
+                quizService
+                  .start(quizId)
+                  .then((response) => applyStartPayload(response.data.data))
                   .catch((err) => setError(getErrorMessage(err)))
                   .finally(() => setLoading(false));
               }}
             >
-              Retry Quiz
+              {attemptMeta.attemptsRemaining <= 0
+                ? "No retries left"
+                : "Retry Quiz"}
             </Button>
-            <Button component={RouterLink} to="/student/quizzes" variant="contained">
+            <Button
+              component={RouterLink}
+              to="/student/quizzes"
+              variant="contained"
+            >
               Continue Learning
             </Button>
           </Stack>
@@ -359,20 +526,43 @@ export default function StudentQuizPage() {
       ) : result && reviewMode ? (
         <Stack spacing={2}>
           <Paper sx={{ p: 2 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap spacing={1}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              flexWrap="wrap"
+              useFlexGap
+              spacing={1}
+            >
               <Typography fontWeight={900}>
                 Review · Question {currentIndex + 1} of {questions.length}
               </Typography>
-              <Button size="small" onClick={() => setReviewMode(false)}>Back to Results</Button>
+              <Button size="small" onClick={() => setReviewMode(false)}>
+                Back to Results
+              </Button>
             </Stack>
           </Paper>
           <Paper sx={{ p: { xs: 2.5, md: 3.5 } }}>
-            {questions[currentIndex] ? renderQuestion(questions[currentIndex], currentIndex) : null}
+            {questions[currentIndex]
+              ? renderQuestion(questions[currentIndex], currentIndex)
+              : null}
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              Your submitted answers are shown above. Correct keys stay hidden until your teacher reviews them.
+              Your submitted answers are shown above. Correct answer keys stay
+              hidden so retries stay fair.
             </Typography>
+            {(result.reviewItems || [])
+              .filter(
+                (item) =>
+                  Number(item.questionId) ===
+                  Number(questions[currentIndex]?.id),
+              )
+              .map((item) => (
+                <Alert key={item.questionId} severity="info" sx={{ mt: 2 }}>
+                  {item.pointer}
+                </Alert>
+              ))}
           </Paper>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
             <Button
               variant="outlined"
               disabled={currentIndex === 0}
@@ -383,7 +573,9 @@ export default function StudentQuizPage() {
             {currentIndex < questions.length - 1 ? (
               <Button
                 variant="contained"
-                onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
+                onClick={() =>
+                  setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
+                }
               >
                 Next
               </Button>
@@ -394,16 +586,34 @@ export default function StudentQuizPage() {
             )}
           </Stack>
         </Stack>
+      ) : startBlocked ? (
+        <Alert severity="warning">
+          {attemptMeta.isClosed
+            ? "This quiz is closed (past due date or school year ended). Ask your teacher if you need an extension."
+            : "You have used all attempts for this quiz. Ask your teacher if you need more."}
+        </Alert>
       ) : (
         <Stack spacing={2} className="eq-page">
           <Paper sx={{ p: { xs: 2, md: 2.5 } }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }} flexWrap="wrap" useFlexGap spacing={1}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ mb: 1 }}
+              flexWrap="wrap"
+              useFlexGap
+              spacing={1}
+            >
               <Typography fontWeight={800}>
                 Question {currentIndex + 1} of {questions.length}
               </Typography>
               <Stack direction="row" spacing={1}>
                 {quiz.time_limit_minutes ? (
-                  <Chip size="small" variant="outlined" label={`${quiz.time_limit_minutes} min limit`} />
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={`${quiz.time_limit_minutes} min limit`}
+                  />
                 ) : null}
                 <Chip size="small" label={`${progress}%`} color="primary" />
               </Stack>
@@ -422,23 +632,14 @@ export default function StudentQuizPage() {
               sx={{ p: { xs: 2.5, md: 3.5 } }}
             >
               {question ? renderQuestion(question, currentIndex) : null}
-              <Button
-                sx={{ mt: 2 }}
-                size="small"
-                startIcon={<LightbulbIcon />}
-                onClick={() => handleHint(question)}
-              >
-                Get AI Hint
-              </Button>
             </Paper>
           </AnimatePresence>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
             <Button
               variant="outlined"
               disabled={currentIndex === 0}
               onClick={() => {
-                setHint('');
                 setCurrentIndex((i) => Math.max(0, i - 1));
               }}
             >
@@ -448,8 +649,9 @@ export default function StudentQuizPage() {
               <Button
                 variant="contained"
                 onClick={() => {
-                  setHint('');
-                  setCurrentIndex((i) => Math.min(questions.length - 1, i + 1));
+                  setCurrentIndex((i) =>
+                    Math.min(questions.length - 1, i + 1),
+                  );
                 }}
               >
                 Next Question
@@ -462,7 +664,7 @@ export default function StudentQuizPage() {
                 disabled={submitting}
                 onClick={handleSubmit}
               >
-                {submitting ? 'Submitting...' : 'Submit Quiz'}
+                {submitting ? "Submitting..." : "Submit Quiz"}
               </Button>
             )}
           </Stack>

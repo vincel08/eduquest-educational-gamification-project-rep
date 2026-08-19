@@ -5,7 +5,7 @@
 Project Name: EduWow
 
 Description:
-EduWow is an AI-powered Gamified Learning Management System (LMS) designed to improve student engagement among high school students through interactive learning, quizzes, achievements, badges, medals, leaderboards, and AI-generated educational content.
+EduWow is an AI-powered Gamified Learning Management System (LMS) designed to improve student engagement among junior high school students (Grades 7–10) through interactive learning, quizzes, achievements, badges, medals, leaderboards, and AI-generated educational content.
 
 Always assume that every request belongs to this project unless otherwise specified.
 

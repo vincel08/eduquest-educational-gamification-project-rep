@@ -2,7 +2,7 @@ import {
   GRADE_LEVEL_INVALID_MESSAGE,
   GRADE_LEVEL_REQUIRED_MESSAGE,
   isValidGradeLevel,
-} from './gradeLevels';
+} from "./gradeLevels";
 
 const MIN_PASSWORD_LENGTH = 8;
 const USERNAME_MIN = 3;
@@ -10,7 +10,7 @@ const USERNAME_MAX = 64;
 
 export function getPasswordError(password) {
   if (!password || !String(password).trim()) {
-    return 'Password is required';
+    return "Password is required";
   }
 
   const value = String(password);
@@ -18,44 +18,46 @@ export function getPasswordError(password) {
     return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
   }
   if (!/[a-z]/.test(value)) {
-    return 'Password must include a lowercase letter';
+    return "Password must include a lowercase letter";
   }
   if (!/[A-Z]/.test(value)) {
-    return 'Password must include an uppercase letter';
+    return "Password must include an uppercase letter";
   }
   if (!/[0-9]/.test(value)) {
-    return 'Password must include a number';
+    return "Password must include a number";
   }
 
-  return '';
+  return "";
 }
 
 export function getUsernameError(username) {
-  const value = String(username || '').trim().toLowerCase();
+  const value = String(username || "")
+    .trim()
+    .toLowerCase();
   if (!value) {
-    return 'Username is required';
+    return "Username is required";
   }
   if (value.length < USERNAME_MIN || value.length > USERNAME_MAX) {
     return `Username must be ${USERNAME_MIN}–${USERNAME_MAX} characters`;
   }
   if (/^\d{6,20}$/.test(value)) {
-    return '';
+    return "";
   }
   if (!/^[a-z0-9]+([._-]?[a-z0-9]+)*$/.test(value)) {
-    return 'Use letters, numbers, dots, underscores, or hyphens (or a school/LRN ID)';
+    return "Use letters, numbers, dots, underscores, or hyphens (or a school/LRN ID)";
   }
-  return '';
+  return "";
 }
 
 export function validateRegistrationForm(form) {
   const errors = {};
 
   if (!form.firstName?.trim()) {
-    errors.firstName = 'First name is required';
+    errors.firstName = "First name is required";
   }
 
   if (!form.lastName?.trim()) {
-    errors.lastName = 'Last name is required';
+    errors.lastName = "Last name is required";
   }
 
   const usernameError = getUsernameError(form.username);
@@ -65,7 +67,7 @@ export function validateRegistrationForm(form) {
 
   if (form.email?.trim()) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      errors.email = 'Enter a valid email address, or leave it blank';
+      errors.email = "Enter a valid email address, or leave it blank";
     }
   }
 

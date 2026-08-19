@@ -1,4 +1,4 @@
-import { query } from '../config/db.js';
+import { query } from "../config/db.js";
 
 const CourseModel = {
   async create(data) {
@@ -13,7 +13,7 @@ const CourseModel = {
         coverImage: data.coverImage || null,
         teacherId: data.teacherId,
         isPublished: data.isPublished ? 1 : 0,
-      }
+      },
     );
     return this.findById(result.insertId);
   },
@@ -27,31 +27,45 @@ const CourseModel = {
        INNER JOIN users u ON u.id = c.teacher_id
        WHERE c.id = :id
        LIMIT 1`,
-      { id }
+      { id },
     );
     return rows[0] || null;
   },
 
-  async findAll({ teacherId, publishedOnly, search, page = 1, limit = 20 } = {}) {
+  async findAll({
+    teacherId,
+    publishedOnly,
+    search,
+    gradeLevel,
+    page = 1,
+    limit = 20,
+  } = {}) {
     const offset = (page - 1) * limit;
     const filters = [];
     const params = { limit: Number(limit), offset: Number(offset) };
 
     if (teacherId) {
-      filters.push('c.teacher_id = :teacherId');
+      filters.push("c.teacher_id = :teacherId");
       params.teacherId = teacherId;
     }
 
     if (publishedOnly) {
-      filters.push('c.is_published = 1');
+      filters.push("c.is_published = 1");
+    }
+
+    if (gradeLevel) {
+      filters.push("c.grade_level = :gradeLevel");
+      params.gradeLevel = gradeLevel;
     }
 
     if (search) {
-      filters.push('(c.title LIKE :search OR c.subject LIKE :search OR c.description LIKE :search)');
+      filters.push(
+        "(c.title LIKE :search OR c.subject LIKE :search OR c.description LIKE :search)",
+      );
       params.search = `%${search}%`;
     }
 
-    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
     const rows = await query(
       `SELECT c.*, u.first_name AS teacher_first_name, u.last_name AS teacher_last_name,
@@ -61,12 +75,12 @@ const CourseModel = {
        ${where}
        ORDER BY c.created_at DESC
        LIMIT :limit OFFSET :offset`,
-      params
+      params,
     );
 
     const countRows = await query(
       `SELECT COUNT(*) AS total FROM courses c ${where}`,
-      params
+      params,
     );
 
     return { courses: rows, total: countRows[0].total };
@@ -74,13 +88,13 @@ const CourseModel = {
 
   async update(id, data) {
     const mapping = {
-      title: 'title',
-      description: 'description',
-      subject: 'subject',
-      gradeLevel: 'grade_level',
-      coverImage: 'cover_image',
-      isPublished: 'is_published',
-      updatedBy: 'updated_by',
+      title: "title",
+      description: "description",
+      subject: "subject",
+      gradeLevel: "grade_level",
+      coverImage: "cover_image",
+      isPublished: "is_published",
+      updatedBy: "updated_by",
     };
 
     const sets = [];
@@ -89,7 +103,7 @@ const CourseModel = {
     for (const [key, column] of Object.entries(mapping)) {
       if (data[key] !== undefined) {
         sets.push(`${column} = :${key}`);
-        params[key] = key === 'isPublished' ? (data[key] ? 1 : 0) : data[key];
+        params[key] = key === "isPublished" ? (data[key] ? 1 : 0) : data[key];
       }
     }
 
@@ -97,12 +111,12 @@ const CourseModel = {
       return this.findById(id);
     }
 
-    await query(`UPDATE courses SET ${sets.join(', ')} WHERE id = :id`, params);
+    await query(`UPDATE courses SET ${sets.join(", ")} WHERE id = :id`, params);
     return this.findById(id);
   },
 
   async delete(id) {
-    await query('DELETE FROM courses WHERE id = :id', { id });
+    await query("DELETE FROM courses WHERE id = :id", { id });
     return true;
   },
 
@@ -111,7 +125,7 @@ const CourseModel = {
       `INSERT INTO course_enrollments (course_id, student_id)
        VALUES (:courseId, :studentId)
        ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP`,
-      { courseId, studentId }
+      { courseId, studentId },
     );
     return true;
   },
@@ -124,11 +138,17 @@ const CourseModel = {
        LEFT JOIN student_profiles sp ON sp.user_id = ce.student_id
        WHERE ce.course_id = :courseId
        ORDER BY ce.enrolled_at DESC`,
-      { courseId }
+      { courseId },
     );
   },
 
-  async getStudentCourses(studentId) {
+  async getStudentCourses(studentId, { gradeLevel = null } = {}) {
+    const params = { studentId };
+    let gradeFilter = "";
+    if (gradeLevel) {
+      gradeFilter = "AND c.grade_level = :gradeLevel";
+      params.gradeLevel = gradeLevel;
+    }
     return query(
       `SELECT c.*, ce.progress_percent, ce.enrolled_at,
               u.first_name AS teacher_first_name, u.last_name AS teacher_last_name
@@ -136,8 +156,9 @@ const CourseModel = {
        INNER JOIN courses c ON c.id = ce.course_id
        INNER JOIN users u ON u.id = c.teacher_id
        WHERE ce.student_id = :studentId
+         ${gradeFilter}
        ORDER BY ce.enrolled_at DESC`,
-      { studentId }
+      params,
     );
   },
 
@@ -146,7 +167,7 @@ const CourseModel = {
       `SELECT id FROM course_enrollments
        WHERE course_id = :courseId AND student_id = :studentId
        LIMIT 1`,
-      { courseId, studentId }
+      { courseId, studentId },
     );
     return Boolean(rows[0]);
   },
@@ -156,7 +177,7 @@ const CourseModel = {
       `UPDATE course_enrollments
        SET progress_percent = :progressPercent
        WHERE course_id = :courseId AND student_id = :studentId`,
-      { courseId, studentId, progressPercent }
+      { courseId, studentId, progressPercent },
     );
   },
 };

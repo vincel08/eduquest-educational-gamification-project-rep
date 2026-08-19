@@ -107,17 +107,6 @@ async function seedModule(
     ],
   );
 
-  await connection.execute(
-    `INSERT INTO certificates (title, description, course_id, template_style, created_by)
-     VALUES (?, ?, ?, 'classic', ?)`,
-    [
-      `${module.shortName} Certificate`,
-      `Awarded for completing ${module.title}.`,
-      courseId,
-      adminId,
-    ],
-  );
-
   return courseId;
 }
 
@@ -231,8 +220,6 @@ async function run() {
     "notifications",
     "game_scores",
     "educational_games",
-    "student_certificates",
-    "certificates",
     "student_medals",
     "medals",
     "student_badges",
@@ -277,13 +264,27 @@ async function run() {
   const [studentResult] = await connection.execute(
     `INSERT INTO users (username, email, password_hash, first_name, last_name, role)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    ["sam.student", "student@eduwow.local", passwordHash, "Sam", "Student", "student"],
+    [
+      "sam.student",
+      "student@eduwow.local",
+      passwordHash,
+      "Sam",
+      "Student",
+      "student",
+    ],
   );
 
   const [student2Result] = await connection.execute(
     `INSERT INTO users (username, email, password_hash, first_name, last_name, role)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    ["jamie.learner", "student2@eduwow.local", passwordHash, "Jamie", "Learner", "student"],
+    [
+      "jamie.learner",
+      "student2@eduwow.local",
+      passwordHash,
+      "Jamie",
+      "Learner",
+      "student",
+    ],
   );
 
   const adminId = adminResult.insertId;
@@ -305,7 +306,7 @@ async function run() {
       student2Id,
       40,
       1,
-      "Grade 11",
+      "Grade 9",
       "EduWow High",
       0,
       0,
@@ -591,8 +592,12 @@ async function run() {
   console.log("Demo accounts (password: Password123!):");
   console.log("  admin@eduwow.local (administrator)");
   console.log("  teacher@eduwow.local (teacher)");
-  console.log("  sam.student (student username; optional email student@eduwow.local)");
-  console.log("  jamie.learner (student username; optional email student2@eduwow.local)");
+  console.log(
+    "  sam.student (student username; optional email student@eduwow.local)",
+  );
+  console.log(
+    "  jamie.learner (student username; optional email student2@eduwow.local)",
+  );
 }
 
 run().catch((error) => {

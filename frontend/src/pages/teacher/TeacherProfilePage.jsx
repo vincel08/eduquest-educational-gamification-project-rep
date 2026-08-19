@@ -4,7 +4,6 @@ import {
   Avatar,
   Button,
   Grid,
-  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -14,21 +13,11 @@ import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import CancelRoundedIcon from "@mui/icons-material/CancelRounded";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
-import XpBar from "../../components/gamification/XpBar";
-import BadgeCard from "../../components/gamification/BadgeCard";
-import MedalCard from "../../components/gamification/MedalCard";
-import gamificationService from "../../services/gamificationService";
-import analyticsService from "../../services/analyticsService";
-import courseService from "../../services/courseService";
 import authService from "../../services/authService";
+import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  GRADE_LEVELS,
-  GRADE_LEVEL_PLACEHOLDER,
-  isValidGradeLevel,
-} from "../../utils/gradeLevels";
 
 function resolveAvatarUrl(url) {
   if (!url) return undefined;
@@ -38,18 +27,15 @@ function resolveAvatarUrl(url) {
   return buildAuthenticatedFileUrl(url) || undefined;
 }
 
-export default function StudentProfilePage() {
+export default function TeacherProfilePage() {
   const { user, updateProfile } = useAuth();
   const fileInputRef = useRef(null);
-  const [data, setData] = useState(null);
-  const [courses, setCourses] = useState([]);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
-    gradeLevel: "",
-    schoolName: "",
   });
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [subjectCount, setSubjectCount] = useState(0);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -59,26 +45,30 @@ export default function StudentProfilePage() {
   useEffect(() => {
     async function load() {
       try {
-        const [meRes, analyticsRes, coursesRes] = await Promise.all([
-          gamificationService.me(),
-          analyticsService.student(),
-          courseService.myCourses(),
+        const [meRes, coursesRes] = await Promise.all([
+          authService.me(),
+          courseService.list({ limit: 200 }),
         ]);
-        const gamification = meRes.data.data;
-        setData({ gamification, analytics: analyticsRes.data.data });
-        updateProfile(gamification.profile);
-        setCourses(coursesRes.data.data?.courses || coursesRes.data.data || []);
-        const existingGrade = gamification.profile?.grade_level || "";
+        const mePayload = meRes.data.data || {};
+        const meUser = mePayload.user || mePayload;
+        if (meUser) {
+          updateProfile(mePayload.profile ?? null, meUser);
+        }
+        setForm({
+          firstName: meUser?.firstName || user?.firstName || "",
+          lastName: meUser?.lastName || user?.lastName || "",
+        });
+        setAvatarUrl(meUser?.avatarUrl || user?.avatarUrl || "");
+        const courses =
+          coursesRes.data.data?.courses || coursesRes.data.data || [];
+        setSubjectCount(Array.isArray(courses) ? courses.length : 0);
+      } catch (err) {
+        setError(getErrorMessage(err));
         setForm({
           firstName: user?.firstName || "",
           lastName: user?.lastName || "",
-          // Keep unknown/legacy values editable as empty so the student can pick a supported grade.
-          gradeLevel: isValidGradeLevel(existingGrade) ? existingGrade : "",
-          schoolName: gamification.profile?.school_name || "",
         });
         setAvatarUrl(user?.avatarUrl || "");
-      } catch (err) {
-        setError(getErrorMessage(err));
       } finally {
         setLoading(false);
       }
@@ -92,25 +82,12 @@ export default function StudentProfilePage() {
     setError("");
     setMessage("");
     try {
-      // Avatar is updated only via upload/remove endpoints — never send display URLs here.
       const response = await authService.updateProfile({
-        ...form,
+        firstName: form.firstName,
+        lastName: form.lastName,
       });
       updateProfile(response.data.data.profile, response.data.data.user);
       setAvatarUrl(response.data.data.user?.avatarUrl || "");
-      setData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          gamification: {
-            ...prev.gamification,
-            profile: {
-              ...prev.gamification.profile,
-              ...(response.data.data.profile || {}),
-            },
-          },
-        };
-      });
       setMessage("Profile updated.");
     } catch (err) {
       setError(getErrorMessage(err));
@@ -156,16 +133,12 @@ export default function StudentProfilePage() {
   }
 
   if (loading) return <LoadingScreen />;
-  if (error && !data) return <Alert severity="error">{error}</Alert>;
-
-  const studentProfile = data.gamification.profile;
-  const analytics = data.analytics;
 
   return (
     <>
       <PageHeader
         title="My Profile"
-        subtitle="Photo, progress, achievements, and rank"
+        subtitle="Your teacher account details and photo"
       />
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -188,10 +161,10 @@ export default function StudentProfilePage() {
                 height: 112,
                 mx: "auto",
                 mb: 2,
-                bgcolor: "primary.main",
+                bgcolor: "secondary.main",
               }}
             >
-              {(form.firstName || "S")[0]}
+              {(form.firstName || "T")[0]}
             </Avatar>
             <Stack spacing={1} sx={{ mb: 2 }}>
               <Button
@@ -227,124 +200,51 @@ export default function StudentProfilePage() {
             <Typography variant="h5">
               {form.firstName} {form.lastName}
             </Typography>
+            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+              {user?.email || "No email on file"}
+            </Typography>
+            <Typography sx={{ mt: 1.5 }} color="text.secondary">
+              Role: Teacher
+            </Typography>
             <Typography color="text.secondary">
-              {user?.username ? `@${user.username}` : null}
-              {user?.username && user?.email ? " · " : null}
-              {user?.email || (!user?.username ? "No email on file" : null)}
-            </Typography>
-            <Typography sx={{ mt: 1 }}>
-              Grade Level: {studentProfile.grade_level || "—"}
-            </Typography>
-            <Typography>Rank: #{studentProfile.rank || "—"}</Typography>
-            <Typography>XP: {studentProfile.xp}</Typography>
-            <Typography>
-              Streak: {studentProfile.current_streak || 0} days (best{" "}
-              {studentProfile.longest_streak || 0})
+              Subjects: {subjectCount}
             </Typography>
           </Paper>
         </Grid>
 
         <Grid size={{ xs: 12, md: 8 }}>
-          <Paper sx={{ p: 3, mb: 2 }} component="form" onSubmit={handleSave}>
+          <Paper sx={{ p: 3 }} component="form" onSubmit={handleSave}>
             <Typography variant="h6" gutterBottom>
               Edit Profile
             </Typography>
-            {!studentProfile.grade_level ? (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Please select your grade level to complete your profile.
-              </Alert>
-            ) : null}
             <Stack spacing={2}>
               <TextField
                 label="First name"
                 value={form.firstName}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, firstName: e.target.value }))
+                  setForm((prev) => ({ ...prev, firstName: e.target.value }))
                 }
+                required
               />
               <TextField
                 label="Last name"
                 value={form.lastName}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, lastName: e.target.value }))
+                  setForm((prev) => ({ ...prev, lastName: e.target.value }))
                 }
+                required
               />
               <TextField
-                select
-                label="Grade Level"
-                fullWidth
-                value={form.gradeLevel}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, gradeLevel: e.target.value }))
-                }
-                helperText={
-                  form.gradeLevel ? undefined : GRADE_LEVEL_PLACEHOLDER
-                }
-                SelectProps={{
-                  displayEmpty: true,
-                  renderValue: (selected) => {
-                    if (!selected) {
-                      return GRADE_LEVEL_PLACEHOLDER;
-                    }
-                    return selected;
-                  },
-                }}
-              >
-                <MenuItem value="">{GRADE_LEVEL_PLACEHOLDER}</MenuItem>
-                {GRADE_LEVELS.map((grade) => (
-                  <MenuItem key={grade} value={grade}>
-                    {grade}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="School"
-                value={form.schoolName}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, schoolName: e.target.value }))
-                }
+                label="Email"
+                value={user?.email || ""}
+                disabled
+                helperText="Email is managed by your school administrator."
               />
               <Button type="submit" variant="contained" disabled={saving}>
-                {saving ? "Saving..." : "Save Profile"}
+                {saving ? "Saving..." : "Save changes"}
               </Button>
             </Stack>
           </Paper>
-
-          <Paper sx={{ p: 3, mb: 2 }}>
-            <XpBar xp={studentProfile.xp} />
-            <Typography sx={{ mt: 2 }}>
-              Progress: {analytics.averageProgress}% · Completed subjects:{" "}
-              {
-                (courses || []).filter((c) => Number(c.progress_percent) >= 100)
-                  .length
-              }
-            </Typography>
-            <Typography>
-              Badges: {analytics.badges} · Medals: {analytics.medals}
-            </Typography>
-          </Paper>
-
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Badges
-          </Typography>
-          <Grid container spacing={1} sx={{ mb: 2 }}>
-            {(data.gamification.badges || []).map((badge) => (
-              <Grid key={badge.id || badge.badge_id} size={{ xs: 12, sm: 6 }}>
-                <BadgeCard badge={badge} />
-              </Grid>
-            ))}
-          </Grid>
-
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Medals
-          </Typography>
-          <Grid container spacing={1}>
-            {(data.gamification.medals || []).map((medal) => (
-              <Grid key={medal.id || medal.medal_id} size={{ xs: 12, sm: 6 }}>
-                <MedalCard medal={medal} />
-              </Grid>
-            ))}
-          </Grid>
         </Grid>
       </Grid>
     </>

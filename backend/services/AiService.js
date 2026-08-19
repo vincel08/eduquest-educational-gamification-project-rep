@@ -434,7 +434,7 @@ const AiService = {
     topic,
     difficulty = 'medium',
     questionCount = 5,
-    gradeLevel = 'high school',
+    gradeLevel = "junior high school",
     questionType = 'multiple_choice',
     lessonContent = '',
   }) {
@@ -476,7 +476,7 @@ Return compact valid JSON only.`,
     try {
       const contentSnippet = String(lessonContent || '').slice(0, env.aiLimits.maxPromptCharacters);
       const { data, source } = await chatJson(
-        `You are an expert high school educator creating quiz questions for EduWow.
+        `You are an expert junior high school educator creating quiz questions for EduWow.
 Return JSON with keys: title, description, questions.
 ${typeInstruction}
 Every question must include: questionText, questionType, points, explanation.`,
@@ -507,7 +507,7 @@ ${contentSnippet ? `\nBase every question on this source material:\n${contentSni
     lessonContent = '',
     difficulty = 'medium',
     questionCount = 5,
-    gradeLevel = 'high school',
+    gradeLevel = "junior high school",
   }) {
     const count = clampQuestionCount(questionCount);
     const contentSnippet = String(lessonContent || topic || '').slice(0, env.aiLimits.maxPromptCharacters);
@@ -515,7 +515,7 @@ ${contentSnippet ? `\nBase every question on this source material:\n${contentSni
 
     try {
       const { data, source } = await chatJson(
-        `You are an expert high school educator.
+        `You are an expert junior high school educator.
 Analyze the lesson and generate an educational multiple-choice quiz.
 Return ONLY valid JSON.
 Do not include markdown.
@@ -560,7 +560,7 @@ ${contentSnippet}`
   async generateGame({
     topic,
     gameType = 'auto',
-    gradeLevel = 'high school',
+    gradeLevel = "junior high school",
     lessonContent = '',
   }) {
     const requestedType = gameType === 'auto' ? 'auto' : (normalizeGameType(gameType) || gameType);
@@ -578,7 +578,7 @@ ${contentSnippet}`
         : `Use gameType exactly: "${requestedType}".`;
 
       const { data, source } = await chatJson(
-        `You are an educational game designer for high school students.
+        `You are an educational game designer for junior high school students.
 Analyze the lesson and generate one educational game.
 ${typeInstruction}
 Keep game items at or below ${env.aiLimits.maxGameItems}.
@@ -655,7 +655,7 @@ ${contentSnippet}`
 
     try {
       const { data, source } = await chatJson(
-        `Summarize lesson content for high school students.
+        `Summarize lesson content for junior high school students.
 Return JSON with keys: summary (string), learningObjectives (array of 3-5 strings).`,
         safeContent
       );
@@ -692,7 +692,7 @@ Return JSON with keys: summary (string), learningObjectives (array of 3-5 string
     }
 
     const { data, source } = await chatJson(
-      `You are an education editor for high school content. ${instruction}
+      `You are an education editor for junior high school content. ${instruction}
 Return JSON with key: text.`,
       String(text || '')
     );

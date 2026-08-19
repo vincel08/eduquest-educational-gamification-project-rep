@@ -1,20 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Grid } from '@mui/material';
-import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
-import PageHeader from '../../components/common/PageHeader';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import QuestCard from '../../components/common/QuestCard';
-import EmptyState from '../../components/common/EmptyState';
-import ContentTimestampToolbar from '../../components/common/ContentTimestampToolbar';
-import courseService from '../../services/courseService';
-import { getErrorMessage } from '../../services/api';
-import { applyTimestampControls } from '../../utils/contentTimestamps';
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Grid } from "@mui/material";
+import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
+import PageHeader from "../../components/common/PageHeader";
+import LoadingScreen from "../../components/common/LoadingScreen";
+import QuestCard from "../../components/common/QuestCard";
+import EmptyState from "../../components/common/EmptyState";
+import ContentTimestampToolbar from "../../components/common/ContentTimestampToolbar";
+import courseService from "../../services/courseService";
+import { getErrorMessage } from "../../services/api";
+import { applyTimestampControls } from "../../utils/contentTimestamps";
 
 export default function StudentGamesPage() {
   const [games, setGames] = useState([]);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState('newest');
+  const [sort, setSort] = useState("newest");
   const [filters, setFilters] = useState({});
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export default function StudentGamesPage() {
               ...game,
               courseTitle: course.subject || course.title,
             }));
-          })
+          }),
         );
         setGames(groups.flat());
       } catch (err) {
@@ -43,7 +43,7 @@ export default function StudentGamesPage() {
 
   const visibleGames = useMemo(
     () => applyTimestampControls(games, { sort, filters }),
-    [games, sort, filters]
+    [games, sort, filters],
   );
 
   if (loading) return <LoadingScreen label="Loading games..." showCards />;
@@ -52,9 +52,13 @@ export default function StudentGamesPage() {
     <>
       <PageHeader
         title="Game Zone"
-        subtitle="Play, learn, and stack bonus XP."
+        subtitle="Complete the lessons first, then play for bonus XP."
       />
-      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
       <ContentTimestampToolbar
         sort={sort}
         onSortChange={setSort}
@@ -74,12 +78,14 @@ export default function StudentGamesPage() {
                 difficulty={game.difficulty || game.game_type}
                 xpReward={game.xp_reward}
                 estimatedTime={game.estimated_time}
-                status="Playable"
-                statusColor="success"
-                meta={String(game.game_type || '').replace(/_/g, ' ')}
+                status={game.locked ? "Locked" : "Playable"}
+                statusColor={game.locked ? "warning" : "success"}
+                meta={String(game.game_type || "").replace(/_/g, " ")}
                 showTimestamp
                 item={game}
-                to={`/student/games/${game.id}`}
+                locked={Boolean(game.locked)}
+                unlockMessage={game.unlockMessage}
+                to={game.locked ? undefined : `/student/games/${game.id}`}
                 actionLabel="Play Now"
               />
             </Grid>

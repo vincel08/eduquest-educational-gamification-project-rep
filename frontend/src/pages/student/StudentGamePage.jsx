@@ -1,22 +1,18 @@
-import { useEffect, useState } from 'react';
-import {
-  Alert,
-  Paper,
-  Typography,
-} from '@mui/material';
-import { useNavigate, useParams } from 'react-router-dom';
-import PageHeader from '../../components/common/PageHeader';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import ContentTimestamp from '../../components/common/ContentTimestamp';
-import GamePreview from '../../components/games/GamePreview';
-import FinalScore from '../../components/games/FinalScore';
-import gameService from '../../services/gameService';
-import courseService from '../../services/courseService';
-import { getErrorMessage } from '../../services/api';
-import { pickMotivationalMessage } from '../../utils/feedbackMessages';
-import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
-import { useAuth } from '../../contexts/AuthContext';
-import { useRewards } from '../../contexts/RewardsContext';
+import { useEffect, useState } from "react";
+import { Alert, Button, Paper, Stack, Typography } from "@mui/material";
+import { useNavigate, useParams, Link as RouterLink } from "react-router-dom";
+import PageHeader from "../../components/common/PageHeader";
+import LoadingScreen from "../../components/common/LoadingScreen";
+import ContentTimestamp from "../../components/common/ContentTimestamp";
+import GamePreview from "../../components/games/GamePreview";
+import FinalScore from "../../components/games/FinalScore";
+import gameService from "../../services/gameService";
+import courseService from "../../services/courseService";
+import { getErrorMessage } from "../../services/api";
+import { pickMotivationalMessage } from "../../utils/feedbackMessages";
+import { playSound, SOUND_KEYS } from "../../utils/soundEffects";
+import { useAuth } from "../../contexts/AuthContext";
+import { useRewards } from "../../contexts/RewardsContext";
 
 export default function StudentGamePage() {
   const { gameId } = useParams();
@@ -26,10 +22,10 @@ export default function StudentGamePage() {
   const [game, setGame] = useState(null);
   const [finished, setFinished] = useState(false);
   const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [sessionKey, setSessionKey] = useState(0);
-  const [motivation, setMotivation] = useState('');
+  const [motivation, setMotivation] = useState("");
   const [nextGame, setNextGame] = useState(null);
 
   useEffect(() => {
@@ -44,13 +40,17 @@ export default function StudentGamePage() {
             courses.map(async (course) => {
               const gamesRes = await courseService.games(course.id);
               return gamesRes.data.data || [];
-            })
+            }),
           );
-          const allGames = groups.flat();
-          const currentIndex = allGames.findIndex((item) => Number(item.id) === Number(gameId));
-          const recommended = currentIndex >= 0
-            ? allGames[currentIndex + 1] || allGames.find((item) => Number(item.id) !== Number(gameId))
-            : allGames.find((item) => Number(item.id) !== Number(gameId));
+          const allGames = groups.flat().filter((item) => !item.locked);
+          const currentIndex = allGames.findIndex(
+            (item) => Number(item.id) === Number(gameId),
+          );
+          const recommended =
+            currentIndex >= 0
+              ? allGames[currentIndex + 1] ||
+                allGames.find((item) => Number(item.id) !== Number(gameId))
+              : allGames.find((item) => Number(item.id) !== Number(gameId));
           setNextGame(recommended || null);
         } catch {
           setNextGame(null);
@@ -68,12 +68,12 @@ export default function StudentGamePage() {
     if (finished) return;
     setFinished(true);
 
-    const clientScore = typeof resultPayload === 'number'
-      ? resultPayload
-      : Number(resultPayload?.score) || 0;
-    const answers = typeof resultPayload === 'number'
-      ? null
-      : resultPayload?.answers;
+    const clientScore =
+      typeof resultPayload === "number"
+        ? resultPayload
+        : Number(resultPayload?.score) || 0;
+    const answers =
+      typeof resultPayload === "number" ? null : resultPayload?.answers;
 
     try {
       const response = await gameService.submitScore(gameId, {
@@ -85,7 +85,8 @@ export default function StudentGamePage() {
       if (payload.xpAward?.profile) {
         updateProfile(payload.xpAward.profile);
       }
-      const serverScore = payload.serverScore ?? payload.score?.score ?? clientScore;
+      const serverScore =
+        payload.serverScore ?? payload.score?.score ?? clientScore;
       const xpEarned = payload.score?.xp_earned || 0;
       setMotivation(pickMotivationalMessage());
       playSound(SOUND_KEYS.gameComplete);
@@ -112,22 +113,45 @@ export default function StudentGamePage() {
   function playAgain() {
     setFinished(false);
     setResult(null);
-    setError('');
+    setError("");
     setSessionKey((prev) => prev + 1);
   }
 
   if (loading) return <LoadingScreen />;
-  if (error && !game) return <Alert severity="error">{error}</Alert>;
+  if (error && !game) {
+    return (
+      <Stack spacing={2}>
+        <PageHeader
+          title="Game locked"
+          subtitle="Finish the lesson work first."
+        />
+        <Alert severity="warning">{error}</Alert>
+        <Button component={RouterLink} to="/student/courses" variant="contained">
+          Back to subjects
+        </Button>
+      </Stack>
+    );
+  }
 
   return (
     <>
       <PageHeader title={game.title} subtitle={game.description} />
-      <ContentTimestamp item={game} variant="date" showUpdated={false} sx={{ mb: 2, mt: 0 }} />
-      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+      <ContentTimestamp
+        item={game}
+        variant="date"
+        showUpdated={false}
+        sx={{ mb: 2, mt: 0 }}
+      />
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
 
       <Paper sx={{ p: 3 }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Type: {game.game_type} · XP reward: {game.xp_reward} (student progress)
+          Type: {game.game_type} · XP reward: {game.xp_reward} (student
+          progress)
         </Typography>
 
         {!finished ? (
@@ -147,11 +171,15 @@ export default function StudentGamePage() {
             medals={result.medals}
             motivation={motivation || result.motivation}
             nextGame={nextGame}
-            onNextGame={nextGame ? () => navigate(`/student/games/${nextGame.id}`) : undefined}
+            onNextGame={
+              nextGame
+                ? () => navigate(`/student/games/${nextGame.id}`)
+                : undefined
+            }
             onPlayAgain={playAgain}
-            onDashboard={() => navigate('/student/dashboard')}
-            onLeaderboard={() => navigate('/student/leaderboard')}
-            onContinue={() => navigate('/student/games')}
+            onDashboard={() => navigate("/student/dashboard")}
+            onLeaderboard={() => navigate("/student/leaderboard")}
+            onContinue={() => navigate("/student/games")}
           />
         ) : (
           <Typography>Finishing game...</Typography>

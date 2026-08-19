@@ -126,7 +126,8 @@ CREATE TABLE IF NOT EXISTS quizzes (
   title VARCHAR(255) NOT NULL,
   description TEXT NULL,
   time_limit_minutes INT UNSIGNED NULL,
-  passing_score INT UNSIGNED NOT NULL DEFAULT 60,
+  due_at DATETIME NULL,
+  passing_score INT UNSIGNED NOT NULL DEFAULT 70,
   xp_reward INT UNSIGNED NOT NULL DEFAULT 50,
   is_ai_generated TINYINT(1) NOT NULL DEFAULT 0,
   is_published TINYINT(1) NOT NULL DEFAULT 0,
@@ -186,6 +187,23 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
   CONSTRAINT fk_attempts_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_attempts_student (student_id),
   INDEX idx_attempts_quiz (quiz_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS quiz_student_overrides (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  quiz_id INT UNSIGNED NOT NULL,
+  student_id INT UNSIGNED NOT NULL,
+  extended_due_at DATETIME NULL,
+  extra_attempts INT UNSIGNED NOT NULL DEFAULT 0,
+  reason VARCHAR(500) NULL,
+  granted_by INT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_quiz_student_override (quiz_id, student_id),
+  CONSTRAINT fk_qso_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_qso_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_qso_granter FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE RESTRICT,
+  INDEX idx_qso_student (student_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS quiz_answers (
@@ -259,37 +277,6 @@ CREATE TABLE IF NOT EXISTS student_medals (
   CONSTRAINT fk_student_medals_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_student_medals_medal FOREIGN KEY (medal_id) REFERENCES medals(id) ON DELETE CASCADE,
   CONSTRAINT fk_student_medals_awarder FOREIGN KEY (awarded_by) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS certificates (
-  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
-  description TEXT NULL,
-  course_id INT UNSIGNED NULL,
-  template_style VARCHAR(50) NOT NULL DEFAULT 'classic',
-  is_active TINYINT(1) NOT NULL DEFAULT 1,
-  created_by INT UNSIGNED NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_certificates_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL,
-  CONSTRAINT fk_certificates_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS student_certificates (
-  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  certificate_id INT UNSIGNED NOT NULL,
-  student_id INT UNSIGNED NOT NULL,
-  certificate_code VARCHAR(50) NOT NULL UNIQUE,
-  issued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  issued_by INT UNSIGNED NULL,
-  is_override TINYINT(1) NOT NULL DEFAULT 0,
-  issue_reason VARCHAR(500) NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_student_certificate (certificate_id, student_id),
-  CONSTRAINT fk_student_certs_cert FOREIGN KEY (certificate_id) REFERENCES certificates(id) ON DELETE CASCADE,
-  CONSTRAINT fk_student_certs_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_student_certs_issuer FOREIGN KEY (issued_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS educational_games (

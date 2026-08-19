@@ -54,6 +54,7 @@ export default function TeacherAiContentPage() {
     difficulty: 'medium',
     questionCount: 5,
   });
+  const [lessonText, setLessonText] = useState('');
   const [uploadMeta, setUploadMeta] = useState(null);
   const [extractedText, setExtractedText] = useState('');
   const [dragOver, setDragOver] = useState(false);
@@ -87,7 +88,7 @@ export default function TeacherAiContentPage() {
         setLessons(list);
         setForm((prev) => ({
           ...prev,
-          lessonId: list[0] ? String(list[0].id) : '',
+          lessonId: '',
         }));
       })
       .catch((err) => setError(getErrorMessage(err)));
@@ -143,7 +144,9 @@ export default function TeacherAiContentPage() {
       };
 
       if (sourceType === 'lesson') {
-        payload.lessonId = Number(form.lessonId);
+        payload.extractedText = lessonText.trim();
+        payload.lessonContent = lessonText.trim();
+        if (form.lessonId) payload.lessonId = Number(form.lessonId);
       } else {
         payload.extractedText = extractedText;
         payload.originalFileName = uploadMeta?.originalFileName || null;
@@ -170,14 +173,14 @@ export default function TeacherAiContentPage() {
 
   const canGenerate = Boolean(form.courseId)
     && (sourceType === 'lesson'
-      ? Boolean(form.lessonId)
+      ? lessonText.trim().length >= 40
       : Boolean(extractedText.trim().length >= 40));
 
   return (
     <>
       <PageHeader
         title="AI Content Generator"
-        subtitle="Generate quizzes, games, objectives, or summaries — then review before publishing."
+        subtitle="Paste lesson text or upload a document, generate quiz/game/summary, then review and edit before publishing."
       />
 
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
@@ -192,7 +195,7 @@ export default function TeacherAiContentPage() {
               value={sourceType}
               onChange={(e) => setSourceType(e.target.value)}
             >
-              <FormControlLabel value="lesson" control={<Radio />} label="Existing Lesson" />
+              <FormControlLabel value="lesson" control={<Radio />} label="Lesson text" />
               <FormControlLabel value="upload" control={<Radio />} label="Upload Document" />
             </RadioGroup>
           </FormControl>
@@ -209,17 +212,32 @@ export default function TeacherAiContentPage() {
           </TextField>
 
           {sourceType === 'lesson' ? (
-            <TextField
-              select
-              label="Lesson"
-              value={form.lessonId}
-              onChange={(e) => setForm((p) => ({ ...p, lessonId: e.target.value }))}
-              helperText={!lessons.length ? 'Create a lesson in this course first' : ' '}
-            >
-              {lessons.map((lesson) => (
-                <MenuItem key={lesson.id} value={String(lesson.id)}>{lesson.title}</MenuItem>
-              ))}
-            </TextField>
+            <Stack spacing={2}>
+              <TextField
+                label="Lesson text"
+                value={lessonText}
+                onChange={(e) => setLessonText(e.target.value)}
+                multiline
+                minRows={8}
+                maxRows={18}
+                placeholder="Paste or type the lesson content here…"
+                helperText="At least 40 characters. Review/edit the generated quiz, game, or summary before publishing."
+              />
+              {lessons.length ? (
+                <TextField
+                  select
+                  label="Optional: Link to existing lesson"
+                  value={form.lessonId}
+                  onChange={(e) => setForm((p) => ({ ...p, lessonId: e.target.value }))}
+                  helperText="If linked, published summary/objectives can update that lesson."
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {lessons.map((lesson) => (
+                    <MenuItem key={lesson.id} value={String(lesson.id)}>{lesson.title}</MenuItem>
+                  ))}
+                </TextField>
+              ) : null}
+            </Stack>
           ) : (
             <Stack spacing={2}>
               <Typography variant="subtitle2">2. Upload Area</Typography>

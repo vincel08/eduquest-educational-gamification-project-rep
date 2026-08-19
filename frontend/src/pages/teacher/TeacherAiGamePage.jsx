@@ -48,6 +48,8 @@ export default function TeacherAiGamePage() {
   const [form, setForm] = useState({
     courseId: '',
     lessonId: '',
+    topic: '',
+    lessonContent: '',
     gameType: 'auto',
   });
   const [draft, setDraft] = useState(null);
@@ -79,7 +81,7 @@ export default function TeacherAiGamePage() {
         setLessons(list);
         setForm((prev) => ({
           ...prev,
-          lessonId: list[0] ? String(list[0].id) : '',
+          lessonId: '',
         }));
       })
       .catch((err) => setError(getErrorMessage(err)));
@@ -96,12 +98,19 @@ export default function TeacherAiGamePage() {
       const response = await aiReviewService.createFromGame({
         courseId: Number(form.courseId),
         lessonId: form.lessonId ? Number(form.lessonId) : null,
+        topic: form.topic.trim() || undefined,
+        lessonContent: form.lessonContent.trim() || form.topic.trim() || undefined,
         gameType: form.gameType,
       });
       const data = response.data.data;
       if (data.source === 'fallback') {
         setDraft(null);
         setError(data.warning || 'AI generation failed. Please configure GEMINI_API_KEY and try again.');
+        return;
+      }
+      if (!data.draft?.game) {
+        setDraft(null);
+        setError('AI did not return a playable game. Try again or pick a different game type.');
         return;
       }
       setDraft(data.draft);
@@ -114,11 +123,18 @@ export default function TeacherAiGamePage() {
     }
   }
 
+  const canGenerate = Boolean(form.courseId)
+    && (
+      Boolean(form.lessonId)
+      || form.lessonContent.trim().length >= 20
+      || form.topic.trim().length >= 20
+    );
+
   return (
     <PageContainer>
       <PageHeader
         title="AI Game Generator"
-        subtitle="Choose a game template, generate content, then review and publish."
+        subtitle="Choose a game template, paste lesson text or link a lesson, then review and publish as a game (not a quiz)."
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
@@ -185,13 +201,31 @@ export default function TeacherAiGamePage() {
           </TextField>
 
           <TextField
+            label="Topic (optional)"
+            value={form.topic}
+            onChange={(e) => setForm((p) => ({ ...p, topic: e.target.value }))}
+            placeholder="Short topic title for the game"
+          />
+
+          <TextField
+            label="Lesson text"
+            value={form.lessonContent}
+            onChange={(e) => setForm((p) => ({ ...p, lessonContent: e.target.value }))}
+            multiline
+            minRows={6}
+            maxRows={14}
+            placeholder="Paste lesson content used to generate the game…"
+            helperText="Provide lesson text (20+ characters) and/or link an existing lesson."
+          />
+
+          <TextField
             select
-            label="Lesson"
+            label="Link to lesson (optional)"
             value={form.lessonId}
             onChange={(e) => setForm((p) => ({ ...p, lessonId: e.target.value }))}
-            required
-            helperText={!lessons.length ? 'Create a lesson in this course first' : ' '}
+            helperText={!lessons.length ? 'No lessons in this subject yet — use lesson text above.' : ' '}
           >
+            <MenuItem value="">None</MenuItem>
             {lessons.map((lesson) => (
               <MenuItem key={lesson.id} value={String(lesson.id)}>{lesson.title}</MenuItem>
             ))}
@@ -201,7 +235,7 @@ export default function TeacherAiGamePage() {
             type="submit"
             variant="contained"
             size="large"
-            disabled={loading || !form.courseId || !form.lessonId}
+            disabled={loading || !canGenerate}
           >
             {loading ? 'Generating...' : 'Generate Game'}
           </Button>
@@ -217,9 +251,13 @@ export default function TeacherAiGamePage() {
             setDraft(null);
             setMessage('');
           }}
-          onPublished={() => {
+          onPublished={(payload) => {
             setDraft(null);
-            setMessage('Game published successfully.');
+            if (payload?.game?.id) {
+              setMessage('Game published successfully to Educational Games.');
+            } else {
+              setMessage('Published, but no game record was created. Check the draft and try again.');
+            }
           }}
         />
       ) : null}
