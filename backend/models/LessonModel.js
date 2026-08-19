@@ -161,6 +161,27 @@ const LessonModel = {
     );
   },
 
+  async recordMaterialView(materialId, studentId) {
+    await query(
+      `INSERT INTO lesson_material_views (material_id, student_id)
+       VALUES (:materialId, :studentId)
+       ON DUPLICATE KEY UPDATE viewed_at = CURRENT_TIMESTAMP`,
+      { materialId, studentId },
+    );
+    return true;
+  },
+
+  async countMaterialViewsForLesson(lessonId, studentId) {
+    const rows = await query(
+      `SELECT COUNT(*) AS total
+       FROM lesson_material_views v
+       INNER JOIN lesson_materials m ON m.id = v.material_id
+       WHERE m.lesson_id = :lessonId AND v.student_id = :studentId`,
+      { lessonId, studentId },
+    );
+    return Number(rows[0]?.total || 0);
+  },
+
   async deleteMaterial(id) {
     await query('DELETE FROM lesson_materials WHERE id = :id', { id });
     return true;

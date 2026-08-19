@@ -18,12 +18,19 @@ function hasTermDefinition(item) {
 function hasChoiceQuestion(item) {
   if (!item || typeof item !== 'object') return false;
   const prompt = item.question || item.prompt || item.label;
-  return Boolean(
-    String(prompt || '').trim()
-    && Array.isArray(item.choices)
-    && item.choices.length >= 2
-    && Number.isInteger(Number(item.correctIndex))
+  const choices = Array.isArray(item.choices)
+    ? item.choices
+    : Array.isArray(item.options)
+      ? item.options
+      : null;
+  if (!String(prompt || '').trim() || !choices || choices.length < 2) {
+    return false;
+  }
+  const hasIndex = Number.isInteger(Number(item.correctIndex ?? item.correct_index));
+  const hasAnswer = Boolean(
+    String(item.correctAnswer || item.answer || '').trim(),
   );
+  return hasIndex || hasAnswer;
 }
 
 function requireNonEmptyArray(list, label) {

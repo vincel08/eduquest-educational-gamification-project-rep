@@ -25,10 +25,19 @@ const emptyForm = {
   courseId: "",
   lessonId: "",
   difficulty: "medium",
-  passingScore: 60,
+  passingScore: 70,
   timeLimitMinutes: 15,
   xpReward: 50,
+  dueAt: "",
 };
+
+function toDatetimeLocalValue(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 export default function TeacherQuizEditorPage() {
   const { quizId } = useParams();
@@ -95,9 +104,10 @@ export default function TeacherQuizEditorPage() {
           courseId: String(quiz.course_id),
           lessonId: quiz.lesson_id ? String(quiz.lesson_id) : "",
           difficulty: "medium",
-          passingScore: quiz.passing_score || 60,
+          passingScore: quiz.passing_score || 70,
           timeLimitMinutes: quiz.time_limit_minutes || 15,
           xpReward: quiz.xp_reward || 50,
+          dueAt: toDatetimeLocalValue(quiz.due_at),
         });
         const mapped = (quiz.questions || []).map(mapApiQuestionToEditor);
         setQuestions(
@@ -120,9 +130,10 @@ export default function TeacherQuizEditorPage() {
       lessonId: form.lessonId ? Number(form.lessonId) : null,
       title: String(form.title || "").trim(),
       description: form.description || null,
-      passingScore: Number(form.passingScore) || 60,
+      passingScore: Number(form.passingScore) || 70,
       timeLimitMinutes: Number(form.timeLimitMinutes) || null,
       xpReward: Number(form.xpReward) || 50,
+      dueAt: form.dueAt ? new Date(form.dueAt).toISOString() : null,
       questions: questions.map(editorQuestionToPayload),
     };
 
@@ -226,7 +237,7 @@ export default function TeacherQuizEditorPage() {
       <Stack spacing={3}>
         <PageHeader
           title={isNew ? "Create Quiz" : "Edit Quiz"}
-          subtitle="Manual quiz creation works even when AI is unavailable. Published quizzes use the same student scoring, XP, and certificates as AI quizzes."
+          subtitle="Manual quiz creation works even when AI is unavailable. Published quizzes use the same student scoring, XP, badges, and medals as AI quizzes."
           action={
             <Stack
               direction={{ xs: "column", sm: "row" }}

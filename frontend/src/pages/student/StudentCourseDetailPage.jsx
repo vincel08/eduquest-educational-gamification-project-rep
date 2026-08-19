@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  Box,
   Button,
   Chip,
   LinearProgress,
@@ -13,9 +12,6 @@ import {
   Typography,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import CancelIcon from "@mui/icons-material/Cancel";
-import LockIcon from "@mui/icons-material/Lock";
-import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremium";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
@@ -26,12 +22,10 @@ import PageContainer from "../../components/common/PageContainer";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ContentTimestamp from "../../components/common/ContentTimestamp";
 import courseService from "../../services/courseService";
-import gamificationService from "../../services/gamificationService";
 import { getErrorMessage } from "../../services/api";
 import {
-  buildCertificateRequirementRows,
   computeLearningProgressPercent,
-  getCertificateStatus,
+  summarizeLessonStatuses,
 } from "../../utils/courseProgressDisplay";
 
 export default function StudentCourseDetailPage() {
@@ -40,7 +34,6 @@ export default function StudentCourseDetailPage() {
   const [lessons, setLessons] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   const [games, setGames] = useState([]);
-  const [eligibility, setEligibility] = useState(null);
   const [enrolled, setEnrolled] = useState(false);
   const [enrolledProgress, setEnrolledProgress] = useState(0);
   const [error, setError] = useState("");
@@ -70,18 +63,6 @@ export default function StudentCourseDetailPage() {
       const isEnrolled = Boolean(mine);
       setEnrolled(isEnrolled);
       setEnrolledProgress(Number(mine?.progress_percent || 0));
-
-      if (isEnrolled) {
-        try {
-          const eligibilityRes =
-            await gamificationService.getCourseCertificateEligibility(courseId);
-          setEligibility(eligibilityRes.data.data);
-        } catch {
-          setEligibility(null);
-        }
-      } else {
-        setEligibility(null);
-      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -93,20 +74,16 @@ export default function StudentCourseDetailPage() {
     load();
   }, [load]);
 
+  const lessonSummary = useMemo(
+    () => summarizeLessonStatuses(lessons),
+    [lessons],
+  );
+
   const learningProgressPercent = useMemo(() => {
     if (!enrolled) return 0;
     if (lessons.length) return computeLearningProgressPercent(lessons);
     return Number(enrolledProgress || 0);
   }, [enrolled, lessons, enrolledProgress]);
-
-  const requirementRows = useMemo(
-    () => buildCertificateRequirementRows(eligibility),
-    [eligibility],
-  );
-  const certificateStatus = useMemo(
-    () => getCertificateStatus(eligibility),
-    [eligibility],
-  );
 
   const canEnroll = Boolean(course?.is_published) && !enrolled;
 
@@ -136,7 +113,7 @@ export default function StudentCourseDetailPage() {
     <PageContainer>
       <PageHeader
         title={course.subject || course.title}
-        subtitle={course.description || 'Subject overview'}
+        subtitle={course.description || "Subject overview"}
         action={
           canEnroll ? (
             <Button
@@ -227,8 +204,10 @@ export default function StudentCourseDetailPage() {
               Learning Progress
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Based on completed lessons only. Reaching 100% does not mean your
-              certificate is ready.
+              Based on completed lessons.{" "}
+              {lessonSummary.total
+                ? `${lessonSummary.completed} of ${lessonSummary.total} lessons completed.`
+                : "No lessons yet."}
             </Typography>
             <Stack
               direction="row"
@@ -248,70 +227,10 @@ export default function StudentCourseDetailPage() {
               sx={{ height: 10, borderRadius: 999 }}
             />
           </Paper>
-        ) : null}
-
-        {enrolled ? (
-          <Paper sx={{ p: { xs: 2, md: 3 } }}>
-            <Typography variant="h6" gutterBottom>
-              Certificate Requirements
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Certificate eligibility is separate from learning progress. Games
-              are optional.
-            </Typography>
-
-            <Stack spacing={1} sx={{ mb: 2.5 }}>
-              {requirementRows.map((row) => (
-                <RequirementRow key={row.key} ok={row.ok} label={row.label} />
-              ))}
-            </Stack>
-
-            <Box
-              sx={{
-                p: 2,
-                borderRadius: 2,
-                bgcolor: "action.hover",
-                mb: 2,
-              }}
-            >
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                sx={{ mb: 0.75 }}
-              >
-                {certificateStatus.locked ? (
-                  <LockIcon color="action" />
-                ) : (
-                  <WorkspacePremiumIcon color="secondary" />
-                )}
-                <Typography fontWeight={800}>
-                  Certificate
-                  {" · "}
-                  {certificateStatus.locked
-                    ? "🔒 Complete required items"
-                    : "✓ Available"}
-                </Typography>
-              </Stack>
-              <Typography variant="body2" color="text.secondary">
-                {certificateStatus.message}
-              </Typography>
-            </Box>
-
-            {certificateStatus.certificateId ? (
-              <Button
-                component={RouterLink}
-                to={`/student/certificates/${certificateStatus.certificateId}`}
-                variant="contained"
-              >
-                View Certificate
-              </Button>
-            ) : null}
-          </Paper>
         ) : canEnroll ? (
           <Alert severity="info">
-            Enroll in this subject to track learning progress and unlock
-            certificate requirements.
+            Enroll in this subject to track learning progress and access lessons,
+            quizzes, and games.
           </Alert>
         ) : null}
 
@@ -365,7 +284,10 @@ export default function StudentCourseDetailPage() {
                 {enrolled ? (
                   <Chip
                     size="small"
-                    label={String(lesson.status || "not_started").replace(/_/g, " ")}
+                    label={String(lesson.status || "not_started").replace(
+                      /_/g,
+                      " ",
+                    )}
                     sx={{ mr: { xs: 0, sm: 10 }, textTransform: "capitalize" }}
                   />
                 ) : null}
@@ -379,28 +301,57 @@ export default function StudentCourseDetailPage() {
             Quizzes
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Required quizzes count toward certificate eligibility, not the
-            lesson progress bar.
+            Finish the required lesson(s) first. Quizzes unlock after lesson
+            completion.
           </Typography>
           <List>
             {quizzes.map((quiz) => {
-              const quizStatus = eligibility?.quizzes?.items?.find(
-                (item) => Number(item.id) === Number(quiz.id),
-              );
+              const locked = Boolean(quiz.locked);
+              const closed = Boolean(quiz.isClosed);
+              const outOfAttempts = Boolean(quiz.outOfAttempts);
+              const gradeReleased = Boolean(quiz.gradeReleased);
+              const blocked =
+                locked ||
+                closed ||
+                outOfAttempts ||
+                gradeReleased ||
+                Boolean(quiz.unavailable);
+              let actionChip = null;
+              if (!enrolled) {
+                actionChip = <Chip size="small" label="Enroll to take" />;
+              } else if (locked) {
+                actionChip = (
+                  <Chip size="small" color="warning" label="Locked" />
+                );
+              } else if (closed) {
+                actionChip = (
+                  <Chip size="small" color="warning" label="Closed" />
+                );
+              } else if (gradeReleased) {
+                actionChip = (
+                  <Chip size="small" color="success" label="Submitted" />
+                );
+              } else if (outOfAttempts) {
+                actionChip = (
+                  <Chip size="small" color="warning" label="No attempts" />
+                );
+              }
               return (
                 <ListItem
                   key={quiz.id}
                   alignItems="flex-start"
                   secondaryAction={
-                    enrolled ? (
+                    actionChip || (
                       <Button
                         component={RouterLink}
                         to={`/student/quizzes/${quiz.id}`}
                       >
-                        Take Quiz
+                        {quiz.hasAttempted
+                          ? quiz.attemptsRemaining > 0
+                            ? "Retake"
+                            : "View"
+                          : "Take Quiz"}
                       </Button>
-                    ) : (
-                      <Chip size="small" label="Enroll to take" />
                     )
                   }
                 >
@@ -414,11 +365,22 @@ export default function StudentCourseDetailPage() {
                         useFlexGap
                       >
                         <Typography fontWeight={700}>{quiz.title}</Typography>
-                        {quizStatus ? (
+                        {quiz.hasPassed ? (
                           <Chip
                             size="small"
-                            color={quizStatus.passed ? "success" : "warning"}
-                            label={quizStatus.passed ? "Passed" : "Required"}
+                            color="success"
+                            label={
+                              quiz.bestScore != null
+                                ? `Passed · ${Number(quiz.bestScore).toFixed(0)}%`
+                                : "Passed"
+                            }
+                          />
+                        ) : null}
+                        {quiz.attemptsRemaining != null && !blocked ? (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={`${quiz.attemptsRemaining} attempt(s) left`}
                           />
                         ) : null}
                       </Stack>
@@ -429,9 +391,33 @@ export default function StudentCourseDetailPage() {
                         sx={{ mt: 0.5, pr: { xs: 0, sm: 12 } }}
                       >
                         <Typography variant="body2" color="text.secondary">
-                          {quiz.question_count || 0} questions ·{" "}
-                          {quiz.xp_reward} XP
+                          {quiz.question_count || 0} questions · {quiz.xp_reward}{" "}
+                          XP
+                          {quiz.dueAt || quiz.due_at
+                            ? ` · Due ${new Date(quiz.dueAt || quiz.due_at).toLocaleString()}`
+                            : ""}
                         </Typography>
+                        {locked && quiz.unlockMessage ? (
+                          <Typography variant="body2" color="warning.main">
+                            {quiz.unlockMessage}
+                          </Typography>
+                        ) : null}
+                        {closed ? (
+                          <Typography variant="body2" color="warning.main">
+                            This quiz is closed (past due date or school year
+                            ended).
+                          </Typography>
+                        ) : null}
+                        {outOfAttempts ? (
+                          <Typography variant="body2" color="warning.main">
+                            You used all attempts for this quiz.
+                          </Typography>
+                        ) : null}
+                        {gradeReleased ? (
+                          <Typography variant="body2" color="success.main">
+                            Grade submitted — this quiz is no longer available.
+                          </Typography>
+                        ) : null}
                         <ContentTimestamp
                           item={quiz}
                           variant="date"
@@ -457,68 +443,107 @@ export default function StudentCourseDetailPage() {
           <Typography variant="h6" gutterBottom>
             Games
           </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Games unlock after you finish the required lessons.
+          </Typography>
           <List>
-            {games.map((game) => (
-              <ListItem
-                key={game.id}
-                alignItems="flex-start"
-                secondaryAction={
-                  enrolled ? (
-                    <Button
-                      component={RouterLink}
-                      to={`/student/games/${game.id}`}
-                    >
-                      Play
-                    </Button>
-                  ) : (
-                    <Chip size="small" label="Enroll to play" />
-                  )
-                }
-              >
-                <ListItemText
-                  primary={game.title}
-                  secondary={
-                    <Stack
-                      spacing={0.5}
-                      sx={{ mt: 0.5, pr: { xs: 0, sm: 12 } }}
-                    >
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ textTransform: "capitalize" }}
+            {games.map((game) => {
+              const locked = Boolean(game.locked);
+              const outOfAttempts = Boolean(game.outOfAttempts);
+              const gradeReleased = Boolean(game.gradeReleased);
+              const blocked =
+                locked ||
+                outOfAttempts ||
+                gradeReleased ||
+                Boolean(game.unavailable);
+              let actionChip = null;
+              if (!enrolled) {
+                actionChip = <Chip size="small" label="Enroll to play" />;
+              } else if (locked) {
+                actionChip = (
+                  <Chip size="small" color="warning" label="Locked" />
+                );
+              } else if (gradeReleased) {
+                actionChip = (
+                  <Chip size="small" color="success" label="Submitted" />
+                );
+              } else if (outOfAttempts) {
+                actionChip = (
+                  <Chip size="small" color="warning" label="No attempts" />
+                );
+              }
+              return (
+                <ListItem
+                  key={game.id}
+                  alignItems="flex-start"
+                  secondaryAction={
+                    actionChip || (
+                      <Button
+                        component={RouterLink}
+                        to={`/student/games/${game.id}`}
                       >
-                        {String(game.game_type || "").replace(/_/g, " ")}
-                      </Typography>
-                      <ContentTimestamp
-                        item={game}
-                        variant="date"
-                        showUpdated={false}
-                        dense
-                      />
-                    </Stack>
+                        {game.hasAttempted
+                          ? game.attemptsRemaining > 0
+                            ? "Play again"
+                            : "View"
+                          : "Play"}
+                      </Button>
+                    )
                   }
-                  secondaryTypographyProps={{ component: "div" }}
-                />
-              </ListItem>
-            ))}
+                >
+                  <ListItemText
+                    primary={game.title}
+                    secondary={
+                      <Stack
+                        spacing={0.5}
+                        sx={{ mt: 0.5, pr: { xs: 0, sm: 12 } }}
+                      >
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ textTransform: "capitalize" }}
+                        >
+                          {String(game.game_type || "").replace(/_/g, " ")}
+                          {game.attemptsRemaining != null
+                            ? ` · ${game.attemptsRemaining} attempt(s) left`
+                            : ""}
+                          {game.hasPassed
+                            ? ` · Passed${game.bestScore != null ? ` (${Number(game.bestScore).toFixed(0)}%)` : ""}`
+                            : game.bestScore != null
+                              ? ` · Best ${Number(game.bestScore).toFixed(0)}%`
+                              : ""}
+                        </Typography>
+                        {locked && game.unlockMessage ? (
+                          <Typography variant="body2" color="warning.main">
+                            {game.unlockMessage}
+                          </Typography>
+                        ) : null}
+                        {outOfAttempts ? (
+                          <Typography variant="body2" color="warning.main">
+                            You used all attempts for this game.
+                          </Typography>
+                        ) : null}
+                        {gradeReleased ? (
+                          <Typography variant="body2" color="success.main">
+                            Grade submitted — this game is no longer available.
+                          </Typography>
+                        ) : null}
+                        <ContentTimestamp
+                          item={game}
+                          variant="date"
+                          showUpdated={false}
+                          dense
+                        />
+                      </Stack>
+                    }
+                    secondaryTypographyProps={{ component: "div" }}
+                  />
+                </ListItem>
+              );
+            })}
           </List>
         </Paper>
       </Stack>
     </PageContainer>
-  );
-}
-
-function RequirementRow({ ok, label }) {
-  return (
-    <Stack direction="row" spacing={1} alignItems="center">
-      {ok ? (
-        <CheckCircleIcon color="success" fontSize="small" />
-      ) : (
-        <CancelIcon color="error" fontSize="small" />
-      )}
-      <Typography variant="body2" fontWeight={700}>
-        {label}
-      </Typography>
-    </Stack>
   );
 }

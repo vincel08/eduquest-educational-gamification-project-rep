@@ -1,13 +1,16 @@
-import { query } from '../config/db.js';
-import CourseModel from '../models/CourseModel.js';
-import AppError from '../utils/AppError.js';
+import { query } from "../config/db.js";
+import CourseModel from "../models/CourseModel.js";
+import AppError from "../utils/AppError.js";
 
 async function assertCourseAccess(courseId, user) {
   const course = await CourseModel.findById(courseId);
-  if (!course) throw new AppError('Course not found', 404);
+  if (!course) throw new AppError("Course not found", 404);
 
-  if (user.role === 'teacher' && Number(course.teacher_id) !== Number(user.id)) {
-    throw new AppError('Access denied', 403);
+  if (
+    user.role === "teacher" &&
+    Number(course.teacher_id) !== Number(user.id)
+  ) {
+    throw new AppError("Access denied", 403);
   }
 
   return course;
@@ -21,10 +24,10 @@ function roundScore(value) {
 function normalizeScoreInput(raw) {
   const score = Number(raw);
   if (!Number.isFinite(score)) {
-    throw new AppError('Score must be a number between 0 and 100', 400);
+    throw new AppError("Score must be a number between 0 and 100", 400);
   }
   if (score < 0 || score > 100) {
-    throw new AppError('Score must be between 0 and 100', 400);
+    throw new AppError("Score must be between 0 and 100", 400);
   }
   return roundScore(score);
 }
@@ -32,10 +35,13 @@ function normalizeScoreInput(raw) {
 function normalizeEarnedPoints(raw, totalPoints) {
   const earned = Number(raw);
   if (!Number.isFinite(earned)) {
-    throw new AppError('Earned points must be a number', 400);
+    throw new AppError("Earned points must be a number", 400);
   }
   if (earned < 0 || earned > totalPoints) {
-    throw new AppError(`Earned points must be between 0 and ${totalPoints}`, 400);
+    throw new AppError(
+      `Earned points must be between 0 and ${totalPoints}`,
+      400,
+    );
   }
   return Math.round(earned);
 }
@@ -45,7 +51,7 @@ async function getQuizMaxPoints(quizId) {
     `SELECT COALESCE(SUM(points), 0) AS max_points
      FROM quiz_questions
      WHERE quiz_id = :quizId`,
-    { quizId }
+    { quizId },
   );
   return Number(rows[0]?.max_points) || 0;
 }
@@ -56,9 +62,9 @@ async function assertQuizInCourse(courseId, quizId) {
      FROM quizzes
      WHERE id = :quizId AND course_id = :courseId
      LIMIT 1`,
-    { quizId, courseId }
+    { quizId, courseId },
   );
-  if (!rows[0]) throw new AppError('Quiz not found for this subject', 404);
+  if (!rows[0]) throw new AppError("Quiz not found for this subject", 404);
   return rows[0];
 }
 
@@ -68,38 +74,45 @@ async function assertGameInCourse(courseId, gameId) {
      FROM educational_games
      WHERE id = :gameId AND course_id = :courseId
      LIMIT 1`,
-    { gameId, courseId }
+    { gameId, courseId },
   );
-  if (!rows[0]) throw new AppError('Game not found for this subject', 404);
+  if (!rows[0]) throw new AppError("Game not found for this subject", 404);
   return rows[0];
 }
 
 async function assertStudentEnrolled(courseId, studentId) {
   const enrolled = await CourseModel.isEnrolled(courseId, studentId);
   if (!enrolled) {
-    throw new AppError('Student is not enrolled in this subject', 400);
+    throw new AppError("Student is not enrolled in this subject", 400);
   }
 }
 
 const GradebookService = {
-  async getCourseGradebook(courseId, user) {
+  async getCourseGradebook(courseId, user, rosterFilters = {}) {
     const course = await assertCourseAccess(courseId, user);
 
-    const [students, quizzes, games, quizAttemptRows, gameScoreRows, quizPointRows] = await Promise.all([
-      CourseModel.getEnrollments(courseId),
+    const [
+      students,
+      quizzes,
+      games,
+      quizAttemptRows,
+      gameScoreRows,
+      quizPointRows,
+    ] = await Promise.all([
+      CourseModel.getEnrollments(courseId, rosterFilters),
       query(
-        `SELECT id, title, passing_score, is_published, xp_reward
+        `SELECT id, title, passing_score, is_published, xp_reward, due_at
          FROM quizzes
          WHERE course_id = :courseId
          ORDER BY created_at ASC, id ASC`,
-        { courseId }
+        { courseId },
       ),
       query(
         `SELECT id, title, is_published, xp_reward, game_type
          FROM educational_games
          WHERE course_id = :courseId
          ORDER BY created_at ASC, id ASC`,
-        { courseId }
+        { courseId },
       ),
       query(
         `SELECT
@@ -120,8 +133,9 @@ const GradebookService = {
          INNER JOIN users u ON u.id = qa.student_id
          WHERE q.course_id = :courseId
            AND qa.completed_at IS NOT NULL
+           AND qa.released_to_gradebook = 1
          ORDER BY qa.score DESC, qa.completed_at DESC, qa.id DESC`,
-        { courseId }
+        { courseId },
       ),
       query(
         `SELECT
@@ -138,8 +152,9 @@ const GradebookService = {
          INNER JOIN educational_games g ON g.id = gs.game_id
          INNER JOIN users u ON u.id = gs.student_id
          WHERE g.course_id = :courseId
+           AND gs.released_to_gradebook = 1
          ORDER BY gs.score DESC, gs.played_at DESC, gs.id DESC`,
-        { courseId }
+        { courseId },
       ),
       query(
         `SELECT q.id AS quiz_id, COALESCE(SUM(qq.points), 0) AS max_points
@@ -147,12 +162,15 @@ const GradebookService = {
          LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
          WHERE q.course_id = :courseId
          GROUP BY q.id`,
-        { courseId }
+        { courseId },
       ),
     ]);
 
     const quizMaxPoints = new Map(
-      quizPointRows.map((row) => [Number(row.quiz_id), Number(row.max_points) || 0])
+      quizPointRows.map((row) => [
+        Number(row.quiz_id),
+        Number(row.max_points) || 0,
+      ]),
     );
     const bestQuizByStudent = new Map();
     const quizAttemptCounts = new Map();
@@ -175,7 +193,7 @@ const GradebookService = {
     }
 
     const enrolledById = new Map(
-      students.map((student) => [Number(student.student_id), student])
+      students.map((student) => [Number(student.student_id), student]),
     );
 
     const quizItems = quizzes.map((quiz) => {
@@ -183,14 +201,14 @@ const GradebookService = {
       const results = [];
       for (const [key, row] of bestQuizByStudent.entries()) {
         if (Number(row.quiz_id) !== Number(quiz.id)) continue;
-        const totalPoints = Number(row.total_points) > 0
-          ? Number(row.total_points)
-          : maxPoints;
-        const earnedPoints = row.earned_points != null
-          ? Number(row.earned_points)
-          : (totalPoints
-            ? Math.round((Number(row.score) / 100) * totalPoints)
-            : Number(row.score) || 0);
+        const totalPoints =
+          Number(row.total_points) > 0 ? Number(row.total_points) : maxPoints;
+        const earnedPoints =
+          row.earned_points != null
+            ? Number(row.earned_points)
+            : totalPoints
+              ? Math.round((Number(row.score) / 100) * totalPoints)
+              : Number(row.score) || 0;
         results.push({
           studentId: row.student_id,
           firstName: row.first_name,
@@ -206,12 +224,17 @@ const GradebookService = {
           xpEarned: row.xp_earned || 0,
         });
       }
-      results.sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`));
+      results.sort((a, b) =>
+        `${a.lastName}${a.firstName}`.localeCompare(
+          `${b.lastName}${b.firstName}`,
+        ),
+      );
       return {
-        type: 'quiz',
+        type: "quiz",
         id: quiz.id,
         title: quiz.title,
         passingScore: quiz.passing_score,
+        dueAt: quiz.due_at || null,
         isPublished: Boolean(quiz.is_published),
         xpReward: quiz.xp_reward,
         maxPoints,
@@ -239,9 +262,13 @@ const GradebookService = {
           xpEarned: row.xp_earned || 0,
         });
       }
-      results.sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`));
+      results.sort((a, b) =>
+        `${a.lastName}${a.firstName}`.localeCompare(
+          `${b.lastName}${b.firstName}`,
+        ),
+      );
       return {
-        type: 'game',
+        type: "game",
         id: game.id,
         title: game.title,
         gameType: game.game_type,
@@ -291,21 +318,30 @@ const GradebookService = {
          AND completed_at IS NOT NULL
        ORDER BY score DESC, completed_at DESC, id DESC
        LIMIT 1`,
-      { quizId, studentId }
+      { quizId, studentId },
     );
 
     const quizMax = await getQuizMaxPoints(quizId);
-    const totalPoints = Number(existing[0]?.total_points) > 0
-      ? Number(existing[0].total_points)
-      : (quizMax || 100);
+    const totalPoints =
+      Number(existing[0]?.total_points) > 0
+        ? Number(existing[0].total_points)
+        : quizMax || 100;
 
     let earnedPoints;
     let score;
-    if (rawPayload != null && typeof rawPayload === 'object' && rawPayload.earnedPoints != null) {
-      earnedPoints = normalizeEarnedPoints(rawPayload.earnedPoints, totalPoints);
+    if (
+      rawPayload != null &&
+      typeof rawPayload === "object" &&
+      rawPayload.earnedPoints != null
+    ) {
+      earnedPoints = normalizeEarnedPoints(
+        rawPayload.earnedPoints,
+        totalPoints,
+      );
       score = totalPoints ? roundScore((earnedPoints / totalPoints) * 100) : 0;
     } else {
-      const rawScore = typeof rawPayload === 'object' ? rawPayload.score : rawPayload;
+      const rawScore =
+        typeof rawPayload === "object" ? rawPayload.score : rawPayload;
       score = normalizeScoreInput(rawScore);
       earnedPoints = Math.round((score / 100) * totalPoints);
     }
@@ -319,7 +355,8 @@ const GradebookService = {
              is_passed = :isPassed,
              total_points = :totalPoints,
              earned_points = :earnedPoints,
-             completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)
+             completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
+             released_to_gradebook = 1
          WHERE id = :attemptId`,
         {
           score,
@@ -327,15 +364,15 @@ const GradebookService = {
           totalPoints,
           earnedPoints,
           attemptId: existing[0].id,
-        }
+        },
       );
     } else {
       await query(
         `INSERT INTO quiz_attempts
-         (quiz_id, student_id, score, total_points, earned_points, xp_earned, is_passed, completed_at)
+         (quiz_id, student_id, score, total_points, earned_points, xp_earned, is_passed, completed_at, released_to_gradebook)
          VALUES
-         (:quizId, :studentId, :score, :totalPoints, :earnedPoints, 0, :isPassed, CURRENT_TIMESTAMP)`,
-        { quizId, studentId, score, totalPoints, earnedPoints, isPassed }
+         (:quizId, :studentId, :score, :totalPoints, :earnedPoints, 0, :isPassed, CURRENT_TIMESTAMP, 1)`,
+        { quizId, studentId, score, totalPoints, earnedPoints, isPassed },
       );
     }
 
@@ -348,10 +385,15 @@ const GradebookService = {
     await assertStudentEnrolled(courseId, studentId);
 
     let score;
-    if (rawPayload != null && typeof rawPayload === 'object' && rawPayload.earnedPoints != null) {
+    if (
+      rawPayload != null &&
+      typeof rawPayload === "object" &&
+      rawPayload.earnedPoints != null
+    ) {
       score = normalizeEarnedPoints(rawPayload.earnedPoints, 100);
     } else {
-      const rawScore = typeof rawPayload === 'object' ? rawPayload.score : rawPayload;
+      const rawScore =
+        typeof rawPayload === "object" ? rawPayload.score : rawPayload;
       score = Math.round(normalizeScoreInput(rawScore));
     }
 
@@ -362,22 +404,23 @@ const GradebookService = {
          AND student_id = :studentId
        ORDER BY score DESC, played_at DESC, id DESC
        LIMIT 1`,
-      { gameId, studentId }
+      { gameId, studentId },
     );
 
     if (existing[0]) {
       await query(
         `UPDATE game_scores
          SET score = :score,
-             played_at = CURRENT_TIMESTAMP
+             played_at = CURRENT_TIMESTAMP,
+             released_to_gradebook = 1
          WHERE id = :scoreId`,
-        { score, scoreId: existing[0].id }
+        { score, scoreId: existing[0].id },
       );
     } else {
       await query(
-        `INSERT INTO game_scores (game_id, student_id, score, xp_earned)
-         VALUES (:gameId, :studentId, :score, 0)`,
-        { gameId, studentId, score }
+        `INSERT INTO game_scores (game_id, student_id, score, xp_earned, released_to_gradebook)
+         VALUES (:gameId, :studentId, :score, 0, 1)`,
+        { gameId, studentId, score },
       );
     }
 

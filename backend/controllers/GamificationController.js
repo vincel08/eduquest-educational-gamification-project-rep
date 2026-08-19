@@ -1,11 +1,13 @@
-import GamificationService from '../services/GamificationService.js';
-import { successResponse } from '../utils/apiResponse.js';
+import GamificationService from "../services/GamificationService.js";
+import { successResponse } from "../utils/apiResponse.js";
 
 const GamificationController = {
   async myProgress(req, res, next) {
     try {
-      const data = await GamificationService.getStudentGamification(req.user.id);
-      return successResponse(res, 'Gamification data retrieved', data);
+      const data = await GamificationService.getStudentGamification(
+        req.user.id,
+      );
+      return successResponse(res, "Gamification data retrieved", data);
     } catch (error) {
       return next(error);
     }
@@ -14,9 +16,18 @@ const GamificationController = {
   async leaderboard(req, res, next) {
     try {
       const limit = Number(req.query.limit) || 20;
-      const period = req.query.period || 'overall';
-      const data = await GamificationService.getLeaderboard(limit, period);
-      return successResponse(res, 'Leaderboard retrieved', data);
+      const period = req.query.period || "overall";
+      const schoolYear = req.query.schoolYear || "all";
+      const data = await GamificationService.getLeaderboard(
+        limit,
+        period,
+        schoolYear,
+        {
+          gradeLevel: req.query.gradeLevel || "all",
+          section: req.query.section || "all",
+        },
+      );
+      return successResponse(res, "Leaderboard retrieved", data);
     } catch (error) {
       return next(error);
     }
@@ -25,7 +36,7 @@ const GamificationController = {
   async listBadges(req, res, next) {
     try {
       const data = await GamificationService.listBadges();
-      return successResponse(res, 'Badges retrieved', data);
+      return successResponse(res, "Badges retrieved", data);
     } catch (error) {
       return next(error);
     }
@@ -34,7 +45,7 @@ const GamificationController = {
   async createBadge(req, res, next) {
     try {
       const data = await GamificationService.createBadge(req.body);
-      return successResponse(res, 'Badge created', data, 201);
+      return successResponse(res, "Badge created", data, 201);
     } catch (error) {
       return next(error);
     }
@@ -42,8 +53,11 @@ const GamificationController = {
 
   async updateBadge(req, res, next) {
     try {
-      const data = await GamificationService.updateBadge(Number(req.params.id), req.body);
-      return successResponse(res, 'Badge updated', data);
+      const data = await GamificationService.updateBadge(
+        Number(req.params.id),
+        req.body,
+      );
+      return successResponse(res, "Badge updated", data);
     } catch (error) {
       return next(error);
     }
@@ -56,7 +70,7 @@ const GamificationController = {
         badgeId: Number(req.body.badgeId),
         awardedBy: req.user.id,
       });
-      return successResponse(res, 'Badge awarded', data);
+      return successResponse(res, "Badge awarded", data);
     } catch (error) {
       return next(error);
     }
@@ -65,7 +79,7 @@ const GamificationController = {
   async listMedals(req, res, next) {
     try {
       const data = await GamificationService.listMedals();
-      return successResponse(res, 'Medals retrieved', data);
+      return successResponse(res, "Medals retrieved", data);
     } catch (error) {
       return next(error);
     }
@@ -74,7 +88,7 @@ const GamificationController = {
   async createMedal(req, res, next) {
     try {
       const data = await GamificationService.createMedal(req.body);
-      return successResponse(res, 'Medal created', data, 201);
+      return successResponse(res, "Medal created", data, 201);
     } catch (error) {
       return next(error);
     }
@@ -87,96 +101,12 @@ const GamificationController = {
         medalId: Number(req.body.medalId),
         awardedBy: req.user.id,
       });
-      return successResponse(res, 'Medal awarded', data);
+      return successResponse(res, "Medal awarded", data);
     } catch (error) {
       return next(error);
     }
   },
 
-  async listCertificates(req, res, next) {
-    try {
-      const data = await GamificationService.listCertificates();
-      return successResponse(res, 'Certificates retrieved', data);
-    } catch (error) {
-      return next(error);
-    }
-  },
-
-  async createCertificate(req, res, next) {
-    try {
-      const data = await GamificationService.createCertificate({
-        ...req.body,
-        createdBy: req.user.id,
-      });
-      return successResponse(res, 'Certificate created', data, 201);
-    } catch (error) {
-      return next(error);
-    }
-  },
-
-  async updateCertificate(req, res, next) {
-    try {
-      const data = await GamificationService.updateCertificate(Number(req.params.id), req.body);
-      return successResponse(res, 'Certificate updated', data);
-    } catch (error) {
-      return next(error);
-    }
-  },
-
-  async issueCertificate(req, res, next) {
-    try {
-      const data = await GamificationService.issueCertificate({
-        certificateId: Number(req.body.certificateId),
-        studentId: Number(req.body.studentId),
-        issuedBy: req.user.id,
-        actorRole: req.user.role,
-        forceOverride: Boolean(req.body.forceOverride),
-        overrideReason: req.body.overrideReason || null,
-      });
-      const status = data.alreadyIssued ? 200 : 201;
-      const message = data.alreadyIssued
-        ? 'Certificate already issued'
-        : data.overridden
-          ? 'Certificate issued with administrative override'
-          : 'Certificate issued';
-      return successResponse(res, message, data, status);
-    } catch (error) {
-      return next(error);
-    }
-  },
-
-  async courseEligibility(req, res, next) {
-    try {
-      const data = await GamificationService.getCourseCertificateEligibility(
-        Number(req.params.courseId),
-        req.user.id
-      );
-      return successResponse(res, 'Certificate eligibility retrieved', data);
-    } catch (error) {
-      return next(error);
-    }
-  },
-
-  async myCertificates(req, res, next) {
-    try {
-      const data = await GamificationService.getStudentCertificates(req.user.id);
-      return successResponse(res, 'Certificates retrieved', data);
-    } catch (error) {
-      return next(error);
-    }
-  },
-
-  async getIssuedCertificate(req, res, next) {
-    try {
-      const data = await GamificationService.getCertificateById(
-        Number(req.params.id),
-        req.user
-      );
-      return successResponse(res, 'Certificate retrieved', data);
-    } catch (error) {
-      return next(error);
-    }
-  },
 };
 
 export default GamificationController;

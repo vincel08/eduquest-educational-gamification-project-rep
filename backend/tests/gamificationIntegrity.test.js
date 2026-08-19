@@ -55,7 +55,7 @@ describe('gamification integrity - game scoring', () => {
 
   it('uses existing XP thresholds for games', () => {
     assert.equal(calculateGameXp(70, 40), 40);
-    assert.equal(calculateGameXp(50, 40), 20);
+    assert.equal(calculateGameXp(50, 40), 0);
     assert.equal(calculateGameXp(0, 40), 0);
   });
 

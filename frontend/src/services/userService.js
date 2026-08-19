@@ -4,6 +4,9 @@ const userService = {
   list(params) {
     return api.get('/users', { params });
   },
+  listSections(params) {
+    return api.get('/users/sections', { params });
+  },
   getById(id) {
     return api.get(`/users/${id}`);
   },

@@ -18,27 +18,35 @@ import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
+import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
 export default function TeacherQuizzesPage() {
+  const { toQueryParams, gradeLevel } = useTeacherFilters();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setLoading(true);
+    const params = {};
+    const filterParams = toQueryParams();
+    if (filterParams.gradeLevel) {
+      params.gradeLevel = filterParams.gradeLevel;
+    }
     quizService
-      .listMine()
+      .listMine(params)
       .then((response) => setQuizzes(response.data.data || []))
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [gradeLevel, toQueryParams]);
 
   if (loading) return <LoadingScreen />;
 
   return (
     <Stack spacing={3}>
       <PageHeader
-        title="Quizzes"
-        subtitle="Create quizzes manually or continue using the AI Quiz Generator. Students only see published quizzes."
+        title="My Quizzes"
+        subtitle="Open any quiz you created to edit, preview, or publish. Students only see published quizzes."
         action={
           <Stack direction="row" spacing={1}>
             <Button
@@ -127,7 +135,7 @@ export default function TeacherQuizzesPage() {
                       to={`/teacher/quizzes/${quiz.id}/edit`}
                       size="small"
                     >
-                      Edit
+                      Open
                     </Button>
                   </TableCell>
                 </TableRow>

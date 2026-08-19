@@ -19,6 +19,7 @@ import ExtensionIcon from '@mui/icons-material/Extension';
 import CasinoIcon from '@mui/icons-material/Casino';
 import QuizIcon from '@mui/icons-material/Quiz';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import PageContainer from '../../components/common/PageContainer';
 import AiGeneratedReviewPanel from '../../components/ai-review/AiGeneratedReviewPanel';
@@ -43,11 +44,14 @@ const GAME_TYPE_OPTIONS = [
 ];
 
 export default function TeacherAiGamePage() {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [lessons, setLessons] = useState([]);
   const [form, setForm] = useState({
     courseId: '',
     lessonId: '',
+    topic: '',
+    lessonContent: '',
     gameType: 'auto',
   });
   const [draft, setDraft] = useState(null);
@@ -79,7 +83,7 @@ export default function TeacherAiGamePage() {
         setLessons(list);
         setForm((prev) => ({
           ...prev,
-          lessonId: list[0] ? String(list[0].id) : '',
+          lessonId: '',
         }));
       })
       .catch((err) => setError(getErrorMessage(err)));
@@ -96,12 +100,19 @@ export default function TeacherAiGamePage() {
       const response = await aiReviewService.createFromGame({
         courseId: Number(form.courseId),
         lessonId: form.lessonId ? Number(form.lessonId) : null,
+        topic: form.topic.trim() || undefined,
+        lessonContent: form.lessonContent.trim() || form.topic.trim() || undefined,
         gameType: form.gameType,
       });
       const data = response.data.data;
       if (data.source === 'fallback') {
         setDraft(null);
         setError(data.warning || 'AI generation failed. Please configure GEMINI_API_KEY and try again.');
+        return;
+      }
+      if (!data.draft?.game) {
+        setDraft(null);
+        setError('AI did not return a playable game. Try again or pick a different game type.');
         return;
       }
       setDraft(data.draft);
@@ -114,11 +125,18 @@ export default function TeacherAiGamePage() {
     }
   }
 
+  const freeText = `${form.topic} ${form.lessonContent}`.trim();
+  const canGenerate = Boolean(form.courseId)
+    && (
+      Boolean(form.lessonId)
+      || freeText.length >= 3
+    );
+
   return (
     <PageContainer>
       <PageHeader
         title="AI Game Generator"
-        subtitle="Choose a game template, generate content, then review and publish."
+        subtitle="Choose a game template, paste lesson text or link a lesson, then review and publish as a game (not a quiz)."
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
@@ -185,13 +203,36 @@ export default function TeacherAiGamePage() {
           </TextField>
 
           <TextField
+            label="Topic (optional)"
+            value={form.topic}
+            onChange={(e) => setForm((p) => ({ ...p, topic: e.target.value }))}
+            placeholder="e.g. Fractions"
+            helperText="Optional short title. You can generate from topic alone."
+          />
+
+          <TextField
+            label="Lesson text (optional)"
+            value={form.lessonContent}
+            onChange={(e) => setForm((p) => ({ ...p, lessonContent: e.target.value }))}
+            multiline
+            minRows={6}
+            maxRows={14}
+            placeholder="Paste lesson content used to generate the game…"
+            helperText="Optional. Topic, lesson text, or a linked lesson — at least one is required."
+          />
+
+          <TextField
             select
-            label="Lesson"
+            label="Link to lesson (optional)"
             value={form.lessonId}
             onChange={(e) => setForm((p) => ({ ...p, lessonId: e.target.value }))}
-            required
-            helperText={!lessons.length ? 'Create a lesson in this course first' : ' '}
+            helperText={
+              !lessons.length
+                ? 'No lessons in this subject yet — use topic or lesson text above.'
+                : 'Optional. Links generation to an existing lesson.'
+            }
           >
+            <MenuItem value="">None</MenuItem>
             {lessons.map((lesson) => (
               <MenuItem key={lesson.id} value={String(lesson.id)}>{lesson.title}</MenuItem>
             ))}
@@ -201,10 +242,15 @@ export default function TeacherAiGamePage() {
             type="submit"
             variant="contained"
             size="large"
-            disabled={loading || !form.courseId || !form.lessonId}
+            disabled={loading || !canGenerate}
           >
             {loading ? 'Generating...' : 'Generate Game'}
           </Button>
+          {!canGenerate ? (
+            <Typography variant="caption" color="text.secondary">
+              Enter a topic or lesson text, or link a lesson, to enable Generate.
+            </Typography>
+          ) : null}
         </Stack>
       </Paper>
 
@@ -217,9 +263,14 @@ export default function TeacherAiGamePage() {
             setDraft(null);
             setMessage('');
           }}
-          onPublished={() => {
+          onPublished={(payload) => {
             setDraft(null);
-            setMessage('Game published successfully.');
+            const id = payload?.game?.id || payload?.gameId;
+            if (id) {
+              navigate(`/teacher/games/${id}/edit`);
+            } else {
+              setMessage('Published. Open Games from the sidebar to revisit it.');
+            }
           }}
         />
       ) : null}

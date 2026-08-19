@@ -170,7 +170,7 @@ const AiContentService = {
           lessonContent: extractedText,
           difficulty: payload.difficulty || 'medium',
           questionCount,
-          gradeLevel: payload.gradeLevel || course.grade_level || 'high school',
+          gradeLevel: payload.gradeLevel || course.grade_level || "junior high school",
         });
         generatedJson = {
           title: generated.title,
@@ -191,7 +191,7 @@ const AiContentService = {
         const generated = await AiService.generateGame({
           topic,
           gameType: requestedType,
-          gradeLevel: payload.gradeLevel || course.grade_level || 'high school',
+          gradeLevel: payload.gradeLevel || course.grade_level || "junior high school",
           lessonContent: extractedText,
         });
 

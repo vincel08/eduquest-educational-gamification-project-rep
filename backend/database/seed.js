@@ -4,6 +4,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
+import {
+  currentSchoolYearStartYear,
+  formatSchoolYearLabel,
+} from "../utils/schoolYears.js";
 
 dotenv.config();
 
@@ -104,17 +108,6 @@ async function seedModule(
       module.game.type,
       JSON.stringify(module.game.data),
       teacherId,
-    ],
-  );
-
-  await connection.execute(
-    `INSERT INTO certificates (title, description, course_id, template_style, created_by)
-     VALUES (?, ?, ?, 'classic', ?)`,
-    [
-      `${module.shortName} Certificate`,
-      `Awarded for completing ${module.title}.`,
-      courseId,
-      adminId,
     ],
   );
 
@@ -231,8 +224,6 @@ async function run() {
     "notifications",
     "game_scores",
     "educational_games",
-    "student_certificates",
-    "certificates",
     "student_medals",
     "medals",
     "student_badges",
@@ -277,38 +268,82 @@ async function run() {
   const [studentResult] = await connection.execute(
     `INSERT INTO users (username, email, password_hash, first_name, last_name, role)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    ["sam.student", "student@eduwow.local", passwordHash, "Sam", "Student", "student"],
+    [
+      "sam.student",
+      "student@eduwow.local",
+      passwordHash,
+      "Sam",
+      "Student",
+      "student",
+    ],
   );
 
   const [student2Result] = await connection.execute(
     `INSERT INTO users (username, email, password_hash, first_name, last_name, role)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    ["jamie.learner", "student2@eduwow.local", passwordHash, "Jamie", "Learner", "student"],
+    [
+      "jamie.learner",
+      "student2@eduwow.local",
+      passwordHash,
+      "Jamie",
+      "Learner",
+      "student",
+    ],
   );
 
   const adminId = adminResult.insertId;
   const teacherId = teacherResult.insertId;
   const studentId = studentResult.insertId;
   const student2Id = student2Result.insertId;
+  const currentSchoolYearLabel = formatSchoolYearLabel(
+    currentSchoolYearStartYear(),
+  );
 
   await connection.execute(
-    `INSERT INTO student_profiles (user_id, xp, level, grade_level, school_name, current_streak, longest_streak, last_activity_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE()), (?, ?, ?, ?, ?, ?, ?, NULL)`,
+    `INSERT INTO student_profiles (user_id, xp, level, grade_level, school_name, section, school_year, current_streak, longest_streak, last_activity_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE()), (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     [
       studentId,
       120,
       2,
       "Grade 10",
       "EduWow High",
+      "A",
+      currentSchoolYearLabel,
       2,
       5,
       student2Id,
       40,
       1,
-      "Grade 11",
+      "Grade 9",
       "EduWow High",
+      "B",
+      currentSchoolYearLabel,
       0,
       0,
+    ],
+  );
+
+  await connection.execute(
+    `INSERT INTO class_sections (school_year, grade_level, name, adviser_id)
+     VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)`,
+    [
+      currentSchoolYearLabel,
+      "Grade 10",
+      "A",
+      teacherId,
+      currentSchoolYearLabel,
+      "Grade 10",
+      "B",
+      teacherId,
+      currentSchoolYearLabel,
+      "Grade 9",
+      "A",
+      teacherId,
+      currentSchoolYearLabel,
+      "Grade 9",
+      "B",
+      teacherId,
     ],
   );
 
@@ -591,8 +626,12 @@ async function run() {
   console.log("Demo accounts (password: Password123!):");
   console.log("  admin@eduwow.local (administrator)");
   console.log("  teacher@eduwow.local (teacher)");
-  console.log("  sam.student (student username; optional email student@eduwow.local)");
-  console.log("  jamie.learner (student username; optional email student2@eduwow.local)");
+  console.log(
+    "  sam.student (student username; optional email student@eduwow.local)",
+  );
+  console.log(
+    "  jamie.learner (student username; optional email student2@eduwow.local)",
+  );
 }
 
 run().catch((error) => {

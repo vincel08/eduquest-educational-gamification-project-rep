@@ -79,7 +79,8 @@ export default function LandingPage() {
             EduWow
           </Typography>
           <Typography variant="h4" sx={{ fontWeight: 700, maxWidth: 560 }}>
-            Level up learning with AI-powered quests for high school students.
+            Level up learning with AI-powered quests for junior high students
+            (Grades 7–10).
           </Typography>
           <Typography sx={{ maxWidth: 520, opacity: 0.95 }}>
             Earn XP, unlock badges, compete on leaderboards, and master lessons through

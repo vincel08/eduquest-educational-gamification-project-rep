@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { query } from '../config/db.js';
 import CourseModel from '../models/CourseModel.js';
+import LessonModel from '../models/LessonModel.js';
 import UserModel from '../models/UserModel.js';
 import AiContentGenerationModel from '../models/AiContentGenerationModel.js';
 import AppError from '../utils/AppError.js';
@@ -60,6 +61,7 @@ const FileAccessService = {
         coursePublished: Boolean(material.course_published),
         contentPublished: Boolean(material.lesson_published),
       });
+      await LessonModel.recordMaterialView(id, user.id);
     } else {
       deny();
     }
@@ -207,18 +209,25 @@ const FileAccessService = {
   /**
    * Stream an authorized file to the response.
    * Never exposes absolute filesystem paths in the response body.
+   * Use asAttachment=true so browsers download instead of opening inline.
    */
-  streamFile(res, fileInfo) {
+  streamFile(res, fileInfo, { asAttachment = false } = {}) {
     const { absolutePath, mimeType, downloadName } = fileInfo;
 
     if (!fs.existsSync(absolutePath)) {
       throw new AppError('File not found', 404);
     }
 
+    const safeName = String(downloadName || 'file')
+      .replace(/"/g, '')
+      .replace(/[\r\n]+/g, ' ')
+      .trim() || 'file';
+    const disposition = asAttachment ? 'attachment' : 'inline';
+
     res.setHeader('Content-Type', mimeType || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="${String(downloadName || 'file').replace(/"/g, '')}"`
+      `${disposition}; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
     );
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'private, no-store');

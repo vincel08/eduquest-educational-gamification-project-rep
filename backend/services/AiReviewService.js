@@ -308,7 +308,7 @@ const AiReviewService = {
         difficulty: payload.difficulty,
         questionCount,
         questionType: payload.questionType || 'multiple_choice',
-        gradeLevel: payload.gradeLevel || course.grade_level || 'high school',
+        gradeLevel: payload.gradeLevel || course.grade_level || "junior high school",
         lessonContent: sourceText || '',
       });
 
@@ -366,8 +366,29 @@ const AiReviewService = {
     const course = await CourseModel.findById(payload.courseId);
     assertCourseAccess(course, user);
 
-    const sourceText = await lessonSourceText(payload.courseId, payload.lessonId);
-    if (sourceText) assertInputTextSize(sourceText, { label: 'Lesson content' });
+    const freeText = [payload.topic, payload.lessonContent]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join('\n\n')
+      .trim();
+    let sourceText = freeText;
+    if (payload.lessonId) {
+      const fromLesson = await lessonSourceText(payload.courseId, payload.lessonId);
+      if (fromLesson) sourceText = fromLesson;
+    }
+    if (!sourceText || sourceText.length < 3) {
+      throw new AppError(
+        'Provide a topic, lesson text, or select a lesson to generate a game.',
+        400,
+      );
+    }
+    // Enrich short prompts so the model still has subject context.
+    if (sourceText.length < 20) {
+      const subject = course.subject || course.title || 'this subject';
+      const grade = course.grade_level || 'junior high school';
+      sourceText = `Topic: ${sourceText}\nSubject: ${subject}\nGrade level: ${grade}\nCreate an educational game about this topic for ${grade} students.`;
+    }
+    assertInputTextSize(sourceText, { label: 'Lesson content' });
 
     const usageEvent = await AiUsageService.beginOperation({
       userId: user.id,
@@ -378,14 +399,21 @@ const AiReviewService = {
         'from-game',
         user.id,
         payload.courseId,
-        payload.lessonId,
+        payload.lessonId || 'none',
         payload.gameType || 'auto',
         crypto.createHash('sha256').update(String(sourceText || '')).digest('hex').slice(0, 16),
       ]),
     });
 
     try {
-      const generated = await GameService.generateAiGame(payload, user);
+      const generated = await GameService.generateAiGame(
+        {
+          ...payload,
+          topic: payload.topic || course.title,
+          lessonContent: sourceText,
+        },
+        user,
+      );
       if (!generated?.title) {
         throw new AppError('AI returned invalid content. Please try generating again.', 502);
       }
@@ -397,7 +425,8 @@ const AiReviewService = {
 
       let lessonSummary = null;
       let learningObjectives = null;
-      if (sourceText && sourceText.length > 40) {
+      // Only attach lesson extras when linking to an existing lesson — keeps game drafts game-first.
+      if (payload.lessonId && sourceText.length > 40) {
         const extras = await AiService.summarizeLesson(sourceText);
         lessonSummary = normalizeSummary(extras.summary);
         learningObjectives = normalizeObjectives(extras.learningObjectives);
@@ -409,6 +438,7 @@ const AiReviewService = {
         sourceType: 'ai_game',
         title: game.title,
         sourceText,
+        quiz: null,
         game,
         lessonSummary,
         learningObjectives,
@@ -435,24 +465,50 @@ const AiReviewService = {
     const course = await CourseModel.findById(payload.courseId);
     assertCourseAccess(course, user);
 
-    let sourceText = String(payload.extractedText || '').trim();
+    const sourceType = String(payload.sourceType || 'lesson').toLowerCase();
+    let sourceText = String(
+      payload.extractedText || payload.lessonContent || '',
+    ).trim();
     let lessonId = payload.lessonId || null;
     let topic = payload.topic || course.title;
     const questionCount = ['quiz', 'all'].includes(contentType)
       ? assertQuestionCount(payload.questionCount ?? 5)
       : null;
 
-    if (String(payload.sourceType || 'lesson').toLowerCase() === 'lesson') {
-      if (!payload.lessonId) {
-        throw new AppError('lessonId is required when generating from an existing lesson', 400);
+    if (sourceType === 'lesson' || sourceType === 'text') {
+      // Prefer pasted lesson text; optional lessonId only links the published result.
+      if (sourceText.length >= 40) {
+        topic = payload.topic || sourceText.slice(0, 60).trim() || topic;
+        if (payload.lessonId) {
+          const lesson = await LessonModel.findById(payload.lessonId);
+          if (!lesson || Number(lesson.course_id) !== Number(payload.courseId)) {
+            throw new AppError('Lesson not found for this course', 404);
+          }
+          lessonId = lesson.id;
+        }
+      } else if (payload.lessonId) {
+        const lesson = await LessonModel.findById(payload.lessonId);
+        if (!lesson || Number(lesson.course_id) !== Number(payload.courseId)) {
+          throw new AppError('Lesson not found for this course', 404);
+        }
+        lessonId = lesson.id;
+        topic = lesson.title || topic;
+        sourceText = [lesson.title, lesson.content, lesson.summary]
+          .filter(Boolean)
+          .join('\n\n')
+          .trim();
+      } else {
+        throw new AppError(
+          'Paste lesson text (at least 40 characters) to generate content.',
+          400,
+        );
       }
+    } else if (payload.lessonId) {
       const lesson = await LessonModel.findById(payload.lessonId);
       if (!lesson || Number(lesson.course_id) !== Number(payload.courseId)) {
         throw new AppError('Lesson not found for this course', 404);
       }
       lessonId = lesson.id;
-      topic = lesson.title || topic;
-      sourceText = [lesson.title, lesson.content, lesson.summary].filter(Boolean).join('\n\n').trim();
     }
 
     if (!sourceText || sourceText.length < 40) {
@@ -498,11 +554,11 @@ const AiReviewService = {
     });
 
     try {
-    if (needsQuiz || needsGame) {
+    if (needsQuiz) {
       const AiContentService = (await import('./AiContentService.js')).default;
       const generated = await AiContentService.generate({
         ...payload,
-        contentType: needsQuiz ? 'quiz' : 'game',
+        contentType: 'quiz',
         questionCount,
         extractedText: sourceText,
         lessonId,
@@ -511,11 +567,10 @@ const AiReviewService = {
       generationId = generated.generationId;
       source = generated.source;
       warning = generated.warning || null;
-      if (generated.contentType === 'Quiz') quiz = normalizeQuiz(generated.generated);
-      if (generated.contentType === 'Game') game = normalizeGame(generated.generated);
+      quiz = normalizeQuiz(generated.generated);
     }
 
-    if (needsGame && needsQuiz) {
+    if (needsGame) {
       const AiContentService = (await import('./AiContentService.js')).default;
       const gameGenerated = await AiContentService.generate({
         ...payload,
@@ -525,19 +580,33 @@ const AiReviewService = {
         topic,
       }, user, { skipUsageTracking: true });
       game = normalizeGame(gameGenerated.generated);
+      generationId = generationId || gameGenerated.generationId;
       source = source || gameGenerated.source;
       warning = warning || gameGenerated.warning || null;
     }
 
-    if (needsObjectives || needsSummary || needsQuiz || needsGame) {
+    if (needsObjectives || needsSummary) {
       const extras = await AiService.summarizeLesson(sourceText);
-      if (needsSummary || needsQuiz || needsGame) {
+      if (needsSummary) {
         lessonSummary = normalizeSummary(extras.summary);
       }
-      if (needsObjectives || needsQuiz || needsGame) {
+      if (needsObjectives) {
         learningObjectives = normalizeObjectives(extras.learningObjectives);
       }
       source = source || extras.source;
+    } else if ((needsQuiz || needsGame) && lessonId) {
+      // Optional lesson extras only when publishing will update a linked lesson.
+      const extras = await AiService.summarizeLesson(sourceText);
+      lessonSummary = normalizeSummary(extras.summary);
+      learningObjectives = normalizeObjectives(extras.learningObjectives);
+      source = source || extras.source;
+    }
+
+    if (needsQuiz && !quiz) {
+      throw new AppError('AI did not return a valid quiz. Please try again.', 502);
+    }
+    if (needsGame && !game) {
+      throw new AppError('AI did not return a valid educational game. Please try again.', 502);
     }
 
     const draft = await this.createDraft({
@@ -546,8 +615,8 @@ const AiReviewService = {
       sourceType: 'ai_content',
       title: (quiz || game)?.title || topic || 'AI Content Review',
       sourceText,
-      quiz,
-      game,
+      quiz: needsQuiz ? quiz : null,
+      game: needsGame ? game : null,
       lessonSummary,
       learningObjectives,
       source,
@@ -628,6 +697,14 @@ const AiReviewService = {
   async publishDraft(id, payload, user) {
     const draft = await this.updateDraft(id, payload || {}, user);
 
+    // AI Games drafts must publish a game — never a quiz.
+    if (draft.sourceType === 'ai_game') {
+      if (!draft.game) {
+        throw new AppError('This game draft has no game to publish. Regenerate or edit the game first.', 400);
+      }
+      draft.quiz = null;
+    }
+
     if (!draft.quiz && !draft.game && !draft.lessonSummary && !draft.learningObjectives) {
       throw new AppError('Nothing to publish in this draft', 400);
     }
@@ -635,22 +712,8 @@ const AiReviewService = {
     let quiz = null;
     let game = null;
 
-    if (draft.quiz) {
-      validateQuizForPublish(draft.quiz);
-      quiz = await QuizService.createQuiz({
-        courseId: draft.courseId,
-        lessonId: draft.lessonId,
-        title: draft.quiz.title,
-        description: draft.quiz.description,
-        timeLimitMinutes: draft.quiz.timeLimitMinutes,
-        passingScore: draft.quiz.passingScore,
-        xpReward: draft.quiz.xpReward,
-        isAiGenerated: true,
-        isPublished: true,
-        questions: quizToPersistable(draft.quiz),
-      }, user);
-    }
-
+    // Create game before quiz so a failed game publish cannot leave "quiz only" orphans
+    // when the teacher intended a game (or both).
     if (draft.game) {
       validateGameForPublish(draft.game);
       game = await GameService.createGame({
@@ -665,6 +728,22 @@ const AiReviewService = {
         gameData: draft.game.gameData,
         isAiGenerated: true,
         isPublished: true,
+      }, user);
+    }
+
+    if (draft.quiz) {
+      validateQuizForPublish(draft.quiz);
+      quiz = await QuizService.createQuiz({
+        courseId: draft.courseId,
+        lessonId: draft.lessonId,
+        title: draft.quiz.title,
+        description: draft.quiz.description,
+        timeLimitMinutes: draft.quiz.timeLimitMinutes,
+        passingScore: draft.quiz.passingScore,
+        xpReward: draft.quiz.xpReward,
+        isAiGenerated: true,
+        isPublished: true,
+        questions: quizToPersistable(draft.quiz),
       }, user);
     }
 
@@ -729,8 +808,15 @@ const AiReviewService = {
     });
 
     try {
+    if (draft.sourceType === 'ai_game' && (target === 'quiz' || target === 'selected_question')) {
+      throw new AppError(
+        'AI Games drafts can only regenerate game content, not quizzes.',
+        400,
+      );
+    }
+
     if (target === 'all' || target === 'quiz') {
-      if (draft.quiz || target === 'quiz') {
+      if (draft.sourceType !== 'ai_game' && (draft.quiz || target === 'quiz')) {
         const questionCount = assertQuestionCount(
           payload.questionCount || draft.quiz?.questions?.length || 5
         );
@@ -739,13 +825,19 @@ const AiReviewService = {
           lessonContent: sourceText || draft.quiz?.title || course.title,
           difficulty: draft.quiz?.difficulty || 'medium',
           questionCount,
-          gradeLevel: course.grade_level || 'high school',
+          gradeLevel: course.grade_level || "junior high school",
         });
         updates.quiz = normalizeQuiz(generated);
       }
     }
 
     if (target === 'selected_question' && draft.quiz) {
+      if (draft.sourceType === 'ai_game') {
+        throw new AppError(
+          'AI Games drafts can only regenerate game content, not quizzes.',
+          400,
+        );
+      }
       const index = Number(payload.questionIndex);
       if (Number.isNaN(index) || index < 0 || index >= draft.quiz.questions.length) {
         throw new AppError('Invalid question index', 400);
@@ -755,7 +847,7 @@ const AiReviewService = {
         lessonContent: sourceText || draft.quiz.title,
         difficulty: draft.quiz.difficulty || 'medium',
         questionCount: 1,
-        gradeLevel: course.grade_level || 'high school',
+        gradeLevel: course.grade_level || "junior high school",
       });
       const nextQuestions = [...draft.quiz.questions];
       nextQuestions[index] = normalizeQuizQuestion(generated.questions?.[0] || {}, index);
@@ -767,7 +859,7 @@ const AiReviewService = {
         const generated = await AiService.generateGame({
           topic: draft.game?.title || course.title,
           gameType: draft.game?.gameType || 'auto',
-          gradeLevel: course.grade_level || 'high school',
+          gradeLevel: course.grade_level || "junior high school",
           lessonContent: sourceText || draft.game?.title || course.title,
         });
         updates.game = normalizeGame({
@@ -786,7 +878,7 @@ const AiReviewService = {
       const generated = await AiService.generateGame({
         topic: draft.game.title,
         gameType: draft.game.gameType || 'flashcards',
-        gradeLevel: course.grade_level || 'high school',
+        gradeLevel: course.grade_level || "junior high school",
         lessonContent: sourceText || draft.game.title,
       });
       const newItems = generated.gameData?.items || [];
@@ -819,7 +911,7 @@ const AiReviewService = {
         lessonContent: sourceText || draft.quiz.title,
         difficulty: draft.quiz.difficulty || 'medium',
         questionCount: Number(payload.count) || 3,
-        gradeLevel: course.grade_level || 'high school',
+        gradeLevel: course.grade_level || "junior high school",
       });
       updates.quiz = {
         ...draft.quiz,
@@ -834,7 +926,7 @@ const AiReviewService = {
       const generated = await AiService.generateGame({
         topic: draft.game.title,
         gameType: draft.game.gameType || 'flashcards',
-        gradeLevel: course.grade_level || 'high school',
+        gradeLevel: course.grade_level || "junior high school",
         lessonContent: sourceText || draft.game.title,
       });
       const extra = normalizeGame(generated).gameData.items || [];
@@ -900,9 +992,9 @@ const AiReviewService = {
       improve_writing: 'Improve clarity and academic quality while preserving meaning.',
       shorten: 'Make the text shorter and more concise.',
       expand: 'Expand the text with useful educational detail.',
-      simplify: 'Simplify the language for high school students.',
+      simplify: 'Simplify the language for junior high school students.',
       make_more_challenging: 'Rewrite to be more academically challenging.',
-      make_easier: 'Rewrite to be easier for high school students.',
+      make_easier: 'Rewrite to be easier for junior high school students.',
     };
 
     const rewritten = await AiService.rewriteText({

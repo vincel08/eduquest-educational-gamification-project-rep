@@ -1,8 +1,8 @@
-import { Router } from 'express';
-import QuizController from '../controllers/QuizController.js';
-import { authenticate, authorize } from '../middleware/authMiddleware.js';
-import { validate } from '../middleware/validateMiddleware.js';
-import upload from '../middleware/uploadMiddleware.js';
+import { Router } from "express";
+import QuizController from "../controllers/QuizController.js";
+import { authenticate, authorize } from "../middleware/authMiddleware.js";
+import { validate } from "../middleware/validateMiddleware.js";
+import upload from "../middleware/uploadMiddleware.js";
 import {
   createQuizValidation,
   updateQuizValidation,
@@ -12,96 +12,139 @@ import {
   questionBodyValidation,
   replaceQuestionsValidation,
   reorderQuestionsValidation,
-} from '../validations/quizValidation.js';
-import { aiRateLimiter } from '../middleware/rateLimitMiddleware.js';
+  grantQuizOverrideValidation,
+} from "../validations/quizValidation.js";
+import { aiRateLimiter } from "../middleware/rateLimitMiddleware.js";
 
 const router = Router();
 
 router.use(authenticate);
 
-router.get('/attempts/mine', authorize('student'), QuizController.myAttempts);
-router.get('/mine', authorize('teacher', 'administrator'), QuizController.listMine);
-router.post(
-  '/',
-  authorize('teacher', 'administrator'),
-  createQuizValidation,
-  validate,
-  QuizController.create
+router.get("/attempts/mine", authorize("student"), QuizController.myAttempts);
+router.get(
+  "/mine",
+  authorize("teacher", "administrator"),
+  QuizController.listMine,
 );
 router.post(
-  '/generate',
-  authorize('teacher', 'administrator'),
+  "/",
+  authorize("teacher", "administrator"),
+  createQuizValidation,
+  validate,
+  QuizController.create,
+);
+router.post(
+  "/generate",
+  authorize("teacher", "administrator"),
   aiRateLimiter,
   generateQuizValidation,
   validate,
-  QuizController.generate
+  QuizController.generate,
 );
-router.post('/hints', authorize('student'), aiRateLimiter, QuizController.hint);
+router.post("/hints", authorize("student"), QuizController.hint);
 router.post(
-  '/questions/:questionId/image',
-  authorize('teacher', 'administrator'),
-  upload.single('image'),
+  "/questions/:questionId/image",
+  authorize("teacher", "administrator"),
+  upload.single("image"),
   attachQuestionImageValidation,
   validate,
-  QuizController.attachImage
+  QuizController.attachImage,
 );
-router.get('/:id/preview', authorize('teacher', 'administrator'), QuizController.preview);
 router.get(
-  '/:id/attempts/:attemptId',
-  authorize('teacher', 'administrator'),
-  QuizController.attemptReview
+  "/:id/preview",
+  authorize("teacher", "administrator"),
+  QuizController.preview,
 );
-router.get('/:id', QuizController.getById);
-router.put(
-  '/:id',
-  authorize('teacher', 'administrator'),
-  updateQuizValidation,
-  validate,
-  QuizController.update
+router.get(
+  "/:id/attempts/:attemptId",
+  authorize("teacher", "administrator"),
+  QuizController.attemptReview,
 );
-router.post('/:id/publish', authorize('teacher', 'administrator'), QuizController.publish);
-router.post('/:id/unpublish', authorize('teacher', 'administrator'), QuizController.unpublish);
-router.delete('/:id', authorize('teacher', 'administrator'), QuizController.remove);
-router.put(
-  '/:id/questions',
-  authorize('teacher', 'administrator'),
-  replaceQuestionsValidation,
-  validate,
-  QuizController.replaceQuestions
-);
-router.put(
-  '/:id/questions/reorder',
-  authorize('teacher', 'administrator'),
-  reorderQuestionsValidation,
-  validate,
-  QuizController.reorderQuestions
+router.get(
+  "/:id/overrides",
+  authorize("teacher", "administrator"),
+  QuizController.listOverrides,
 );
 router.post(
-  '/:id/questions',
-  authorize('teacher', 'administrator'),
-  questionBodyValidation,
+  "/:id/overrides",
+  authorize("teacher", "administrator"),
+  grantQuizOverrideValidation,
   validate,
-  QuizController.addQuestion
-);
-router.put(
-  '/:id/questions/:questionId',
-  authorize('teacher', 'administrator'),
-  questionBodyValidation,
-  validate,
-  QuizController.updateQuestion
+  QuizController.grantOverride,
 );
 router.delete(
-  '/:id/questions/:questionId',
-  authorize('teacher', 'administrator'),
-  QuizController.deleteQuestion
+  "/:id/overrides/:studentId",
+  authorize("teacher", "administrator"),
+  QuizController.removeOverride,
 );
-router.post('/:id/start', authorize('student'), QuizController.start);
+router.get("/:id", QuizController.getById);
+router.put(
+  "/:id",
+  authorize("teacher", "administrator"),
+  updateQuizValidation,
+  validate,
+  QuizController.update,
+);
 router.post(
-  '/attempts/:attemptId/submit',
-  authorize('student'),
+  "/:id/publish",
+  authorize("teacher", "administrator"),
+  QuizController.publish,
+);
+router.post(
+  "/:id/unpublish",
+  authorize("teacher", "administrator"),
+  QuizController.unpublish,
+);
+router.delete(
+  "/:id",
+  authorize("teacher", "administrator"),
+  QuizController.remove,
+);
+router.put(
+  "/:id/questions",
+  authorize("teacher", "administrator"),
+  replaceQuestionsValidation,
+  validate,
+  QuizController.replaceQuestions,
+);
+router.put(
+  "/:id/questions/reorder",
+  authorize("teacher", "administrator"),
+  reorderQuestionsValidation,
+  validate,
+  QuizController.reorderQuestions,
+);
+router.post(
+  "/:id/questions",
+  authorize("teacher", "administrator"),
+  questionBodyValidation,
+  validate,
+  QuizController.addQuestion,
+);
+router.put(
+  "/:id/questions/:questionId",
+  authorize("teacher", "administrator"),
+  questionBodyValidation,
+  validate,
+  QuizController.updateQuestion,
+);
+router.delete(
+  "/:id/questions/:questionId",
+  authorize("teacher", "administrator"),
+  QuizController.deleteQuestion,
+);
+router.post("/:id/start", authorize("student"), QuizController.start);
+router.post(
+  "/:id/release-grade",
+  authorize("student"),
+  QuizController.releaseGrade,
+);
+router.post(
+  "/attempts/:attemptId/submit",
+  authorize("student"),
   submitQuizValidation,
   validate,
-  QuizController.submit
+  QuizController.submit,
 );
 
 export default router;

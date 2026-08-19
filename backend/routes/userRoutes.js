@@ -14,6 +14,7 @@ router.post(
   validate,
   UserController.setPassword
 );
+router.get('/sections', UserController.listSections);
 router.get('/', UserController.list);
 router.get('/:id', UserController.getById);
 router.post('/', UserController.create);

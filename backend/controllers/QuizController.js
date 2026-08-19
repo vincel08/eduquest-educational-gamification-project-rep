@@ -1,11 +1,11 @@
-import QuizService from '../services/QuizService.js';
-import { successResponse, errorResponse } from '../utils/apiResponse.js';
+import QuizService from "../services/QuizService.js";
+import { successResponse, errorResponse } from "../utils/apiResponse.js";
 
 const QuizController = {
   async create(req, res, next) {
     try {
       const data = await QuizService.createQuiz(req.body, req.user);
-      return successResponse(res, 'Quiz created', data, 201);
+      return successResponse(res, "Quiz created", data, 201);
     } catch (error) {
       return next(error);
     }
@@ -14,7 +14,7 @@ const QuizController = {
   async generate(req, res, next) {
     try {
       const data = await QuizService.generateAiQuiz(req.body, req.user);
-      return successResponse(res, 'AI quiz generated', data, 201);
+      return successResponse(res, "AI quiz generated", data, 201);
     } catch (error) {
       return next(error);
     }
@@ -22,8 +22,10 @@ const QuizController = {
 
   async listMine(req, res, next) {
     try {
-      const data = await QuizService.listForTeacher(req.user);
-      return successResponse(res, 'Quizzes retrieved', data);
+      const data = await QuizService.listForTeacher(req.user, {
+        gradeLevel: req.query.gradeLevel,
+      });
+      return successResponse(res, "Quizzes retrieved", data);
     } catch (error) {
       return next(error);
     }
@@ -31,8 +33,11 @@ const QuizController = {
 
   async listByCourse(req, res, next) {
     try {
-      const data = await QuizService.listByCourse(Number(req.params.courseId), req.user);
-      return successResponse(res, 'Quizzes retrieved', data);
+      const data = await QuizService.listByCourse(
+        Number(req.params.courseId),
+        req.user,
+      );
+      return successResponse(res, "Quizzes retrieved", data);
     } catch (error) {
       return next(error);
     }
@@ -40,8 +45,11 @@ const QuizController = {
 
   async getById(req, res, next) {
     try {
-      const data = await QuizService.getQuizById(Number(req.params.id), req.user);
-      return successResponse(res, 'Quiz retrieved', data);
+      const data = await QuizService.getQuizById(
+        Number(req.params.id),
+        req.user,
+      );
+      return successResponse(res, "Quiz retrieved", data);
     } catch (error) {
       return next(error);
     }
@@ -49,8 +57,11 @@ const QuizController = {
 
   async preview(req, res, next) {
     try {
-      const data = await QuizService.previewQuiz(Number(req.params.id), req.user);
-      return successResponse(res, 'Quiz preview retrieved', data);
+      const data = await QuizService.previewQuiz(
+        Number(req.params.id),
+        req.user,
+      );
+      return successResponse(res, "Quiz preview retrieved", data);
     } catch (error) {
       return next(error);
     }
@@ -58,8 +69,12 @@ const QuizController = {
 
   async update(req, res, next) {
     try {
-      const data = await QuizService.updateQuiz(Number(req.params.id), req.body, req.user);
-      return successResponse(res, 'Quiz updated', data);
+      const data = await QuizService.updateQuiz(
+        Number(req.params.id),
+        req.body,
+        req.user,
+      );
+      return successResponse(res, "Quiz updated", data);
     } catch (error) {
       return next(error);
     }
@@ -67,8 +82,11 @@ const QuizController = {
 
   async publish(req, res, next) {
     try {
-      const data = await QuizService.publishQuiz(Number(req.params.id), req.user);
-      return successResponse(res, 'Quiz published', data);
+      const data = await QuizService.publishQuiz(
+        Number(req.params.id),
+        req.user,
+      );
+      return successResponse(res, "Quiz published", data);
     } catch (error) {
       return next(error);
     }
@@ -76,8 +94,11 @@ const QuizController = {
 
   async unpublish(req, res, next) {
     try {
-      const data = await QuizService.unpublishQuiz(Number(req.params.id), req.user);
-      return successResponse(res, 'Quiz unpublished', data);
+      const data = await QuizService.unpublishQuiz(
+        Number(req.params.id),
+        req.user,
+      );
+      return successResponse(res, "Quiz unpublished", data);
     } catch (error) {
       return next(error);
     }
@@ -86,7 +107,7 @@ const QuizController = {
   async remove(req, res, next) {
     try {
       await QuizService.deleteQuiz(Number(req.params.id), req.user);
-      return successResponse(res, 'Quiz deleted', {});
+      return successResponse(res, "Quiz deleted", {});
     } catch (error) {
       return next(error);
     }
@@ -94,8 +115,12 @@ const QuizController = {
 
   async addQuestion(req, res, next) {
     try {
-      const data = await QuizService.addQuestion(Number(req.params.id), req.body, req.user);
-      return successResponse(res, 'Question added', data, 201);
+      const data = await QuizService.addQuestion(
+        Number(req.params.id),
+        req.body,
+        req.user,
+      );
+      return successResponse(res, "Question added", data, 201);
     } catch (error) {
       return next(error);
     }
@@ -107,9 +132,9 @@ const QuizController = {
         Number(req.params.id),
         Number(req.params.questionId),
         req.body,
-        req.user
+        req.user,
       );
-      return successResponse(res, 'Question updated', data);
+      return successResponse(res, "Question updated", data);
     } catch (error) {
       return next(error);
     }
@@ -120,9 +145,9 @@ const QuizController = {
       await QuizService.deleteQuestion(
         Number(req.params.id),
         Number(req.params.questionId),
-        req.user
+        req.user,
       );
-      return successResponse(res, 'Question deleted', {});
+      return successResponse(res, "Question deleted", {});
     } catch (error) {
       return next(error);
     }
@@ -133,9 +158,9 @@ const QuizController = {
       const data = await QuizService.replaceQuestions(
         Number(req.params.id),
         req.body.questions,
-        req.user
+        req.user,
       );
-      return successResponse(res, 'Questions saved', data);
+      return successResponse(res, "Questions saved", data);
     } catch (error) {
       return next(error);
     }
@@ -146,9 +171,9 @@ const QuizController = {
       const data = await QuizService.reorderQuestions(
         Number(req.params.id),
         req.body.orderedIds,
-        req.user
+        req.user,
       );
-      return successResponse(res, 'Questions reordered', data);
+      return successResponse(res, "Questions reordered", data);
     } catch (error) {
       return next(error);
     }
@@ -156,8 +181,11 @@ const QuizController = {
 
   async start(req, res, next) {
     try {
-      const data = await QuizService.startAttempt(Number(req.params.id), req.user.id);
-      return successResponse(res, 'Quiz attempt started', data);
+      const data = await QuizService.startAttempt(
+        Number(req.params.id),
+        req.user.id,
+      );
+      return successResponse(res, "Quiz attempt started", data);
     } catch (error) {
       return next(error);
     }
@@ -168,9 +196,21 @@ const QuizController = {
       const data = await QuizService.submitAttempt(
         Number(req.params.attemptId),
         req.body.answers,
-        req.user.id
+        req.user.id,
       );
-      return successResponse(res, 'Quiz submitted', data);
+      return successResponse(res, "Quiz submitted", data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async releaseGrade(req, res, next) {
+    try {
+      const data = await QuizService.releaseGradeToTeacher(
+        Number(req.params.id),
+        req.user.id,
+      );
+      return successResponse(res, "Quiz grade submitted to teacher", data);
     } catch (error) {
       return next(error);
     }
@@ -180,7 +220,7 @@ const QuizController = {
     try {
       const quizId = req.query.quizId ? Number(req.query.quizId) : null;
       const data = await QuizService.getStudentAttempts(req.user.id, quizId);
-      return successResponse(res, 'Attempts retrieved', data);
+      return successResponse(res, "Attempts retrieved", data);
     } catch (error) {
       return next(error);
     }
@@ -191,37 +231,73 @@ const QuizController = {
       const data = await QuizService.getAttemptReview(
         Number(req.params.id),
         Number(req.params.attemptId),
-        req.user
+        req.user,
       );
-      return successResponse(res, 'Attempt review retrieved', data);
+      return successResponse(res, "Attempt review retrieved", data);
     } catch (error) {
       return next(error);
     }
   },
 
-
-  async hint(req, res, next) {
+  async listOverrides(req, res, next) {
     try {
-      const data = await QuizService.getHint(req.body.questionText, req.body.topic);
-      return successResponse(res, 'Hint generated', data);
+      const data = await QuizService.listStudentOverrides(
+        Number(req.params.id),
+        req.user,
+      );
+      return successResponse(res, "Quiz overrides retrieved", data);
     } catch (error) {
       return next(error);
     }
+  },
+
+  async grantOverride(req, res, next) {
+    try {
+      const data = await QuizService.grantStudentOverride(
+        Number(req.params.id),
+        req.body,
+        req.user,
+      );
+      return successResponse(res, "Quiz access extended for student", data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async removeOverride(req, res, next) {
+    try {
+      await QuizService.removeStudentOverride(
+        Number(req.params.id),
+        Number(req.params.studentId),
+        req.user,
+      );
+      return successResponse(res, "Quiz override removed", {});
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async hint(req, res) {
+    return errorResponse(
+      res,
+      "AI hints have been removed from quizzes",
+      410,
+    );
   },
 
   async attachImage(req, res, next) {
     try {
       if (!req.file) {
-        return errorResponse(res, 'Image file is required', 400);
+        return errorResponse(res, "Image file is required", 400);
       }
 
       const imageUrl = `/uploads/${req.file.filename}`; // stored disk reference; API returns secured URL
       const data = await QuizService.attachQuestionImage(
         Number(req.params.questionId),
         imageUrl,
-        req.user
+        req.user,
       );
-      return successResponse(res, 'Question image attached', data);
+      return successResponse(res, "Question image attached", data);
     } catch (error) {
       return next(error);
     }

@@ -35,20 +35,23 @@ import SectionHeader from '../../components/common/SectionHeader';
 import EmptyState from '../../components/common/EmptyState';
 import analyticsService from '../../services/analyticsService';
 import { getErrorMessage } from '../../services/api';
+import { useAdminFilters } from '../../contexts/AdminFiltersContext';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
 
 export default function AdminDashboard() {
+  const { toQueryParams, schoolYear, gradeLevel, section } = useAdminFilters();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    analyticsService.admin()
+    setLoading(true);
+    analyticsService.admin(toQueryParams())
       .then((response) => setData(response.data.data))
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [schoolYear, gradeLevel, section, toQueryParams]);
 
   const roleCounts = useMemo(() => {
     const map = { student: 0, teacher: 0, administrator: 0 };

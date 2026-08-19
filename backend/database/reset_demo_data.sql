@@ -30,8 +30,6 @@
 --   • student_badges
 --   • medals                 (medal catalog definitions)
 --   • student_medals
---   • certificates           (certificate templates)
---   • student_certificates
 --   • notifications
 --   • xp_transactions        (leaderboard / XP history)
 --   • password_reset_tokens  (temporary reset tokens only — not passwords)
@@ -64,9 +62,6 @@ DELETE FROM quizzes;
 
 DELETE FROM game_scores;
 DELETE FROM educational_games;
-
-DELETE FROM student_certificates;
-DELETE FROM certificates;
 
 DELETE FROM student_badges;
 DELETE FROM badges;
@@ -112,9 +107,6 @@ ALTER TABLE quizzes AUTO_INCREMENT = 1;
 
 ALTER TABLE game_scores AUTO_INCREMENT = 1;
 ALTER TABLE educational_games AUTO_INCREMENT = 1;
-
-ALTER TABLE student_certificates AUTO_INCREMENT = 1;
-ALTER TABLE certificates AUTO_INCREMENT = 1;
 
 ALTER TABLE student_badges AUTO_INCREMENT = 1;
 ALTER TABLE badges AUTO_INCREMENT = 1;

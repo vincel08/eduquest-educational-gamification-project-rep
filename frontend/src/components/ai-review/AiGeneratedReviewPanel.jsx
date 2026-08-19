@@ -131,6 +131,9 @@ export default function AiGeneratedReviewPanel({
   }
 
   function validateBeforePublish() {
+    if (mode === 'game' && !draft.game) {
+      return 'This draft has no educational game to publish. Regenerate the game first.';
+    }
     if (draft.quiz) {
       if (!String(draft.quiz.title || '').trim()) return 'Quiz title is required before publishing.';
       if (!draft.quiz.questions?.length) return 'Quiz must contain at least one question.';

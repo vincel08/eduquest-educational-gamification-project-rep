@@ -9,8 +9,8 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material';
-import { buildAuthenticatedFileUrl } from '../../utils/fileUrls';
+} from "@mui/material";
+import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 
 export default function QuizPreviewDialog({ open, onClose, quiz }) {
   if (!quiz) return null;
@@ -22,17 +22,28 @@ export default function QuizPreviewDialog({ open, onClose, quiz }) {
       <DialogTitle>
         Preview · {quiz.title}
         <Typography variant="body2" color="text.secondary">
-          Read-only teacher preview. No XP, attempts, medals, or certificates are awarded.
+          Read-only teacher preview. No XP, attempts, badges, or medals are
+          awarded.
         </Typography>
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mb: 2 }}>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Chip size="small" label={quiz.is_published ? 'Published' : 'Draft'} />
+            <Chip
+              size="small"
+              label={quiz.is_published ? "Published" : "Draft"}
+            />
             <Chip size="small" label={`${quiz.passing_score}% to pass`} />
             <Chip size="small" label={`${quiz.xp_reward} XP`} />
             {quiz.time_limit_minutes ? (
               <Chip size="small" label={`${quiz.time_limit_minutes} min`} />
+            ) : null}
+            {quiz.due_at || quiz.dueAt ? (
+              <Chip
+                size="small"
+                variant="outlined"
+                label={`Due ${new Date(quiz.due_at || quiz.dueAt).toLocaleString()}`}
+              />
             ) : null}
           </Stack>
           {quiz.description ? (
@@ -44,27 +55,43 @@ export default function QuizPreviewDialog({ open, onClose, quiz }) {
           {questions.map((question, index) => {
             const type = question.question_type || question.questionType;
             const options = question.options || [];
-            const left = options.filter((option) => option.side === 'left');
-            const right = options.filter((option) => option.side === 'right');
+            const left = options.filter((option) => option.side === "left");
+            const right = options.filter((option) => option.side === "right");
 
             return (
-              <Box key={question.id || index} sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+              <Box
+                key={question.id || index}
+                sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}
+              >
                 <Typography fontWeight={800} gutterBottom>
                   Question {index + 1}
-                  <Chip size="small" label={String(type || '').replace(/_/g, ' ')} sx={{ ml: 1 }} />
+                  <Chip
+                    size="small"
+                    label={String(type || "").replace(/_/g, " ")}
+                    sx={{ ml: 1 }}
+                  />
                 </Typography>
-                <Typography sx={{ mb: 1.5 }}>{question.question_text || question.questionText}</Typography>
+                <Typography sx={{ mb: 1.5 }}>
+                  {question.question_text || question.questionText}
+                </Typography>
 
                 {question.image_url || question.imageUrl ? (
                   <Box
                     component="img"
-                    src={buildAuthenticatedFileUrl(question.image_url || question.imageUrl)}
+                    src={buildAuthenticatedFileUrl(
+                      question.image_url || question.imageUrl,
+                    )}
                     alt={`Preview ${index + 1}`}
-                    sx={{ maxWidth: '100%', maxHeight: 220, borderRadius: 2, mb: 1.5 }}
+                    sx={{
+                      maxWidth: "100%",
+                      maxHeight: 220,
+                      borderRadius: 2,
+                      mb: 1.5,
+                    }}
                   />
                 ) : null}
 
-                {type === 'identification' ? (
+                {type === "identification" ? (
                   <TextField
                     fullWidth
                     size="small"
@@ -74,15 +101,32 @@ export default function QuizPreviewDialog({ open, onClose, quiz }) {
                   />
                 ) : null}
 
-                {type === 'matching' ? (
+                {type === "matching" ? (
                   <Stack spacing={1}>
                     {left.map((leftOption) => (
-                      <Stack key={leftOption.id} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
-                        <Typography sx={{ minWidth: 160 }}>{leftOption.option_text}</Typography>
-                        <TextField select size="small" fullWidth disabled value="" label="Match">
+                      <Stack
+                        key={leftOption.id}
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                        alignItems="center"
+                      >
+                        <Typography sx={{ minWidth: 160 }}>
+                          {leftOption.option_text}
+                        </Typography>
+                        <TextField
+                          select
+                          size="small"
+                          fullWidth
+                          disabled
+                          value=""
+                          label="Match"
+                        >
                           <MenuItem value="">Select match</MenuItem>
                           {right.map((rightOption) => (
-                            <MenuItem key={rightOption.id} value={rightOption.id}>
+                            <MenuItem
+                              key={rightOption.id}
+                              value={rightOption.id}
+                            >
                               {rightOption.option_text}
                             </MenuItem>
                           ))}
@@ -92,23 +136,30 @@ export default function QuizPreviewDialog({ open, onClose, quiz }) {
                   </Stack>
                 ) : null}
 
-                {['multiple_choice', 'true_false', 'image_question'].includes(type) ? (
+                {["multiple_choice", "true_false", "image_question"].includes(
+                  type,
+                ) ? (
                   <Stack spacing={0.75}>
                     {options.map((option, oIndex) => (
                       <Typography key={option.id || oIndex} variant="body2">
-                        {String.fromCharCode(65 + oIndex)}. {option.option_text || option.optionText}
-                        {option.is_correct || option.isCorrect ? ' ✓' : ''}
+                        {String.fromCharCode(65 + oIndex)}.{" "}
+                        {option.option_text || option.optionText}
+                        {option.is_correct || option.isCorrect ? " ✓" : ""}
                       </Typography>
                     ))}
                   </Stack>
                 ) : null}
 
-                {type === 'identification' ? (
+                {type === "identification" ? (
                   <>
                     <Divider sx={{ my: 1 }} />
                     <Typography variant="caption" color="text.secondary">
-                      Accepted answers (teacher view):{' '}
-                      {options.map((option) => option.option_text || option.optionText).join(', ')}
+                      Accepted answers (teacher view):{" "}
+                      {options
+                        .map(
+                          (option) => option.option_text || option.optionText,
+                        )
+                        .join(", ")}
                     </Typography>
                   </>
                 ) : null}
@@ -116,7 +167,9 @@ export default function QuizPreviewDialog({ open, onClose, quiz }) {
             );
           })}
           {!questions.length ? (
-            <Typography color="text.secondary">No questions to preview yet.</Typography>
+            <Typography color="text.secondary">
+              No questions to preview yet.
+            </Typography>
           ) : null}
         </Stack>
       </DialogContent>

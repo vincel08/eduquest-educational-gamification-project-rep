@@ -86,6 +86,8 @@ function baseStudentPayload(overrides = {}) {
     password: "Password123!",
     role: "student",
     schoolName: "EduWow High",
+    section: "A",
+    schoolYear: "2025-2026",
     ...overrides,
   };
 }
@@ -129,18 +131,23 @@ describe("student grade level registration", () => {
     assert.equal(result.profile.grade_level, "Grade 10");
   });
 
-  it("registers with valid Grade 12 and persists grade_level", async () => {
+  it("rejects senior high grades outside junior high scope", async () => {
     const { default: AuthService } = await import("../services/AuthService.js");
-    const result = await AuthService.register(
-      baseStudentPayload({
-        email: uniqueEmail("grade12"),
-        username: uniqueUsername("grade12"),
-        gradeLevel: "Grade 12",
-      }),
+    await assert.rejects(
+      () =>
+        AuthService.register(
+          baseStudentPayload({
+            email: uniqueEmail("grade12"),
+            username: uniqueUsername("grade12"),
+            gradeLevel: "Grade 12",
+          }),
+        ),
+      (error) => {
+        assert.equal(error.statusCode, 400);
+        assert.equal(error.message, GRADE_LEVEL_INVALID_MESSAGE);
+        return true;
+      },
     );
-
-    createdUserIds.push(result.user.id);
-    assert.equal(result.profile.grade_level, "Grade 12");
   });
 
   it("rejects registration without grade level (service)", async () => {
@@ -201,8 +208,10 @@ describe("student grade level registration", () => {
       firstName: "Legacy",
       lastName: "Student",
       role: "student",
-      gradeLevel: null,
-      schoolName: null,
+      gradeLevel: "Grade 9",
+      schoolName: "EduWow High",
+      section: "A",
+      schoolYear: "2025-2026",
     });
     createdUserIds.push(user.id);
 

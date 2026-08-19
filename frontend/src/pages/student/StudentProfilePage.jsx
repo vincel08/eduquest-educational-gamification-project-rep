@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Avatar,
@@ -9,30 +9,37 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material';
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
-import PageHeader from '../../components/common/PageHeader';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import XpBar from '../../components/gamification/XpBar';
-import BadgeCard from '../../components/gamification/BadgeCard';
-import MedalCard from '../../components/gamification/MedalCard';
-import gamificationService from '../../services/gamificationService';
-import analyticsService from '../../services/analyticsService';
-import courseService from '../../services/courseService';
-import authService from '../../services/authService';
-import { getErrorMessage } from '../../services/api';
-import { buildAuthenticatedFileUrl } from '../../utils/fileUrls';
-import { useAuth } from '../../contexts/AuthContext';
+} from "@mui/material";
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+import CancelRoundedIcon from "@mui/icons-material/CancelRounded";
+import PageHeader from "../../components/common/PageHeader";
+import LoadingScreen from "../../components/common/LoadingScreen";
+import XpBar from "../../components/gamification/XpBar";
+import BadgeCard from "../../components/gamification/BadgeCard";
+import MedalCard from "../../components/gamification/MedalCard";
+import gamificationService from "../../services/gamificationService";
+import analyticsService from "../../services/analyticsService";
+import courseService from "../../services/courseService";
+import authService from "../../services/authService";
+import classSectionService from "../../services/classSectionService";
+import { getErrorMessage } from "../../services/api";
+import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   GRADE_LEVELS,
   GRADE_LEVEL_PLACEHOLDER,
   isValidGradeLevel,
-} from '../../utils/gradeLevels';
+} from "../../utils/gradeLevels";
+import {
+  defaultSchoolYearValue,
+  listSchoolYearOptions,
+} from "../../utils/schoolYears";
+import { SECTION_PLACEHOLDER } from "../../utils/classSections";
+import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
 
 function resolveAvatarUrl(url) {
   if (!url) return undefined;
-  if (url.startsWith('blob:')) {
+  if (url.startsWith("blob:")) {
     return url;
   }
   return buildAuthenticatedFileUrl(url) || undefined;
@@ -41,22 +48,61 @@ function resolveAvatarUrl(url) {
 export default function StudentProfilePage() {
   const { user, updateProfile } = useAuth();
   const fileInputRef = useRef(null);
+  const sectionsRevision = useClassSectionsRevision();
+  const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [data, setData] = useState(null);
   const [courses, setCourses] = useState([]);
   const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    gradeLevel: '',
-    schoolName: '',
+    firstName: "",
+    lastName: "",
+    gradeLevel: "",
+    schoolName: "",
+    section: "",
+    schoolYear: defaultSchoolYearValue(),
   });
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [sectionOptions, setSectionOptions] = useState([]);
 
   useEffect(() => {
+    let active = true;
+    if (!form.schoolYear || !form.gradeLevel) {
+      setSectionOptions([]);
+      return undefined;
+    }
+    classSectionService
+      .options({ schoolYear: form.schoolYear, gradeLevel: form.gradeLevel })
+      .then((response) => {
+        if (!active) return;
+        const options = response.data.data || [];
+        setSectionOptions(options);
+        setForm((prev) => {
+          if (!prev.section) return prev;
+          const matched = options.find(
+            (item) => item.toLowerCase() === String(prev.section).toLowerCase(),
+          );
+          if (matched) {
+            return matched === prev.section ? prev : { ...prev, section: matched };
+          }
+          // Stale section for this grade/SY — force a new choice.
+          return { ...prev, section: "" };
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+        setSectionOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [form.schoolYear, form.gradeLevel, sectionsRevision]);
+
+  useEffect(() => {
+    let active = true;
     async function load() {
       try {
         const [meRes, analyticsRes, coursesRes] = await Promise.all([
@@ -64,40 +110,61 @@ export default function StudentProfilePage() {
           analyticsService.student(),
           courseService.myCourses(),
         ]);
+        if (!active) return;
         const gamification = meRes.data.data;
         setData({ gamification, analytics: analyticsRes.data.data });
         updateProfile(gamification.profile);
         setCourses(coursesRes.data.data?.courses || coursesRes.data.data || []);
-        const existingGrade = gamification.profile?.grade_level || '';
+        const existingGrade = gamification.profile?.grade_level || "";
+        const existingSection = gamification.profile?.section || "";
         setForm({
-          firstName: user?.firstName || '',
-          lastName: user?.lastName || '',
+          firstName: user?.firstName || "",
+          lastName: user?.lastName || "",
           // Keep unknown/legacy values editable as empty so the student can pick a supported grade.
-          gradeLevel: isValidGradeLevel(existingGrade) ? existingGrade : '',
-          schoolName: gamification.profile?.school_name || '',
+          gradeLevel: isValidGradeLevel(existingGrade) ? existingGrade : "",
+          schoolName: gamification.profile?.school_name || "",
+          section: existingSection,
+          schoolYear:
+            gamification.profile?.school_year || defaultSchoolYearValue(),
         });
-        setAvatarUrl(user?.avatarUrl || '');
+        setAvatarUrl(user?.avatarUrl || "");
       } catch (err) {
+        if (!active) return;
         setError(getErrorMessage(err));
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
     load();
-  }, [updateProfile, user?.firstName, user?.lastName, user?.avatarUrl]);
+    return () => {
+      active = false;
+    };
+    // Load once per signed-in student; do not re-run when auth helpers/profile sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount/id load
+  }, [user?.id]);
 
   async function handleSave(event) {
     event.preventDefault();
     setSaving(true);
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     try {
       // Avatar is updated only via upload/remove endpoints — never send display URLs here.
       const response = await authService.updateProfile({
         ...form,
       });
       updateProfile(response.data.data.profile, response.data.data.user);
-      setAvatarUrl(response.data.data.user?.avatarUrl || '');
+      setAvatarUrl(response.data.data.user?.avatarUrl || "");
+      const nextProfile = response.data.data.profile || {};
+      setForm((prev) => ({
+        ...prev,
+        firstName: response.data.data.user?.firstName ?? prev.firstName,
+        lastName: response.data.data.user?.lastName ?? prev.lastName,
+        gradeLevel: nextProfile.grade_level || prev.gradeLevel,
+        schoolName: nextProfile.school_name || "",
+        section: nextProfile.section || "",
+        schoolYear: nextProfile.school_year || prev.schoolYear,
+      }));
       setData((prev) => {
         if (!prev) return prev;
         return {
@@ -106,12 +173,12 @@ export default function StudentProfilePage() {
             ...prev.gamification,
             profile: {
               ...prev.gamification.profile,
-              ...(response.data.data.profile || {}),
+              ...nextProfile,
             },
           },
         };
       });
-      setMessage('Profile updated.');
+      setMessage("Profile updated.");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -121,17 +188,17 @@ export default function StudentProfilePage() {
 
   async function handleAvatarChange(event) {
     const file = event.target.files?.[0];
-    event.target.value = '';
+    event.target.value = "";
     if (!file) return;
 
     setUploadingAvatar(true);
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     try {
       const response = await authService.uploadAvatar(file);
       updateProfile(response.data.data.profile, response.data.data.user);
-      setAvatarUrl(response.data.data.user?.avatarUrl || '');
-      setMessage('Profile picture updated.');
+      setAvatarUrl(response.data.data.user?.avatarUrl || "");
+      setMessage("Profile picture updated.");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -141,13 +208,13 @@ export default function StudentProfilePage() {
 
   async function handleRemoveAvatar() {
     setUploadingAvatar(true);
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     try {
       const response = await authService.removeAvatar();
       updateProfile(response.data.data.profile, response.data.data.user);
-      setAvatarUrl('');
-      setMessage('Profile picture removed.');
+      setAvatarUrl("");
+      setMessage("Profile picture removed.");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -163,18 +230,35 @@ export default function StudentProfilePage() {
 
   return (
     <>
-      <PageHeader title="My Profile" subtitle="Photo, progress, achievements, and rank" />
-      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-      {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
+      <PageHeader
+        title="My Profile"
+        subtitle="Photo, progress, achievements, and rank"
+      />
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
+      {message ? (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {message}
+        </Alert>
+      ) : null}
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 4 }}>
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
+          <Paper sx={{ p: 3, textAlign: "center" }}>
             <Avatar
               src={resolveAvatarUrl(avatarUrl)}
-              sx={{ width: 112, height: 112, mx: 'auto', mb: 2, bgcolor: 'primary.main' }}
+              sx={{
+                width: 112,
+                height: 112,
+                mx: "auto",
+                mb: 2,
+                bgcolor: "primary.main",
+              }}
             >
-              {(form.firstName || 'S')[0]}
+              {(form.firstName || "S")[0]}
             </Avatar>
             <Stack spacing={1} sx={{ mb: 2 }}>
               <Button
@@ -183,7 +267,7 @@ export default function StudentProfilePage() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingAvatar}
               >
-                {uploadingAvatar ? 'Uploading...' : 'Upload photo'}
+                {uploadingAvatar ? "Uploading..." : "Upload photo"}
               </Button>
               {avatarUrl ? (
                 <Button
@@ -207,27 +291,40 @@ export default function StudentProfilePage() {
                 PNG, JPG, or WEBP up to 5MB
               </Typography>
             </Stack>
-            <Typography variant="h5">{form.firstName} {form.lastName}</Typography>
+            <Typography variant="h5">
+              {form.firstName} {form.lastName}
+            </Typography>
             <Typography color="text.secondary">
               {user?.username ? `@${user.username}` : null}
-              {user?.username && user?.email ? ' · ' : null}
-              {user?.email || (!user?.username ? 'No email on file' : null)}
+              {user?.username && user?.email ? " · " : null}
+              {user?.email || (!user?.username ? "No email on file" : null)}
             </Typography>
             <Typography sx={{ mt: 1 }}>
-              Grade Level: {studentProfile.grade_level || '—'}
+              Grade Level: {studentProfile.grade_level || "—"}
             </Typography>
-            <Typography>Rank: #{studentProfile.rank || '—'}</Typography>
+            <Typography>
+              Section: {studentProfile.section || "—"}
+            </Typography>
+            <Typography>
+              School Year:{" "}
+              {studentProfile.school_year
+                ? `SY ${studentProfile.school_year}`
+                : "—"}
+            </Typography>
+            <Typography>Rank: #{studentProfile.rank || "—"}</Typography>
             <Typography>XP: {studentProfile.xp}</Typography>
             <Typography>
-              Streak: {studentProfile.current_streak || 0} days
-              (best {studentProfile.longest_streak || 0})
+              Streak: {studentProfile.current_streak || 0} days (best{" "}
+              {studentProfile.longest_streak || 0})
             </Typography>
           </Paper>
         </Grid>
 
         <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: 3, mb: 2 }} component="form" onSubmit={handleSave}>
-            <Typography variant="h6" gutterBottom>Edit Profile</Typography>
+            <Typography variant="h6" gutterBottom>
+              Edit Profile
+            </Typography>
             {!studentProfile.grade_level ? (
               <Alert severity="info" sx={{ mb: 2 }}>
                 Please select your grade level to complete your profile.
@@ -237,23 +334,31 @@ export default function StudentProfilePage() {
               <TextField
                 label="First name"
                 value={form.firstName}
-                onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, firstName: e.target.value }))
+                }
               />
               <TextField
                 label="Last name"
                 value={form.lastName}
-                onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, lastName: e.target.value }))
+                }
               />
               <TextField
                 select
                 label="Grade Level"
                 fullWidth
                 value={form.gradeLevel}
-                onChange={(e) => setForm((p) => ({ ...p, gradeLevel: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    gradeLevel: e.target.value,
+                    section: "",
+                  }))
+                }
                 helperText={
-                  form.gradeLevel
-                    ? undefined
-                    : GRADE_LEVEL_PLACEHOLDER
+                  form.gradeLevel ? undefined : GRADE_LEVEL_PLACEHOLDER
                 }
                 SelectProps={{
                   displayEmpty: true,
@@ -265,9 +370,7 @@ export default function StudentProfilePage() {
                   },
                 }}
               >
-                <MenuItem value="">
-                  {GRADE_LEVEL_PLACEHOLDER}
-                </MenuItem>
+                <MenuItem value="">{GRADE_LEVEL_PLACEHOLDER}</MenuItem>
                 {GRADE_LEVELS.map((grade) => (
                   <MenuItem key={grade} value={grade}>
                     {grade}
@@ -275,12 +378,65 @@ export default function StudentProfilePage() {
                 ))}
               </TextField>
               <TextField
+                select
+                label="School Year"
+                fullWidth
+                value={form.schoolYear}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    schoolYear: e.target.value,
+                    section: "",
+                  }))
+                }
+              >
+                {schoolYearOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Section"
+                value={form.section}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, section: e.target.value }))
+                }
+                helperText={
+                  !form.gradeLevel
+                    ? "Select a grade level first"
+                    : sectionOptions.length
+                      ? "Sections for this grade and school year"
+                      : "No sections yet for this grade — ask an admin to add one"
+                }
+                disabled={!form.gradeLevel || !sectionOptions.length}
+                SelectProps={{
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    if (!selected) return SECTION_PLACEHOLDER;
+                    return selected;
+                  },
+                }}
+              >
+                <MenuItem value="" disabled>
+                  {SECTION_PLACEHOLDER}
+                </MenuItem>
+                {sectionOptions.map((section) => (
+                  <MenuItem key={section} value={section}>
+                    {section}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
                 label="School"
                 value={form.schoolName}
-                onChange={(e) => setForm((p) => ({ ...p, schoolName: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, schoolName: e.target.value }))
+                }
               />
               <Button type="submit" variant="contained" disabled={saving}>
-                {saving ? 'Saving...' : 'Save Profile'}
+                {saving ? "Saving..." : "Save Profile"}
               </Button>
             </Stack>
           </Paper>
@@ -288,15 +444,20 @@ export default function StudentProfilePage() {
           <Paper sx={{ p: 3, mb: 2 }}>
             <XpBar xp={studentProfile.xp} />
             <Typography sx={{ mt: 2 }}>
-              Progress: {analytics.averageProgress}% · Completed subjects:{' '}
-              {(courses || []).filter((c) => Number(c.progress_percent) >= 100).length}
+              Progress: {analytics.averageProgress}% · Completed subjects:{" "}
+              {
+                (courses || []).filter((c) => Number(c.progress_percent) >= 100)
+                  .length
+              }
             </Typography>
             <Typography>
-              Certificates: {analytics.certificates} · Badges: {analytics.badges} · Medals: {analytics.medals}
+              Badges: {analytics.badges} · Medals: {analytics.medals}
             </Typography>
           </Paper>
 
-          <Typography variant="h6" sx={{ mb: 1 }}>Badges</Typography>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Badges
+          </Typography>
           <Grid container spacing={1} sx={{ mb: 2 }}>
             {(data.gamification.badges || []).map((badge) => (
               <Grid key={badge.id || badge.badge_id} size={{ xs: 12, sm: 6 }}>
@@ -305,7 +466,9 @@ export default function StudentProfilePage() {
             ))}
           </Grid>
 
-          <Typography variant="h6" sx={{ mb: 1 }}>Medals</Typography>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Medals
+          </Typography>
           <Grid container spacing={1}>
             {(data.gamification.medals || []).map((medal) => (
               <Grid key={medal.id || medal.medal_id} size={{ xs: 12, sm: 6 }}>

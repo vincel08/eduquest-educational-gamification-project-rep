@@ -1,4 +1,4 @@
-import { body } from 'express-validator';
+import { body, param } from 'express-validator';
 import { ALL_GAME_TYPES, GAME_TYPES, isDeprecatedGameType } from '../utils/gameTypes.js';
 
 export const createGameValidation = [
@@ -42,4 +42,11 @@ export const submitGameScoreValidation = [
   body('answers').isObject().withMessage('answers object is required for score validation'),
   body('score').optional({ nullable: true }).isFloat({ min: 0, max: 100 }),
   body('durationSeconds').optional({ nullable: true }).isInt({ min: 0, max: 86400 }),
+];
+
+export const grantGameOverrideValidation = [
+  param('id').isInt({ min: 1 }),
+  body('studentId').isInt({ min: 1 }).withMessage('studentId is required'),
+  body('extraAttempts').isInt({ min: 1, max: 3 }).withMessage('extraAttempts must be 1–3'),
+  body('reason').optional({ nullable: true }).isString().isLength({ max: 500 }),
 ];
