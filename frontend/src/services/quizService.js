@@ -7,8 +7,8 @@ const quizService = {
   generate(payload) {
     return api.post("/quizzes/generate", payload);
   },
-  listMine() {
-    return api.get("/quizzes/mine");
+  listMine(params) {
+    return api.get("/quizzes/mine", { params });
   },
   getById(id) {
     return api.get(`/quizzes/${id}`);

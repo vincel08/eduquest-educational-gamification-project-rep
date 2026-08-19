@@ -16,8 +16,10 @@ import ContentTimestampToolbar from '../../components/common/ContentTimestampToo
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../services/api';
 import { applyTimestampControls } from '../../utils/contentTimestamps';
+import { useAdminFilters } from '../../contexts/AdminFiltersContext';
 
 export default function AdminCoursesPage() {
+  const { toQueryParams, gradeLevel } = useAdminFilters();
   const [courses, setCourses] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,12 @@ export default function AdminCoursesPage() {
   async function load() {
     setLoading(true);
     try {
-      const response = await courseService.list({ limit: 100 });
+      const params = { limit: 100 };
+      const filterParams = toQueryParams();
+      if (filterParams.gradeLevel) {
+        params.gradeLevel = filterParams.gradeLevel;
+      }
+      const response = await courseService.list(params);
       setCourses(response.data.data.courses || []);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -38,7 +45,7 @@ export default function AdminCoursesPage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [gradeLevel]);
 
   const visibleCourses = useMemo(
     () => applyTimestampControls(courses, { sort, filters }),

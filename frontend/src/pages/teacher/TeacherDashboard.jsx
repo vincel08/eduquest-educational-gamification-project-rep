@@ -35,21 +35,24 @@ import SectionHeader from "../../components/common/SectionHeader";
 import EmptyState from "../../components/common/EmptyState";
 import analyticsService from "../../services/analyticsService";
 import { getErrorMessage } from "../../services/api";
+import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 export default function TeacherDashboard() {
+  const { toQueryParams, schoolYear, gradeLevel, section } = useTeacherFilters();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     analyticsService
-      .teacher()
+      .teacher(toQueryParams())
       .then((response) => setData(response.data.data))
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [schoolYear, gradeLevel, section, toQueryParams]);
 
   if (loading) return <LoadingScreen />;
   if (error) return <Alert severity="error">{error}</Alert>;

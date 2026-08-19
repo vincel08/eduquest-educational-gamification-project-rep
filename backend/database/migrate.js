@@ -30,6 +30,8 @@ const MIGRATION_FILES = [
   "015_quiz_due_and_attempts.sql",
   "016_quiz_student_overrides.sql",
   "017_drop_certificates.sql",
+  "018_student_section_school_year.sql",
+  "019_backfill_student_school_year.sql",
 ];
 
 async function main() {

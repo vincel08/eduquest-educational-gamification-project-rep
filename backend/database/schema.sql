@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS student_profiles (
   level INT UNSIGNED NOT NULL DEFAULT 1,
   grade_level VARCHAR(50) NULL,
   school_name VARCHAR(255) NULL,
+  section VARCHAR(50) NULL,
+  school_year VARCHAR(20) NULL,
   current_streak INT UNSIGNED NOT NULL DEFAULT 0,
   longest_streak INT UNSIGNED NOT NULL DEFAULT 0,
   last_activity_date DATE NULL,
@@ -33,7 +35,8 @@ CREATE TABLE IF NOT EXISTS student_profiles (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_student_profiles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_student_profiles_xp (xp DESC),
-  INDEX idx_student_profiles_level (level DESC)
+  INDEX idx_student_profiles_level (level DESC),
+  INDEX idx_student_profiles_class (school_year, grade_level, section)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS courses (

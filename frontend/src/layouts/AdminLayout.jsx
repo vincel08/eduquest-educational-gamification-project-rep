@@ -4,6 +4,8 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import LeaderboardIcon from "@mui/icons-material/Leaderboard";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import DashboardLayout from "./DashboardLayout";
+import { AdminFiltersProvider } from "../contexts/AdminFiltersContext";
+import AdminSidebarFilters from "../components/admin/AdminSidebarFilters";
 
 const navItems = [
   { label: "Dashboard", path: "/admin/dashboard", icon: <DashboardIcon /> },
@@ -18,5 +20,13 @@ const navItems = [
 ];
 
 export default function AdminLayout() {
-  return <DashboardLayout title="Admin Control" navItems={navItems} />;
+  return (
+    <AdminFiltersProvider>
+      <DashboardLayout
+        title="Admin Control"
+        navItems={navItems}
+        sidebarFilters={<AdminSidebarFilters />}
+      />
+    </AdminFiltersProvider>
+  );
 }

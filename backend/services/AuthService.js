@@ -16,6 +16,19 @@ import {
   normalizeGradeLevel,
 } from "../utils/gradeLevels.js";
 import {
+  SCHOOL_YEAR_INVALID_MESSAGE,
+  SCHOOL_YEAR_REQUIRED_MESSAGE,
+  SECTION_INVALID_MESSAGE,
+  SECTION_REQUIRED_MESSAGE,
+  isValidSection,
+  normalizeSection,
+} from "../utils/classSections.js";
+import {
+  formatSchoolYearLabel,
+  currentSchoolYearStartYear,
+  isValidSchoolYearLabel,
+} from "../utils/schoolYears.js";
+import {
   avatarFileApiPath,
   publicUploadUrl,
   safeUnlinkUpload,
@@ -132,6 +145,8 @@ const AuthService = {
     role,
     gradeLevel,
     schoolName,
+    section,
+    schoolYear,
   }) {
     const selectedRole = role || "student";
 
@@ -189,6 +204,22 @@ const AuthService = {
       throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
     }
 
+    const normalizedSection = normalizeSection(section);
+    if (!normalizedSection) {
+      throw new AppError(SECTION_REQUIRED_MESSAGE, 400);
+    }
+    if (!isValidSection(normalizedSection)) {
+      throw new AppError(SECTION_INVALID_MESSAGE, 400);
+    }
+
+    const resolvedSchoolYear =
+      schoolYear && String(schoolYear).trim()
+        ? String(schoolYear).trim()
+        : formatSchoolYearLabel(currentSchoolYearStartYear());
+    if (!isValidSchoolYearLabel(resolvedSchoolYear)) {
+      throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
+    }
+
     await assertUsernameAvailable(normalizedUsername);
     await assertEmailAvailable(normalizedEmail);
 
@@ -206,6 +237,8 @@ const AuthService = {
     await StudentProfileModel.create(user.id, {
       gradeLevel: normalizedGrade,
       schoolName: schoolName || null,
+      section: normalizedSection,
+      schoolYear: resolvedSchoolYear,
     });
 
     return buildAuthPayload(user);
@@ -231,7 +264,10 @@ const AuthService = {
     return buildAuthPayload(user);
   },
 
-  async updateProfile(userId, { firstName, lastName, gradeLevel, schoolName }) {
+  async updateProfile(
+    userId,
+    { firstName, lastName, gradeLevel, schoolName, section, schoolYear },
+  ) {
     const user = await UserModel.findById(userId);
     if (!user) throw new AppError("User not found", 404);
 
@@ -248,10 +284,36 @@ const AuthService = {
         throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
       }
 
+      let nextSection = undefined;
+      if (section !== undefined) {
+        const normalizedSection = normalizeSection(section);
+        if (!normalizedSection) {
+          throw new AppError(SECTION_REQUIRED_MESSAGE, 400);
+        }
+        if (!isValidSection(normalizedSection)) {
+          throw new AppError(SECTION_INVALID_MESSAGE, 400);
+        }
+        nextSection = normalizedSection;
+      }
+
+      let nextSchoolYear = undefined;
+      if (schoolYear !== undefined) {
+        const value = String(schoolYear || "").trim();
+        if (!value) {
+          throw new AppError(SCHOOL_YEAR_REQUIRED_MESSAGE, 400);
+        }
+        if (!isValidSchoolYearLabel(value)) {
+          throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
+        }
+        nextSchoolYear = value;
+      }
+
       await query(
         `UPDATE student_profiles
          SET grade_level = COALESCE(:gradeLevel, grade_level),
-             school_name = COALESCE(:schoolName, school_name)
+             school_name = COALESCE(:schoolName, school_name),
+             section = COALESCE(:section, section),
+             school_year = COALESCE(:schoolYear, school_year)
          WHERE user_id = :userId`,
         {
           gradeLevel: normalizedGrade,
@@ -261,6 +323,8 @@ const AuthService = {
             String(schoolName).trim() !== ""
               ? String(schoolName).trim()
               : null,
+          section: nextSection ?? null,
+          schoolYear: nextSchoolYear ?? null,
           userId,
         },
       );

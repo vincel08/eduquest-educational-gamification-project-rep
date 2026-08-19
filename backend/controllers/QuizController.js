@@ -22,7 +22,9 @@ const QuizController = {
 
   async listMine(req, res, next) {
     try {
-      const data = await QuizService.listForTeacher(req.user);
+      const data = await QuizService.listForTeacher(req.user, {
+        gradeLevel: req.query.gradeLevel,
+      });
       return successResponse(res, "Quizzes retrieved", data);
     } catch (error) {
       return next(error);

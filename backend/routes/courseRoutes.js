@@ -17,6 +17,11 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/mine/enrolled", authorize("student"), CourseController.myCourses);
+router.get(
+  "/teacher/sections",
+  authorize("teacher", "administrator"),
+  CourseController.teacherSections,
+);
 router.get("/", CourseController.list);
 router.get("/:id", CourseController.getById);
 router.post(

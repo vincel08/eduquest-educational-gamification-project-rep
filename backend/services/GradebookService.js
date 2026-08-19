@@ -88,7 +88,7 @@ async function assertStudentEnrolled(courseId, studentId) {
 }
 
 const GradebookService = {
-  async getCourseGradebook(courseId, user) {
+  async getCourseGradebook(courseId, user, rosterFilters = {}) {
     const course = await assertCourseAccess(courseId, user);
 
     const [
@@ -99,7 +99,7 @@ const GradebookService = {
       gameScoreRows,
       quizPointRows,
     ] = await Promise.all([
-      CourseModel.getEnrollments(courseId),
+      CourseModel.getEnrollments(courseId, rosterFilters),
       query(
         `SELECT id, title, passing_score, is_published, xp_reward, due_at
          FROM quizzes

@@ -22,6 +22,10 @@ const GamificationController = {
         limit,
         period,
         schoolYear,
+        {
+          gradeLevel: req.query.gradeLevel || "all",
+          section: req.query.section || "all",
+        },
       );
       return successResponse(res, "Leaderboard retrieved", data);
     } catch (error) {

@@ -1,5 +1,9 @@
 import { query } from '../config/db.js';
 import { normalizeUsername } from '../utils/username.js';
+import {
+  appendStudentRosterFilters,
+  hasRosterFilters,
+} from '../utils/rosterFilters.js';
 
 const USER_SELECT = `id, username, email, password_hash, recovery_code_hash, google_id, first_name, last_name, role, avatar_url, is_active, created_at, updated_at`;
 
@@ -78,35 +82,63 @@ const UserModel = {
     return this.findByUsername(value);
   },
 
-  async findAll({ role, search, page = 1, limit = 20 }) {
+  async findAll({
+    role,
+    search,
+    page = 1,
+    limit = 20,
+    schoolYear,
+    gradeLevel,
+    section,
+  }) {
     const offset = (page - 1) * limit;
     const filters = [];
     const params = { limit: Number(limit), offset: Number(offset) };
+    const rosterActive = hasRosterFilters({ schoolYear, gradeLevel, section });
 
     if (role) {
-      filters.push('role = :role');
+      filters.push('u.role = :role');
       params.role = role;
     }
 
     if (search) {
       filters.push(
-        '(first_name LIKE :search OR last_name LIKE :search OR email LIKE :search OR username LIKE :search)'
+        '(u.first_name LIKE :search OR u.last_name LIKE :search OR u.email LIKE :search OR u.username LIKE :search)'
       );
       params.search = `%${search}%`;
     }
 
+    if (rosterActive) {
+      filters.push("u.role = 'student'");
+      appendStudentRosterFilters(
+        filters,
+        params,
+        { schoolYear, gradeLevel, section },
+        'sp',
+      );
+    }
+
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const joinSql = rosterActive
+      ? 'INNER JOIN student_profiles sp ON sp.user_id = u.id'
+      : '';
 
     const rows = await query(
-      `SELECT id, username, email, first_name, last_name, role, avatar_url, is_active, created_at, updated_at
-       FROM users ${where}
-       ORDER BY created_at DESC
+      `SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.role, u.avatar_url, u.is_active, u.created_at, u.updated_at
+         ${rosterActive ? ', sp.grade_level, sp.section, sp.school_year' : ''}
+       FROM users u
+       ${joinSql}
+       ${where}
+       ORDER BY u.created_at DESC
        LIMIT :limit OFFSET :offset`,
       params
     );
 
     const countRows = await query(
-      `SELECT COUNT(*) AS total FROM users ${where}`,
+      `SELECT COUNT(*) AS total
+       FROM users u
+       ${joinSql}
+       ${where}`,
       params
     );
 

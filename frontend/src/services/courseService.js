@@ -22,11 +22,14 @@ const courseService = {
   myCourses() {
     return api.get("/courses/mine/enrolled");
   },
-  enrollments(id) {
-    return api.get(`/courses/${id}/enrollments`);
+  enrollments(id, params) {
+    return api.get(`/courses/${id}/enrollments`, { params });
   },
-  gradebook(id) {
-    return api.get(`/courses/${id}/gradebook`);
+  gradebook(id, params) {
+    return api.get(`/courses/${id}/gradebook`, { params });
+  },
+  teacherSections(params) {
+    return api.get("/courses/teacher/sections", { params });
   },
   lessons(courseId) {
     return api.get(`/courses/${courseId}/lessons`);

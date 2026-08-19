@@ -25,6 +25,13 @@ import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import userService from '../../services/userService';
 import { getErrorMessage } from '../../services/api';
+import { useAdminFilters } from '../../contexts/AdminFiltersContext';
+import { GRADE_LEVELS } from '../../utils/gradeLevels';
+import {
+  defaultSchoolYearValue,
+  listSchoolYearOptions,
+} from '../../utils/schoolYears';
+import { SECTION_PLACEHOLDER } from '../../utils/classSections';
 
 const emptyForm = {
   firstName: '',
@@ -35,9 +42,13 @@ const emptyForm = {
   role: 'student',
   gradeLevel: 'Grade 10',
   schoolName: 'EduWow High',
+  section: 'A',
+  schoolYear: defaultSchoolYearValue(),
 };
 
 export default function AdminUsersPage() {
+  const { toQueryParams, schoolYear, gradeLevel, section } = useAdminFilters();
+  const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -52,7 +63,7 @@ export default function AdminUsersPage() {
   async function load() {
     setLoading(true);
     try {
-      const response = await userService.list({ limit: 100 });
+      const response = await userService.list({ limit: 100, ...toQueryParams() });
       setUsers(response.data.data.users || []);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -63,7 +74,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [schoolYear, gradeLevel, section]);
 
   async function handleCreate() {
     setError('');
@@ -196,13 +207,54 @@ export default function AdminUsersPage() {
               <MenuItem value="administrator">Administrator</MenuItem>
             </TextField>
             {isStudentRole ? (
-              <TextField
-                label="Username or school/LRN ID"
-                required
-                value={form.username}
-                onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
-                helperText="Required for students. Used to sign in."
-              />
+              <>
+                <TextField
+                  label="Username or school/LRN ID"
+                  required
+                  value={form.username}
+                  onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
+                  helperText="Required for students. Used to sign in."
+                />
+                <TextField
+                  select
+                  label="Grade Level"
+                  required
+                  value={form.gradeLevel}
+                  onChange={(e) => setForm((p) => ({ ...p, gradeLevel: e.target.value }))}
+                >
+                  {GRADE_LEVELS.map((grade) => (
+                    <MenuItem key={grade} value={grade}>
+                      {grade}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  label="School Year"
+                  required
+                  value={form.schoolYear}
+                  onChange={(e) => setForm((p) => ({ ...p, schoolYear: e.target.value }))}
+                >
+                  {schoolYearOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Section"
+                  required
+                  value={form.section}
+                  onChange={(e) => setForm((p) => ({ ...p, section: e.target.value }))}
+                  placeholder={SECTION_PLACEHOLDER}
+                  helperText="Class section (e.g. A, Newton)"
+                />
+                <TextField
+                  label="School name"
+                  value={form.schoolName}
+                  onChange={(e) => setForm((p) => ({ ...p, schoolName: e.target.value }))}
+                />
+              </>
             ) : null}
             <TextField
               label={isStudentRole ? 'Email (optional)' : 'Email'}

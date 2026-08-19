@@ -12,6 +12,11 @@ import {
   resolveEffectiveDueAt,
   resolveMaxAttempts,
 } from "../utils/quizAttemptRules.js";
+import {
+  appendStudentRosterFilters,
+  hasRosterFilters,
+  normalizeRosterFilterValue,
+} from "../utils/rosterFilters.js";
 
 async function studentQuizAccessMeta(quiz, studentId, attemptsUsed = null) {
   const override = await QuizStudentOverrideModel.findByQuizAndStudent(
@@ -46,53 +51,142 @@ const GRADE_MATCH_SQL = `
 `;
 
 const AnalyticsService = {
-  async getAdminOverview() {
+  async getAdminOverview(filters = {}) {
+    const rosterActive = hasRosterFilters(filters);
+    const gradeLevel = normalizeRosterFilterValue(filters.gradeLevel);
+
+    const studentFilters = ["u.role = 'student'"];
+    const studentParams = {};
+    if (rosterActive) {
+      appendStudentRosterFilters(studentFilters, studentParams, filters, "sp");
+    }
+    const studentWhere = `WHERE ${studentFilters.join(" AND ")}`;
+    const studentJoin = "INNER JOIN student_profiles sp ON sp.user_id = u.id";
+
+    const courseFilters = [];
+    const courseParams = {};
+    if (gradeLevel) {
+      courseFilters.push("grade_level = :courseGradeLevel");
+      courseParams.courseGradeLevel = gradeLevel;
+    }
+    const courseWhere = courseFilters.length
+      ? `WHERE ${courseFilters.join(" AND ")}`
+      : "";
+
     const [users, courses, quizzes, attempts, avgXp] = await Promise.all([
-      query(`SELECT role, COUNT(*) AS count FROM users GROUP BY role`),
-      query(`SELECT COUNT(*) AS total FROM courses`),
-      query(`SELECT COUNT(*) AS total FROM quizzes`),
+      rosterActive
+        ? query(
+            `SELECT u.role, COUNT(*) AS count
+             FROM users u
+             ${studentJoin}
+             ${studentWhere}
+             GROUP BY u.role`,
+            studentParams,
+          )
+        : query(`SELECT role, COUNT(*) AS count FROM users GROUP BY role`),
       query(
-        `SELECT COUNT(*) AS total, AVG(score) AS average_score FROM quiz_attempts WHERE completed_at IS NOT NULL`,
+        `SELECT COUNT(*) AS total FROM courses ${courseWhere}`,
+        courseParams,
       ),
       query(
-        `SELECT AVG(xp) AS average_xp, AVG(level) AS average_level FROM student_profiles`,
+        `SELECT COUNT(*) AS total
+         FROM quizzes q
+         INNER JOIN courses c ON c.id = q.course_id
+         ${gradeLevel ? "WHERE c.grade_level = :courseGradeLevel" : ""}`,
+        courseParams,
+      ),
+      query(
+        `SELECT COUNT(*) AS total, AVG(qa.score) AS average_score
+         FROM quiz_attempts qa
+         INNER JOIN users u ON u.id = qa.student_id
+         ${rosterActive ? `${studentJoin} ${studentWhere} AND qa.completed_at IS NOT NULL` : "WHERE qa.completed_at IS NOT NULL"}`,
+        studentParams,
+      ),
+      query(
+        `SELECT AVG(sp.xp) AS average_xp, AVG(sp.level) AS average_level
+         FROM student_profiles sp
+         INNER JOIN users u ON u.id = sp.user_id
+         ${studentWhere}`,
+        studentParams,
       ),
     ]);
 
+    const engagementFilters = [
+      "xt.created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)",
+    ];
+    const engagementParams = {};
+    if (rosterActive) {
+      appendStudentRosterFilters(
+        engagementFilters,
+        engagementParams,
+        filters,
+        "sp",
+      );
+    }
+
     const engagement = await query(
-      `SELECT DATE(created_at) AS day, COUNT(*) AS activity_count
-       FROM xp_transactions
-       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
-       GROUP BY DATE(created_at)
+      `SELECT DATE(xt.created_at) AS day, COUNT(*) AS activity_count
+       FROM xp_transactions xt
+       ${
+         rosterActive
+           ? `INNER JOIN student_profiles sp ON sp.user_id = xt.student_id`
+           : ""
+       }
+       WHERE ${engagementFilters.join(" AND ")}
+       GROUP BY DATE(xt.created_at)
        ORDER BY day ASC`,
+      engagementParams,
     );
+
+    const topStudentFilters = ["u.is_active = 1"];
+    const topStudentParams = {};
+    if (rosterActive) {
+      appendStudentRosterFilters(
+        topStudentFilters,
+        topStudentParams,
+        filters,
+        "sp",
+      );
+    }
 
     const [topStudents, recentQuizzes, recentGames, gamesCount] =
       await Promise.all([
         query(
           `SELECT u.first_name, u.last_name, sp.xp, sp.level
-         FROM student_profiles sp
-         INNER JOIN users u ON u.id = sp.user_id
-         ORDER BY sp.xp DESC
-         LIMIT 5`,
+           FROM student_profiles sp
+           INNER JOIN users u ON u.id = sp.user_id
+           WHERE ${topStudentFilters.join(" AND ")}
+           ORDER BY sp.xp DESC
+           LIMIT 5`,
+          topStudentParams,
         ),
         query(
           `SELECT q.id, q.title, q.is_published, q.is_ai_generated, q.created_at, q.updated_at,
                 c.title AS course_title
-         FROM quizzes q
-         INNER JOIN courses c ON c.id = q.course_id
-         ORDER BY q.updated_at DESC
-         LIMIT 8`,
+           FROM quizzes q
+           INNER JOIN courses c ON c.id = q.course_id
+           ${gradeLevel ? "WHERE c.grade_level = :courseGradeLevel" : ""}
+           ORDER BY q.updated_at DESC
+           LIMIT 8`,
+          courseParams,
         ),
         query(
           `SELECT g.id, g.title, g.game_type, g.is_published, g.is_ai_generated, g.created_at, g.updated_at,
                 c.title AS course_title
-         FROM educational_games g
-         INNER JOIN courses c ON c.id = g.course_id
-         ORDER BY g.updated_at DESC
-         LIMIT 8`,
+           FROM educational_games g
+           INNER JOIN courses c ON c.id = g.course_id
+           ${gradeLevel ? "WHERE c.grade_level = :courseGradeLevel" : ""}
+           ORDER BY g.updated_at DESC
+           LIMIT 8`,
+          courseParams,
         ),
-        query(`SELECT COUNT(*) AS total FROM educational_games`),
+        query(
+          `SELECT COUNT(*) AS total
+           FROM educational_games g
+           INNER JOIN courses c ON c.id = g.course_id
+           ${gradeLevel ? "WHERE c.grade_level = :courseGradeLevel" : ""}`,
+          courseParams,
+        ),
       ]);
 
     return {
@@ -113,12 +207,17 @@ const AnalyticsService = {
     };
   },
 
-  async getTeacherOverview(teacherId) {
-    const courses = await CourseModel.findAll({
+  async getTeacherOverview(teacherId, rosterFilters = {}) {
+    const courseFilters = {
       teacherId,
       limit: 100,
       page: 1,
-    });
+    };
+    if (rosterFilters.gradeLevel && rosterFilters.gradeLevel !== "all") {
+      courseFilters.gradeLevel = rosterFilters.gradeLevel;
+    }
+
+    const courses = await CourseModel.findAll(courseFilters);
     const courseIds = courses.courses.map((course) => course.id);
 
     if (!courseIds.length) {
@@ -128,6 +227,9 @@ const AnalyticsService = {
         averageProgress: 0,
         quizStats: [],
         courses: [],
+        activeStudents: [],
+        difficultQuestions: [],
+        completionRate: 0,
       };
     }
 
@@ -137,51 +239,121 @@ const AnalyticsService = {
       params[`id${index}`] = id;
     });
 
+    const studentFilters = [`ce.course_id IN (${placeholders})`];
+    const studentParams = { ...params };
+    if (hasRosterFilters(rosterFilters)) {
+      appendStudentRosterFilters(
+        studentFilters,
+        studentParams,
+        rosterFilters,
+        "sp",
+      );
+    }
+
+    const activeFilters = [
+      `ce.course_id IN (${placeholders})`,
+      "xt.created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)",
+    ];
+    const activeParams = { ...params };
+    if (hasRosterFilters(rosterFilters)) {
+      appendStudentRosterFilters(
+        activeFilters,
+        activeParams,
+        rosterFilters,
+        "sp",
+      );
+    }
+
+    const attemptJoin = hasRosterFilters(rosterFilters)
+      ? `LEFT JOIN quiz_attempts qa ON qa.quiz_id = q.id AND qa.completed_at IS NOT NULL
+         LEFT JOIN student_profiles sp ON sp.user_id = qa.student_id`
+      : `LEFT JOIN quiz_attempts qa ON qa.quiz_id = q.id AND qa.completed_at IS NOT NULL`;
+    const attemptRoster = [];
+    const attemptParams = { ...params };
+    if (hasRosterFilters(rosterFilters)) {
+      appendStudentRosterFilters(
+        attemptRoster,
+        attemptParams,
+        rosterFilters,
+        "sp",
+      );
+    }
+    const attemptWhereExtra = attemptRoster.length
+      ? ` AND (${attemptRoster.map((clause) => `(qa.student_id IS NULL OR ${clause})`).join(" AND ")})`
+      : "";
+
+    const difficultFilters = [`q.course_id IN (${placeholders})`];
+    const difficultParams = { ...params };
+    if (hasRosterFilters(rosterFilters)) {
+      appendStudentRosterFilters(
+        difficultFilters,
+        difficultParams,
+        rosterFilters,
+        "sp",
+      );
+    }
+
     const [studentStats, quizStats, activeStudents, difficultQuestions] =
       await Promise.all([
         query(
-          `SELECT COUNT(DISTINCT student_id) AS total_students,
-                AVG(progress_percent) AS average_progress
-         FROM course_enrollments
-         WHERE course_id IN (${placeholders})`,
-          params,
+          `SELECT COUNT(DISTINCT ce.student_id) AS total_students,
+                AVG(ce.progress_percent) AS average_progress
+           FROM course_enrollments ce
+           ${
+             hasRosterFilters(rosterFilters)
+               ? "INNER JOIN student_profiles sp ON sp.user_id = ce.student_id"
+               : ""
+           }
+           WHERE ${studentFilters.join(" AND ")}`,
+          studentParams,
         ),
         query(
           `SELECT q.id, q.title, q.created_at, q.updated_at,
                 COUNT(qa.id) AS attempts, AVG(qa.score) AS average_score,
                 SUM(CASE WHEN qa.is_passed = 1 THEN 1 ELSE 0 END) AS passed_count
-         FROM quizzes q
-         LEFT JOIN quiz_attempts qa ON qa.quiz_id = q.id AND qa.completed_at IS NOT NULL
-         WHERE q.course_id IN (${placeholders})
-         GROUP BY q.id, q.title, q.created_at, q.updated_at
-         ORDER BY q.updated_at DESC`,
-          params,
+           FROM quizzes q
+           ${attemptJoin}
+           WHERE q.course_id IN (${placeholders})${attemptWhereExtra}
+           GROUP BY q.id, q.title, q.created_at, q.updated_at
+           ORDER BY q.updated_at DESC`,
+          attemptParams,
         ),
         query(
           `SELECT u.id, u.first_name, u.last_name, COUNT(xt.id) AS activity_count, MAX(xt.created_at) AS last_active
-         FROM xp_transactions xt
-         INNER JOIN users u ON u.id = xt.student_id
-         INNER JOIN course_enrollments ce ON ce.student_id = u.id AND ce.course_id IN (${placeholders})
-         WHERE xt.created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
-         GROUP BY u.id, u.first_name, u.last_name
-         ORDER BY activity_count DESC
-         LIMIT 8`,
-          params,
+           FROM xp_transactions xt
+           INNER JOIN users u ON u.id = xt.student_id
+           INNER JOIN course_enrollments ce ON ce.student_id = u.id
+           ${
+             hasRosterFilters(rosterFilters)
+               ? "INNER JOIN student_profiles sp ON sp.user_id = u.id"
+               : ""
+           }
+           WHERE ${activeFilters.join(" AND ")}
+           GROUP BY u.id, u.first_name, u.last_name
+           ORDER BY activity_count DESC
+           LIMIT 8`,
+          activeParams,
         ),
         query(
           `SELECT qq.id, qq.question_text, q.title AS quiz_title,
                 COUNT(ans.id) AS answer_count,
                 SUM(CASE WHEN ans.is_correct = 0 THEN 1 ELSE 0 END) AS incorrect_count,
                 ROUND(100 * SUM(CASE WHEN ans.is_correct = 0 THEN 1 ELSE 0 END) / NULLIF(COUNT(ans.id), 0), 1) AS miss_rate
-         FROM quiz_answers ans
-         INNER JOIN quiz_questions qq ON qq.id = ans.question_id
-         INNER JOIN quizzes q ON q.id = qq.quiz_id
-         WHERE q.course_id IN (${placeholders})
-         GROUP BY qq.id, qq.question_text, q.title
-         HAVING answer_count >= 1
-         ORDER BY miss_rate DESC, incorrect_count DESC
-         LIMIT 8`,
-          params,
+           FROM quiz_answers ans
+           INNER JOIN quiz_questions qq ON qq.id = ans.question_id
+           INNER JOIN quizzes q ON q.id = qq.quiz_id
+           INNER JOIN quiz_attempts qa ON qa.id = ans.attempt_id
+           ${
+             hasRosterFilters(rosterFilters)
+               ? "INNER JOIN student_profiles sp ON sp.user_id = qa.student_id"
+               : ""
+           }
+           WHERE ${difficultFilters.join(" AND ")}
+           GROUP BY qq.id, qq.question_text, q.title
+           HAVING answer_count >= 1
+           ORDER BY miss_rate DESC, incorrect_count DESC
+           LIMIT 8`,
+          difficultParams,
         ),
       ]);
 

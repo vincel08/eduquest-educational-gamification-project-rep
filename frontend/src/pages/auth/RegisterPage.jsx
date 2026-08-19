@@ -26,10 +26,16 @@ import {
   validateRegistrationForm,
 } from "../../utils/authValidation";
 import { GRADE_LEVELS, GRADE_LEVEL_PLACEHOLDER } from "../../utils/gradeLevels";
+import {
+  defaultSchoolYearValue,
+  listSchoolYearOptions,
+} from "../../utils/schoolYears";
+import { SECTION_PLACEHOLDER } from "../../utils/classSections";
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -39,6 +45,8 @@ export default function RegisterPage() {
     role: "student",
     gradeLevel: "",
     schoolName: "",
+    section: "",
+    schoolYear: defaultSchoolYearValue(),
   });
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -245,6 +253,31 @@ export default function RegisterPage() {
                   </MenuItem>
                 ))}
               </TextField>
+              <TextField
+                select
+                label="School Year"
+                required
+                fullWidth
+                value={form.schoolYear}
+                onChange={updateField("schoolYear")}
+                error={Boolean(fieldErrors.schoolYear)}
+                helperText={fieldErrors.schoolYear}
+              >
+                {schoolYearOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Section"
+                required
+                fullWidth
+                value={form.section}
+                onChange={updateField("section")}
+                error={Boolean(fieldErrors.section)}
+                helperText={fieldErrors.section || SECTION_PLACEHOLDER}
+              />
               <TextField
                 label="School name"
                 value={form.schoolName}

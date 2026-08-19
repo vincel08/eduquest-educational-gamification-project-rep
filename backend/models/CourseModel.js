@@ -1,4 +1,8 @@
 import { query } from "../config/db.js";
+import {
+  appendStudentRosterFilters,
+  hasRosterFilters,
+} from "../utils/rosterFilters.js";
 
 const CourseModel = {
   async create(data) {
@@ -130,16 +134,51 @@ const CourseModel = {
     return true;
   },
 
-  async getEnrollments(courseId) {
+  async getEnrollments(courseId, rosterFilters = {}) {
+    const filters = ["ce.course_id = :courseId"];
+    const params = { courseId };
+    if (hasRosterFilters(rosterFilters)) {
+      appendStudentRosterFilters(filters, params, rosterFilters, "sp");
+    }
+
     return query(
-      `SELECT ce.*, u.username, u.first_name, u.last_name, u.email, sp.xp, sp.level
+      `SELECT ce.*, u.username, u.first_name, u.last_name, u.email,
+              sp.xp, sp.level, sp.grade_level, sp.section, sp.school_year
        FROM course_enrollments ce
        INNER JOIN users u ON u.id = ce.student_id
        LEFT JOIN student_profiles sp ON sp.user_id = ce.student_id
-       WHERE ce.course_id = :courseId
+       WHERE ${filters.join(" AND ")}
        ORDER BY ce.enrolled_at DESC`,
-      { courseId },
+      params,
     );
+  },
+
+  async listTeacherSections(teacherId, { schoolYear, gradeLevel } = {}) {
+    const filters = [
+      "c.teacher_id = :teacherId",
+      "sp.section IS NOT NULL",
+      "TRIM(sp.section) <> ''",
+      "u.is_active = 1",
+    ];
+    const params = { teacherId };
+    appendStudentRosterFilters(
+      filters,
+      params,
+      { schoolYear, gradeLevel },
+      "sp",
+    );
+
+    const rows = await query(
+      `SELECT DISTINCT sp.section AS section
+       FROM course_enrollments ce
+       INNER JOIN courses c ON c.id = ce.course_id
+       INNER JOIN student_profiles sp ON sp.user_id = ce.student_id
+       INNER JOIN users u ON u.id = ce.student_id
+       WHERE ${filters.join(" AND ")}
+       ORDER BY sp.section ASC`,
+      params,
+    );
+    return rows.map((row) => row.section).filter(Boolean);
   },
 
   async getStudentCourses(studentId, { gradeLevel = null } = {}) {

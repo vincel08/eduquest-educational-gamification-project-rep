@@ -33,9 +33,11 @@ import {
   formatUploadDate,
   isViewableMaterial,
 } from "../../utils/materialActions";
+import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
 export default function TeacherCourseDetailPage() {
   const { courseId } = useParams();
+  const { toQueryParams, schoolYear, gradeLevel, section } = useTeacherFilters();
   const [course, setCourse] = useState(null);
   const [lessons, setLessons] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
@@ -58,13 +60,14 @@ export default function TeacherCourseDetailPage() {
 
   async function load() {
     try {
+      const filterParams = toQueryParams();
       const [courseRes, lessonsRes, quizzesRes, gamesRes, enrollmentsRes] =
         await Promise.all([
           courseService.getById(courseId),
           courseService.lessons(courseId),
           courseService.quizzes(courseId),
           courseService.games(courseId),
-          courseService.enrollments(courseId),
+          courseService.enrollments(courseId, filterParams),
         ]);
       setCourse(courseRes.data.data);
       setLessons(lessonsRes.data.data || []);
@@ -80,7 +83,7 @@ export default function TeacherCourseDetailPage() {
 
   useEffect(() => {
     load();
-  }, [courseId]);
+  }, [courseId, schoolYear, gradeLevel, section]);
 
   const visibleLessons = useMemo(
     () => applyTimestampControls(lessons, { sort, filters }),

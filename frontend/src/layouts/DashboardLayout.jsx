@@ -28,7 +28,7 @@ import { buildAuthenticatedFileUrl } from "../utils/fileUrls";
 
 const drawerWidth = 260;
 
-export default function DashboardLayout({ title, navItems }) {
+export default function DashboardLayout({ title, navItems, sidebarFilters = null }) {
   const { user, logout, profile } = useAuth();
   const { mode, toggleMode } = useThemeMode();
   const navigate = useNavigate();
@@ -113,6 +113,7 @@ export default function DashboardLayout({ title, navItems }) {
           );
         })}
       </List>
+      {sidebarFilters}
       <Divider />
       <Box sx={{ p: 1.5 }}>
         <Box

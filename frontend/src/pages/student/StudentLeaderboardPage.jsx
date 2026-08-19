@@ -12,7 +12,7 @@ import {
 
 export default function StudentLeaderboardPage() {
   const schoolYearOptions = useMemo(
-    () => listSchoolYearOptions({ count: 4 }),
+    () => listSchoolYearOptions({ count: 1 }),
     [],
   );
   const [entries, setEntries] = useState([]);

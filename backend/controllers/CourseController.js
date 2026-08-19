@@ -90,8 +90,30 @@ const CourseController = {
       const data = await CourseService.getEnrollments(
         Number(req.params.id),
         req.user,
+        {
+          schoolYear: req.query.schoolYear,
+          gradeLevel: req.query.gradeLevel,
+          section: req.query.section,
+        },
       );
       return successResponse(res, "Enrollments retrieved", data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async teacherSections(req, res, next) {
+    try {
+      const teacherId =
+        req.user.role === "teacher" ? req.user.id : Number(req.query.teacherId);
+      if (!teacherId) {
+        return successResponse(res, "Student sections retrieved", []);
+      }
+      const data = await CourseService.listTeacherSections(teacherId, {
+        schoolYear: req.query.schoolYear,
+        gradeLevel: req.query.gradeLevel,
+      });
+      return successResponse(res, "Student sections retrieved", data);
     } catch (error) {
       return next(error);
     }
@@ -102,6 +124,11 @@ const CourseController = {
       const data = await GradebookService.getCourseGradebook(
         Number(req.params.id),
         req.user,
+        {
+          schoolYear: req.query.schoolYear,
+          gradeLevel: req.query.gradeLevel,
+          section: req.query.section,
+        },
       );
       return successResponse(res, "Gradebook retrieved", data);
     } catch (error) {

@@ -287,11 +287,17 @@ const GamificationService = {
     };
   },
 
-  async getLeaderboard(limit = 20, period = "overall", schoolYear = "all") {
+  async getLeaderboard(
+    limit = 20,
+    period = "overall",
+    schoolYear = "all",
+    rosterFilters = {},
+  ) {
     const rows = await StudentProfileModel.getLeaderboard(
       limit,
       period,
       schoolYear,
+      rosterFilters,
     );
     return rows.map((row, index) => ({
       rank: index + 1,

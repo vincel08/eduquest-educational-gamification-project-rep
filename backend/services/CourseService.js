@@ -131,7 +131,7 @@ const CourseService = {
     return course;
   },
 
-  async getEnrollments(courseId, user) {
+  async getEnrollments(courseId, user, rosterFilters = {}) {
     const course = await CourseModel.findById(courseId);
     if (!course) throw new AppError("Course not found", 404);
 
@@ -139,7 +139,11 @@ const CourseService = {
       throw new AppError("Access denied", 403);
     }
 
-    return CourseModel.getEnrollments(courseId);
+    return CourseModel.getEnrollments(courseId, rosterFilters);
+  },
+
+  async listTeacherSections(teacherId, filters = {}) {
+    return CourseModel.listTeacherSections(teacherId, filters);
   },
 };
 

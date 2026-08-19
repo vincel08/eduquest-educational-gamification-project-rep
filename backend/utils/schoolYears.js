@@ -1,11 +1,13 @@
 /**
- * Academic school years (June 1 – May 31).
- * Labels look like "2025-2026".
+ * Philippine academic school years (June 1 – April 30).
+ * Labels look like "2025-2026" (starts June 2025, ends April 2026).
+ * May is the break between school years and still belongs to the SY that started the previous June.
  */
 
 export function currentSchoolYearStartYear(now = new Date()) {
   const year = now.getFullYear();
   const month = now.getMonth(); // 0-based; June = 5
+  // June–December → this calendar year's SY start; January–May → previous June's SY.
   return month >= 5 ? year : year - 1;
 }
 
@@ -14,8 +16,12 @@ export function formatSchoolYearLabel(startYear) {
   return `${start}-${start + 1}`;
 }
 
+export function isValidSchoolYearLabel(label) {
+  return Boolean(parseSchoolYearLabel(label));
+}
+
 export function parseSchoolYearLabel(label) {
-  if (!label || label === 'all') return null;
+  if (!label || label === "all") return null;
   const match = String(label).trim().match(/^(\d{4})-(\d{4})$/);
   if (!match) return null;
   const startYear = Number(match[1]);
@@ -26,9 +32,11 @@ export function parseSchoolYearLabel(label) {
 
 /** Inclusive start / exclusive end as MySQL DATETIME strings. */
 export function getSchoolYearBounds(label, now = new Date()) {
-  const startYear = parseSchoolYearLabel(label) ?? currentSchoolYearStartYear(now);
+  const startYear =
+    parseSchoolYearLabel(label) ?? currentSchoolYearStartYear(now);
   const start = `${startYear}-06-01 00:00:00`;
-  const endExclusive = `${startYear + 1}-06-01 00:00:00`;
+  // Ends April 30 → exclusive end is May 1 of the following calendar year.
+  const endExclusive = `${startYear + 1}-05-01 00:00:00`;
   return {
     label: formatSchoolYearLabel(startYear),
     startYear,
@@ -44,18 +52,24 @@ export function getSchoolYearEndExclusiveForDate(date = new Date()) {
   return getSchoolYearBounds(null, safe).endExclusive;
 }
 
-export function listSchoolYearOptions({ count = 4, includeAll = true, now = new Date() } = {}) {
+export function listSchoolYearOptions({
+  count = 1,
+  includeAll = true,
+  now = new Date(),
+} = {}) {
   const currentStart = currentSchoolYearStartYear(now);
   const years = [];
-  for (let i = 0; i < count; i += 1) {
-    const startYear = currentStart - i;
+  // Current SY and optional future years only — never past school years.
+  const safeCount = Math.max(1, Number(count) || 1);
+  for (let i = 0; i < safeCount; i += 1) {
+    const startYear = currentStart + i;
     years.push({
       value: formatSchoolYearLabel(startYear),
       label: `SY ${formatSchoolYearLabel(startYear)}`,
     });
   }
   if (includeAll) {
-    return [{ value: 'all', label: 'All school years' }, ...years];
+    return [{ value: "all", label: "All school years" }, ...years];
   }
   return years;
 }

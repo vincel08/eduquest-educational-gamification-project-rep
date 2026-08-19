@@ -3,6 +3,14 @@ import {
   GRADE_LEVEL_REQUIRED_MESSAGE,
   isValidGradeLevel,
 } from "./gradeLevels";
+import {
+  SCHOOL_YEAR_INVALID_MESSAGE,
+  SCHOOL_YEAR_REQUIRED_MESSAGE,
+  SECTION_INVALID_MESSAGE,
+  SECTION_REQUIRED_MESSAGE,
+  isValidSection,
+} from "./classSections";
+import { isValidSchoolYearLabel } from "./schoolYears";
 
 const MIN_PASSWORD_LENGTH = 8;
 const USERNAME_MIN = 3;
@@ -80,6 +88,18 @@ export function validateRegistrationForm(form) {
     errors.gradeLevel = GRADE_LEVEL_REQUIRED_MESSAGE;
   } else if (!isValidGradeLevel(form.gradeLevel)) {
     errors.gradeLevel = GRADE_LEVEL_INVALID_MESSAGE;
+  }
+
+  if (!form.section?.trim()) {
+    errors.section = SECTION_REQUIRED_MESSAGE;
+  } else if (!isValidSection(form.section)) {
+    errors.section = SECTION_INVALID_MESSAGE;
+  }
+
+  if (!form.schoolYear?.trim()) {
+    errors.schoolYear = SCHOOL_YEAR_REQUIRED_MESSAGE;
+  } else if (!isValidSchoolYearLabel(form.schoolYear)) {
+    errors.schoolYear = SCHOOL_YEAR_INVALID_MESSAGE;
   }
 
   return {

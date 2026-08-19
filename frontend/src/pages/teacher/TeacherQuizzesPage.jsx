@@ -18,19 +18,27 @@ import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
+import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
 export default function TeacherQuizzesPage() {
+  const { toQueryParams, gradeLevel } = useTeacherFilters();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setLoading(true);
+    const params = {};
+    const filterParams = toQueryParams();
+    if (filterParams.gradeLevel) {
+      params.gradeLevel = filterParams.gradeLevel;
+    }
     quizService
-      .listMine()
+      .listMine(params)
       .then((response) => setQuizzes(response.data.data || []))
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [gradeLevel, toQueryParams]);
 
   if (loading) return <LoadingScreen />;
 

@@ -4,6 +4,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
+import {
+  currentSchoolYearStartYear,
+  formatSchoolYearLabel,
+} from "../utils/schoolYears.js";
 
 dotenv.config();
 
@@ -291,16 +295,21 @@ async function run() {
   const teacherId = teacherResult.insertId;
   const studentId = studentResult.insertId;
   const student2Id = student2Result.insertId;
+  const currentSchoolYearLabel = formatSchoolYearLabel(
+    currentSchoolYearStartYear(),
+  );
 
   await connection.execute(
-    `INSERT INTO student_profiles (user_id, xp, level, grade_level, school_name, current_streak, longest_streak, last_activity_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE()), (?, ?, ?, ?, ?, ?, ?, NULL)`,
+    `INSERT INTO student_profiles (user_id, xp, level, grade_level, school_name, section, school_year, current_streak, longest_streak, last_activity_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE()), (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     [
       studentId,
       120,
       2,
       "Grade 10",
       "EduWow High",
+      "A",
+      currentSchoolYearLabel,
       2,
       5,
       student2Id,
@@ -308,6 +317,8 @@ async function run() {
       1,
       "Grade 9",
       "EduWow High",
+      "B",
+      currentSchoolYearLabel,
       0,
       0,
     ],

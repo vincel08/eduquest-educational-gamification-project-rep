@@ -86,6 +86,8 @@ function baseStudentPayload(overrides = {}) {
     password: "Password123!",
     role: "student",
     schoolName: "EduWow High",
+    section: "A",
+    schoolYear: "2025-2026",
     ...overrides,
   };
 }
@@ -206,8 +208,10 @@ describe("student grade level registration", () => {
       firstName: "Legacy",
       lastName: "Student",
       role: "student",
-      gradeLevel: null,
-      schoolName: null,
+      gradeLevel: "Grade 9",
+      schoolName: "EduWow High",
+      section: "A",
+      schoolYear: "2025-2026",
     });
     createdUserIds.push(user.id);
 

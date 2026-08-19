@@ -11,6 +11,18 @@ const UserController = {
     }
   },
 
+  async listSections(req, res, next) {
+    try {
+      const data = await UserService.listDistinctSections({
+        schoolYear: req.query.schoolYear,
+        gradeLevel: req.query.gradeLevel,
+      });
+      return successResponse(res, 'Student sections retrieved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async getById(req, res, next) {
     try {
       const data = await UserService.getUserById(Number(req.params.id));

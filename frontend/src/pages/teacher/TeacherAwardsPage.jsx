@@ -12,8 +12,10 @@ import PageHeader from "../../components/common/PageHeader";
 import courseService from "../../services/courseService";
 import gamificationService from "../../services/gamificationService";
 import { getErrorMessage } from "../../services/api";
+import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
 export default function TeacherAwardsPage() {
+  const { toQueryParams, schoolYear, gradeLevel, section } = useTeacherFilters();
   const [badges, setBadges] = useState([]);
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState({ studentId: "", badgeId: "" });
@@ -24,15 +26,22 @@ export default function TeacherAwardsPage() {
   useEffect(() => {
     async function load() {
       try {
+        const filterParams = toQueryParams();
+        const courseParams = { limit: 50 };
+        if (filterParams.gradeLevel) {
+          courseParams.gradeLevel = filterParams.gradeLevel;
+        }
         const [badgesRes, coursesRes] = await Promise.all([
           gamificationService.badges(),
-          courseService.list({ limit: 50 }),
+          courseService.list(courseParams),
         ]);
         setBadges(badgesRes.data.data || []);
 
         const courses = coursesRes.data.data.courses || [];
         const enrollmentGroups = await Promise.all(
-          courses.map((course) => courseService.enrollments(course.id)),
+          courses.map((course) =>
+            courseService.enrollments(course.id, filterParams),
+          ),
         );
         const map = new Map();
         enrollmentGroups.forEach((response) => {
@@ -46,7 +55,7 @@ export default function TeacherAwardsPage() {
       }
     }
     load();
-  }, []);
+  }, [schoolYear, gradeLevel, section, toQueryParams]);
 
   async function handleAward(event) {
     event.preventDefault();

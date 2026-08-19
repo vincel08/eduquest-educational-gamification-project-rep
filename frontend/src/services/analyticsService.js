@@ -1,11 +1,11 @@
 import api from "./api";
 
 const analyticsService = {
-  admin() {
-    return api.get("/analytics/admin");
+  admin(params) {
+    return api.get("/analytics/admin", { params });
   },
-  teacher() {
-    return api.get("/analytics/teacher");
+  teacher(params) {
+    return api.get("/analytics/teacher", { params });
   },
   student() {
     return api.get("/analytics/student");

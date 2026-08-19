@@ -7,6 +7,8 @@ import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import MilitaryTechIcon from "@mui/icons-material/MilitaryTech";
 import PersonIcon from "@mui/icons-material/Person";
 import DashboardLayout from "./DashboardLayout";
+import { TeacherFiltersProvider } from "../contexts/TeacherFiltersContext";
+import TeacherSidebarFilters from "../components/teacher/TeacherSidebarFilters";
 
 const navItems = [
   { label: "Dashboard", path: "/teacher/dashboard", icon: <DashboardIcon /> },
@@ -28,5 +30,13 @@ const navItems = [
 ];
 
 export default function TeacherLayout() {
-  return <DashboardLayout title="Teacher Studio" navItems={navItems} />;
+  return (
+    <TeacherFiltersProvider>
+      <DashboardLayout
+        title="Teacher Studio"
+        navItems={navItems}
+        sidebarFilters={<TeacherSidebarFilters />}
+      />
+    </TeacherFiltersProvider>
+  );
 }

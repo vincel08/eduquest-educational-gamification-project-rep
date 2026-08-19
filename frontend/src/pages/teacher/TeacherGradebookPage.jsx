@@ -30,6 +30,7 @@ import TeacherQuizAttemptReviewDialog from "../../components/quiz/TeacherQuizAtt
 import TeacherQuizExtendDialog from "../../components/quiz/TeacherQuizExtendDialog";
 import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
+import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
 function formatWhen(value) {
   if (!value) return "—";
@@ -51,6 +52,7 @@ function sameId(a, b) {
 
 export default function TeacherGradebookPage() {
   const { courseId } = useParams();
+  const { toQueryParams, schoolYear, gradeLevel, section } = useTeacherFilters();
   const [gradebook, setGradebook] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -82,9 +84,10 @@ export default function TeacherGradebookPage() {
     let active = true;
     setLoading(true);
     setError("");
+    const filterParams = toQueryParams();
     Promise.all([
-      courseService.gradebook(courseId),
-      courseService.enrollments(courseId),
+      courseService.gradebook(courseId, filterParams),
+      courseService.enrollments(courseId, filterParams),
     ])
       .then(([gradebookRes, enrollRes]) => {
         if (!active) return;
@@ -108,7 +111,7 @@ export default function TeacherGradebookPage() {
     return () => {
       active = false;
     };
-  }, [courseId]);
+  }, [courseId, schoolYear, gradeLevel, section, toQueryParams]);
 
   const selectedQuiz = useMemo(
     () =>

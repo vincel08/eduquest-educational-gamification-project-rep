@@ -689,16 +689,21 @@ const QuizService = {
     return quizzes;
   },
 
-  async listForTeacher(user) {
+  async listForTeacher(user, filters = {}) {
     if (user.role !== "teacher" && user.role !== "administrator") {
       throw new AppError("Access denied", 403);
     }
 
-    const { courses: courseList } = await CourseModel.findAll({
+    const courseFilters = {
       teacherId: user.role === "teacher" ? user.id : undefined,
       limit: 200,
       page: 1,
-    });
+    };
+    if (filters.gradeLevel && filters.gradeLevel !== "all") {
+      courseFilters.gradeLevel = filters.gradeLevel;
+    }
+
+    const { courses: courseList } = await CourseModel.findAll(courseFilters);
 
     const quizzes = [];
     for (const course of courseList) {

@@ -6,6 +6,13 @@ import {
   isValidGradeLevel,
 } from "../utils/gradeLevels.js";
 import {
+  SCHOOL_YEAR_INVALID_MESSAGE,
+  SECTION_INVALID_MESSAGE,
+  SECTION_REQUIRED_MESSAGE,
+  isValidSection,
+} from "../utils/classSections.js";
+import { isValidSchoolYearLabel } from "../utils/schoolYears.js";
+import {
   isValidUsername,
   USERNAME_INVALID_MESSAGE,
   USERNAME_REQUIRED_MESSAGE,
@@ -53,6 +60,23 @@ export const registerValidation = [
     }
     return true;
   }),
+  body("section").custom((value) => {
+    if (value === undefined || value === null || String(value).trim() === "") {
+      throw new Error(SECTION_REQUIRED_MESSAGE);
+    }
+    if (!isValidSection(value)) {
+      throw new Error(SECTION_INVALID_MESSAGE);
+    }
+    return true;
+  }),
+  body("schoolYear")
+    .optional({ values: "falsy" })
+    .custom((value) => {
+      if (!isValidSchoolYearLabel(value)) {
+        throw new Error(SCHOOL_YEAR_INVALID_MESSAGE);
+      }
+      return true;
+    }),
   body("schoolName").optional().isString(),
 ];
 
@@ -79,6 +103,36 @@ export const updateProfileValidation = [
       }
       if (!isValidGradeLevel(value)) {
         throw new Error(GRADE_LEVEL_INVALID_MESSAGE);
+      }
+      return true;
+    }),
+  body("section")
+    .optional({ values: "falsy" })
+    .custom((value) => {
+      if (
+        value === undefined ||
+        value === null ||
+        String(value).trim() === ""
+      ) {
+        return true;
+      }
+      if (!isValidSection(value)) {
+        throw new Error(SECTION_INVALID_MESSAGE);
+      }
+      return true;
+    }),
+  body("schoolYear")
+    .optional({ values: "falsy" })
+    .custom((value) => {
+      if (
+        value === undefined ||
+        value === null ||
+        String(value).trim() === ""
+      ) {
+        return true;
+      }
+      if (!isValidSchoolYearLabel(value)) {
+        throw new Error(SCHOOL_YEAR_INVALID_MESSAGE);
       }
       return true;
     }),

@@ -29,6 +29,11 @@ import {
   GRADE_LEVEL_PLACEHOLDER,
   isValidGradeLevel,
 } from "../../utils/gradeLevels";
+import {
+  defaultSchoolYearValue,
+  listSchoolYearOptions,
+} from "../../utils/schoolYears";
+import { SECTION_PLACEHOLDER } from "../../utils/classSections";
 
 function resolveAvatarUrl(url) {
   if (!url) return undefined;
@@ -41,6 +46,7 @@ function resolveAvatarUrl(url) {
 export default function StudentProfilePage() {
   const { user, updateProfile } = useAuth();
   const fileInputRef = useRef(null);
+  const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [data, setData] = useState(null);
   const [courses, setCourses] = useState([]);
   const [form, setForm] = useState({
@@ -48,6 +54,8 @@ export default function StudentProfilePage() {
     lastName: "",
     gradeLevel: "",
     schoolName: "",
+    section: "",
+    schoolYear: defaultSchoolYearValue(),
   });
   const [avatarUrl, setAvatarUrl] = useState("");
   const [error, setError] = useState("");
@@ -75,6 +83,9 @@ export default function StudentProfilePage() {
           // Keep unknown/legacy values editable as empty so the student can pick a supported grade.
           gradeLevel: isValidGradeLevel(existingGrade) ? existingGrade : "",
           schoolName: gamification.profile?.school_name || "",
+          section: gamification.profile?.section || "",
+          schoolYear:
+            gamification.profile?.school_year || defaultSchoolYearValue(),
         });
         setAvatarUrl(user?.avatarUrl || "");
       } catch (err) {
@@ -297,6 +308,29 @@ export default function StudentProfilePage() {
                   </MenuItem>
                 ))}
               </TextField>
+              <TextField
+                select
+                label="School Year"
+                fullWidth
+                value={form.schoolYear}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, schoolYear: e.target.value }))
+                }
+              >
+                {schoolYearOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Section"
+                value={form.section}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, section: e.target.value }))
+                }
+                helperText={SECTION_PLACEHOLDER}
+              />
               <TextField
                 label="School"
                 value={form.schoolName}

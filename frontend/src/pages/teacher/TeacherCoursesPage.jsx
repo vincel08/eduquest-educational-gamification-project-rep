@@ -26,6 +26,7 @@ import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
 import { GRADE_LEVELS } from "../../utils/gradeLevels";
+import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
 const emptyForm = {
   subject: "",
@@ -35,6 +36,7 @@ const emptyForm = {
 };
 
 export default function TeacherCoursesPage() {
+  const { toQueryParams, gradeLevel } = useTeacherFilters();
   const [courses, setCourses] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(false);
@@ -47,7 +49,12 @@ export default function TeacherCoursesPage() {
   async function load() {
     setLoading(true);
     try {
-      const response = await courseService.list({ limit: 50 });
+      const params = { limit: 50 };
+      const filterParams = toQueryParams();
+      if (filterParams.gradeLevel) {
+        params.gradeLevel = filterParams.gradeLevel;
+      }
+      const response = await courseService.list(params);
       setCourses(response.data.data.courses || []);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -58,7 +65,7 @@ export default function TeacherCoursesPage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [gradeLevel]);
 
   async function handleCreate() {
     setSaving(true);

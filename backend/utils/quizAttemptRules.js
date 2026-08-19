@@ -18,7 +18,7 @@ export function isQuizPastDue(quiz, now = new Date()) {
 
 /**
  * Effective due for a student:
- * - Class due is capped by the school-year end of the quiz (June 1 exclusive).
+ * - Class due is capped by the school-year end of the quiz (May 1 exclusive = April 30 end).
  * - Quizzes without due_at still close when that school year ends.
  * - Personal extended_due_at may reopen past class due and school-year end.
  */

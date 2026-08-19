@@ -15,6 +15,24 @@ import {
   USERNAME_INVALID_MESSAGE,
   USERNAME_REQUIRED_MESSAGE,
 } from '../utils/username.js';
+import {
+  GRADE_LEVEL_INVALID_MESSAGE,
+  GRADE_LEVEL_REQUIRED_MESSAGE,
+  isValidGradeLevel,
+  normalizeGradeLevel,
+} from '../utils/gradeLevels.js';
+import {
+  SCHOOL_YEAR_INVALID_MESSAGE,
+  SECTION_INVALID_MESSAGE,
+  SECTION_REQUIRED_MESSAGE,
+  isValidSection,
+  normalizeSection,
+} from '../utils/classSections.js';
+import {
+  currentSchoolYearStartYear,
+  formatSchoolYearLabel,
+  isValidSchoolYearLabel,
+} from '../utils/schoolYears.js';
 
 function normalizeStoredAvatarUrl(avatarUrl) {
   if (avatarUrl === null || avatarUrl === '') return null;
@@ -134,9 +152,35 @@ const UserService = {
     });
 
     if (isStudent) {
+      const normalizedGrade = normalizeGradeLevel(data.gradeLevel);
+      if (!normalizedGrade) {
+        throw new AppError(GRADE_LEVEL_REQUIRED_MESSAGE, 400);
+      }
+      if (!isValidGradeLevel(normalizedGrade)) {
+        throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
+      }
+
+      const normalizedSection = normalizeSection(data.section);
+      if (!normalizedSection) {
+        throw new AppError(SECTION_REQUIRED_MESSAGE, 400);
+      }
+      if (!isValidSection(normalizedSection)) {
+        throw new AppError(SECTION_INVALID_MESSAGE, 400);
+      }
+
+      const resolvedSchoolYear =
+        data.schoolYear && String(data.schoolYear).trim()
+          ? String(data.schoolYear).trim()
+          : formatSchoolYearLabel(currentSchoolYearStartYear());
+      if (!isValidSchoolYearLabel(resolvedSchoolYear)) {
+        throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
+      }
+
       await StudentProfileModel.create(user.id, {
-        gradeLevel: data.gradeLevel,
-        schoolName: data.schoolName,
+        gradeLevel: normalizedGrade,
+        schoolName: data.schoolName || null,
+        section: normalizedSection,
+        schoolYear: resolvedSchoolYear,
       });
     }
 
@@ -191,6 +235,10 @@ const UserService = {
     const passwordHash = await bcrypt.hash(password, 12);
     const updated = await UserModel.update(student.id, { password_hash: passwordHash });
     return sanitizeUser(updated);
+  },
+
+  async listDistinctSections(filters = {}) {
+    return StudentProfileModel.listDistinctSections(filters);
   },
 
   async deleteUser(id) {
