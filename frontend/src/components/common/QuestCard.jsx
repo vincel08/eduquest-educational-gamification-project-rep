@@ -137,7 +137,11 @@ export default function QuestCard({
         ) : null}
 
         {isBlocked && unlockMessage ? (
-          <Typography variant="body2" color="warning.main" sx={{ mb: 1 }}>
+          <Typography
+            variant="body2"
+            color={status === "Submitted" ? "success.main" : "warning.main"}
+            sx={{ mb: 1 }}
+          >
             {unlockMessage}
           </Typography>
         ) : meta ? (
@@ -178,9 +182,15 @@ export default function QuestCard({
       {isBlocked ? (
         <CardActions sx={{ px: 2, pb: 2 }}>
           <Button fullWidth variant="outlined" disabled>
-            {status === "Closed" || status === "No attempts"
-              ? "Unavailable"
-              : "Finish lesson first"}
+            {actionLabel && actionLabel !== "Open"
+              ? actionLabel
+              : status === "Submitted"
+                ? "Submitted"
+                : status === "Closed" || status === "No attempts"
+                  ? "Unavailable"
+                  : status === "Locked"
+                    ? "Finish lesson first"
+                    : "Unavailable"}
           </Button>
         </CardActions>
       ) : to || onAction ? (

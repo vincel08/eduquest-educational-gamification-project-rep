@@ -133,6 +133,7 @@ const GradebookService = {
          INNER JOIN users u ON u.id = qa.student_id
          WHERE q.course_id = :courseId
            AND qa.completed_at IS NOT NULL
+           AND qa.released_to_gradebook = 1
          ORDER BY qa.score DESC, qa.completed_at DESC, qa.id DESC`,
         { courseId },
       ),
@@ -151,6 +152,7 @@ const GradebookService = {
          INNER JOIN educational_games g ON g.id = gs.game_id
          INNER JOIN users u ON u.id = gs.student_id
          WHERE g.course_id = :courseId
+           AND gs.released_to_gradebook = 1
          ORDER BY gs.score DESC, gs.played_at DESC, gs.id DESC`,
         { courseId },
       ),
@@ -353,7 +355,8 @@ const GradebookService = {
              is_passed = :isPassed,
              total_points = :totalPoints,
              earned_points = :earnedPoints,
-             completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)
+             completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
+             released_to_gradebook = 1
          WHERE id = :attemptId`,
         {
           score,
@@ -366,9 +369,9 @@ const GradebookService = {
     } else {
       await query(
         `INSERT INTO quiz_attempts
-         (quiz_id, student_id, score, total_points, earned_points, xp_earned, is_passed, completed_at)
+         (quiz_id, student_id, score, total_points, earned_points, xp_earned, is_passed, completed_at, released_to_gradebook)
          VALUES
-         (:quizId, :studentId, :score, :totalPoints, :earnedPoints, 0, :isPassed, CURRENT_TIMESTAMP)`,
+         (:quizId, :studentId, :score, :totalPoints, :earnedPoints, 0, :isPassed, CURRENT_TIMESTAMP, 1)`,
         { quizId, studentId, score, totalPoints, earnedPoints, isPassed },
       );
     }
@@ -408,14 +411,15 @@ const GradebookService = {
       await query(
         `UPDATE game_scores
          SET score = :score,
-             played_at = CURRENT_TIMESTAMP
+             played_at = CURRENT_TIMESTAMP,
+             released_to_gradebook = 1
          WHERE id = :scoreId`,
         { score, scoreId: existing[0].id },
       );
     } else {
       await query(
-        `INSERT INTO game_scores (game_id, student_id, score, xp_earned)
-         VALUES (:gameId, :studentId, :score, 0)`,
+        `INSERT INTO game_scores (game_id, student_id, score, xp_earned, released_to_gradebook)
+         VALUES (:gameId, :studentId, :score, 0, 1)`,
         { gameId, studentId, score },
       );
     }

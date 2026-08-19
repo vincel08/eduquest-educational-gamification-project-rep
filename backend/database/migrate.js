@@ -32,6 +32,12 @@ const MIGRATION_FILES = [
   "017_drop_certificates.sql",
   "018_student_section_school_year.sql",
   "019_backfill_student_school_year.sql",
+  "020_class_sections.sql",
+  "021_strip_section_number_prefix.sql",
+  "022_course_school_year_ends_at.sql",
+  "023_lesson_material_views.sql",
+  "024_game_overrides_and_answers.sql",
+  "025_release_results_to_gradebook.sql",
 ];
 
 async function main() {

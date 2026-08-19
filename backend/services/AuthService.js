@@ -28,6 +28,7 @@ import {
   currentSchoolYearStartYear,
   isValidSchoolYearLabel,
 } from "../utils/schoolYears.js";
+import ClassSectionService from "./ClassSectionService.js";
 import {
   avatarFileApiPath,
   publicUploadUrl,
@@ -204,14 +205,6 @@ const AuthService = {
       throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
     }
 
-    const normalizedSection = normalizeSection(section);
-    if (!normalizedSection) {
-      throw new AppError(SECTION_REQUIRED_MESSAGE, 400);
-    }
-    if (!isValidSection(normalizedSection)) {
-      throw new AppError(SECTION_INVALID_MESSAGE, 400);
-    }
-
     const resolvedSchoolYear =
       schoolYear && String(schoolYear).trim()
         ? String(schoolYear).trim()
@@ -219,6 +212,12 @@ const AuthService = {
     if (!isValidSchoolYearLabel(resolvedSchoolYear)) {
       throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
     }
+
+    const catalogSection = await ClassSectionService.assertSectionInCatalog(
+      resolvedSchoolYear,
+      normalizedGrade,
+      section,
+    );
 
     await assertUsernameAvailable(normalizedUsername);
     await assertEmailAvailable(normalizedEmail);
@@ -237,7 +236,7 @@ const AuthService = {
     await StudentProfileModel.create(user.id, {
       gradeLevel: normalizedGrade,
       schoolName: schoolName || null,
-      section: normalizedSection,
+      section: catalogSection,
       schoolYear: resolvedSchoolYear,
     });
 
@@ -279,21 +278,10 @@ const AuthService = {
 
     let profile = null;
     if (user.role === "student") {
+      const existing = await StudentProfileModel.findByUserId(userId);
       const normalizedGrade = normalizeGradeLevel(gradeLevel);
       if (normalizedGrade && !isValidGradeLevel(normalizedGrade)) {
         throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
-      }
-
-      let nextSection = undefined;
-      if (section !== undefined) {
-        const normalizedSection = normalizeSection(section);
-        if (!normalizedSection) {
-          throw new AppError(SECTION_REQUIRED_MESSAGE, 400);
-        }
-        if (!isValidSection(normalizedSection)) {
-          throw new AppError(SECTION_INVALID_MESSAGE, 400);
-        }
-        nextSection = normalizedSection;
       }
 
       let nextSchoolYear = undefined;
@@ -306,6 +294,20 @@ const AuthService = {
           throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
         }
         nextSchoolYear = value;
+      }
+
+      let nextSection = undefined;
+      if (section !== undefined) {
+        const effectiveSy =
+          nextSchoolYear ||
+          existing?.school_year ||
+          formatSchoolYearLabel(currentSchoolYearStartYear());
+        const effectiveGrade = normalizedGrade || existing?.grade_level || null;
+        nextSection = await ClassSectionService.assertSectionInCatalog(
+          effectiveSy,
+          effectiveGrade,
+          section,
+        );
       }
 
       await query(

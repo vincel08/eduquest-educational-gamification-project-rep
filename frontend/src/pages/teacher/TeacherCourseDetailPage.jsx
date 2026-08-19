@@ -27,11 +27,13 @@ import courseService from "../../services/courseService";
 import lessonService from "../../services/lessonService";
 import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
-import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 import {
+  downloadMaterial,
   formatFileSize,
+  formatMaterialType,
   formatUploadDate,
   isViewableMaterial,
+  materialViewUrl,
 } from "../../utils/materialActions";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
@@ -57,6 +59,7 @@ export default function TeacherCourseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState("newest");
   const [filters, setFilters] = useState({});
+  const [downloadingId, setDownloadingId] = useState(null);
 
   async function load() {
     try {
@@ -130,6 +133,18 @@ export default function TeacherCourseDetailPage() {
       setError(getErrorMessage(err));
     } finally {
       event.target.value = "";
+    }
+  }
+
+  async function handleDownloadMaterial(material) {
+    setError("");
+    setDownloadingId(material.id);
+    try {
+      await downloadMaterial(material.download_url, material.original_name);
+    } catch (err) {
+      setError(err.message || getErrorMessage(err));
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -214,6 +229,7 @@ export default function TeacherCourseDetailPage() {
                       <input
                         hidden
                         type="file"
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.rtf,.md,.png,.jpg,.jpeg,.webp,.gif,.zip,application/pdf,image/*"
                         onChange={(event) => handleUpload(lesson.id, event)}
                       />
                     </Button>
@@ -246,15 +262,23 @@ export default function TeacherCourseDetailPage() {
                   <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
                     Materials ({(lesson.materials || []).length})
                   </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                    sx={{ mb: 1 }}
+                  >
+                    Allowed: PDF, Word, PowerPoint, Excel, CSV, TXT, images, or
+                    ZIP.
+                  </Typography>
                   {(lesson.materials || []).length ? (
                     <Stack spacing={1}>
                       {(lesson.materials || []).map((material) => {
-                        const href = buildAuthenticatedFileUrl(
-                          material.download_url,
-                        );
+                        const href = materialViewUrl(material.download_url);
                         const uploaded = formatUploadDate(material.created_at);
                         const sizeLabel = formatFileSize(material.file_size);
                         const viewable = isViewableMaterial(material.file_type);
+                        const busy = downloadingId === material.id;
 
                         return (
                           <Paper
@@ -276,7 +300,10 @@ export default function TeacherCourseDetailPage() {
                                   variant="body2"
                                   color="text.secondary"
                                 >
-                                  {material.file_type || "File"}
+                                  {formatMaterialType(
+                                    material.file_type,
+                                    material.original_name,
+                                  )}
                                   {sizeLabel ? ` · ${sizeLabel}` : ""}
                                   {uploaded ? ` · Uploaded ${uploaded}` : ""}
                                 </Typography>
@@ -300,18 +327,17 @@ export default function TeacherCourseDetailPage() {
                                     View
                                   </Button>
                                 ) : null}
-                                {href ? (
+                                {material.download_url ? (
                                   <Button
-                                    component="a"
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    download={material.original_name}
                                     size="small"
                                     variant="contained"
                                     startIcon={<DownloadIcon />}
+                                    disabled={busy}
+                                    onClick={() =>
+                                      handleDownloadMaterial(material)
+                                    }
                                   >
-                                    Download
+                                    {busy ? "…" : "Download"}
                                   </Button>
                                 ) : null}
                               </Stack>
@@ -395,7 +421,7 @@ export default function TeacherCourseDetailPage() {
                     <Stack spacing={0.5} sx={{ mt: 0.5 }}>
                       <Typography variant="body2" color="text.secondary">
                         {quiz.question_count || 0} questions · {quiz.xp_reward}{" "}
-                        XP
+                        XP · Open to revisit
                       </Typography>
                       <ContentTimestamp item={quiz} dense />
                     </Stack>
@@ -413,12 +439,36 @@ export default function TeacherCourseDetailPage() {
         </Paper>
 
         <Paper sx={{ p: { xs: 2, md: 3 } }}>
-          <Typography variant="h6" gutterBottom>
-            Educational Games
-          </Typography>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ mb: 1 }}
+          >
+            <Typography variant="h6">Educational Games</Typography>
+            <Button
+              component={RouterLink}
+              to="/teacher/ai-game"
+              size="small"
+              variant="outlined"
+            >
+              Create Game
+            </Button>
+          </Stack>
           <List>
             {visibleGames.map((game) => (
-              <ListItem key={game.id} alignItems="flex-start">
+              <ListItem
+                key={game.id}
+                alignItems="flex-start"
+                component={RouterLink}
+                to={`/teacher/games/${game.id}/edit`}
+                sx={{
+                  color: "inherit",
+                  textDecoration: "none",
+                  borderRadius: 1,
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              >
                 <ListItemText
                   primary={
                     <Stack
@@ -451,7 +501,7 @@ export default function TeacherCourseDetailPage() {
                         sx={{ textTransform: "capitalize" }}
                       >
                         {(game.game_type || "").replace(/_/g, " ")} ·{" "}
-                        {game.xp_reward} XP
+                        {game.xp_reward} XP · Open to revisit
                       </Typography>
                       <ContentTimestamp item={game} dense />
                     </Stack>

@@ -25,13 +25,15 @@ import ContentTimestamp from "../../components/common/ContentTimestamp";
 import lessonService from "../../services/lessonService";
 import { getErrorMessage } from "../../services/api";
 import { pickMotivationalMessage } from "../../utils/feedbackMessages";
-import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRewards } from "../../contexts/RewardsContext";
 import {
+  downloadMaterial,
   formatFileSize,
+  formatMaterialType,
   formatUploadDate,
   isViewableMaterial,
+  materialViewUrl,
 } from "../../utils/materialActions";
 
 export default function StudentLessonPage() {
@@ -43,6 +45,7 @@ export default function StudentLessonPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -88,6 +91,18 @@ export default function StudentLessonPage() {
       setError(getErrorMessage(err));
     } finally {
       setCompleting(false);
+    }
+  }
+
+  async function handleDownloadMaterial(material) {
+    setError("");
+    setDownloadingId(material.id);
+    try {
+      await downloadMaterial(material.download_url, material.original_name);
+    } catch (err) {
+      setError(err.message || getErrorMessage(err));
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -214,17 +229,18 @@ export default function StudentLessonPage() {
               </Typography>
               <List dense disablePadding>
                 {(lesson.materials || []).map((material) => {
-                  const href = buildAuthenticatedFileUrl(material.download_url);
+                  const href = materialViewUrl(material.download_url);
                   const uploaded = formatUploadDate(material.created_at);
                   const sizeLabel = formatFileSize(material.file_size);
+                  const busy = downloadingId === material.id;
                   return (
                     <ListItem
                       key={material.id}
                       sx={{ px: 0, alignItems: "flex-start" }}
                       secondaryAction={
-                        href ? (
+                        material.download_url ? (
                           <Stack direction="row" spacing={0.5}>
-                            {isViewableMaterial(material.file_type) ? (
+                            {isViewableMaterial(material.file_type) && href ? (
                               <Button
                                 component="a"
                                 href={href}
@@ -236,15 +252,12 @@ export default function StudentLessonPage() {
                               </Button>
                             ) : null}
                             <Button
-                              component="a"
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download={material.original_name}
                               size="small"
                               startIcon={<DownloadIcon />}
+                              disabled={busy}
+                              onClick={() => handleDownloadMaterial(material)}
                             >
-                              Save
+                              {busy ? "…" : "Download"}
                             </Button>
                           </Stack>
                         ) : null
@@ -252,8 +265,8 @@ export default function StudentLessonPage() {
                     >
                       <ListItemText
                         primary={material.original_name}
-                        secondary={`${material.file_type || "File"}${sizeLabel ? ` · ${sizeLabel}` : ""}${uploaded ? ` · ${uploaded}` : ""}`}
-                        sx={{ pr: 12 }}
+                        secondary={`${formatMaterialType(material.file_type, material.original_name)}${sizeLabel ? ` · ${sizeLabel}` : ""}${uploaded ? ` · ${uploaded}` : ""}`}
+                        sx={{ pr: 16 }}
                       />
                     </ListItem>
                   );
@@ -263,7 +276,12 @@ export default function StudentLessonPage() {
                 <Typography color="text.secondary">
                   No materials uploaded yet.
                 </Typography>
-              ) : null}
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Open or download at least one material before marking this
+                  lesson complete (required to unlock linked quizzes).
+                </Typography>
+              )}
             </Paper>
 
             <Paper sx={{ p: 2.5 }}>
@@ -284,6 +302,12 @@ export default function StudentLessonPage() {
                       ? "Completing..."
                       : `Complete Lesson (+${lesson.xp_reward || 25} XP)`}
                 </Button>
+                {(lesson.materials || []).length && !completed ? (
+                  <Typography variant="caption" color="text.secondary">
+                    Tip: use View or Download on a material first if Complete is
+                    blocked.
+                  </Typography>
+                ) : null}
                 {lesson.course_id ? (
                   <Button
                     component={RouterLink}

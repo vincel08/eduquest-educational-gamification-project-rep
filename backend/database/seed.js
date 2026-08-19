@@ -324,6 +324,29 @@ async function run() {
     ],
   );
 
+  await connection.execute(
+    `INSERT INTO class_sections (school_year, grade_level, name, adviser_id)
+     VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)`,
+    [
+      currentSchoolYearLabel,
+      "Grade 10",
+      "A",
+      teacherId,
+      currentSchoolYearLabel,
+      "Grade 10",
+      "B",
+      teacherId,
+      currentSchoolYearLabel,
+      "Grade 9",
+      "A",
+      teacherId,
+      currentSchoolYearLabel,
+      "Grade 9",
+      "B",
+      teacherId,
+    ],
+  );
+
   // const modules = [
   //   {
   //     shortName: "Disaster Preparedness",

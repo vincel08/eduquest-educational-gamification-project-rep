@@ -135,6 +135,11 @@ router.delete(
 );
 router.post("/:id/start", authorize("student"), QuizController.start);
 router.post(
+  "/:id/release-grade",
+  authorize("student"),
+  QuizController.releaseGrade,
+);
+router.post(
   "/attempts/:attemptId/submit",
   authorize("student"),
   submitQuizValidation,

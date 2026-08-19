@@ -41,8 +41,34 @@ export default function FinalScore({
   nextGame = null,
   onNextGame,
   title = 'Game Complete!',
+  attemptsRemaining = null,
+  maxAttempts = null,
+  passed = null,
+  releasedToGradebook = false,
+  releasingGrade = false,
 }) {
   const percent = percentage == null ? Math.max(0, Math.min(100, Number(score) || 0)) : percentage;
+  const canRetry = Boolean(onPlayAgain);
+  const didPass = passed == null ? percent >= 70 : Boolean(passed);
+  const keepLabel = releasingGrade
+    ? 'Submitting…'
+    : releasedToGradebook
+      ? 'Back to games'
+      : didPass
+        ? 'Submit grade to teacher'
+        : 'Submit this score to teacher';
+  const retryLabel = didPass
+    ? `Try for a higher score (${Math.max(0, Number(attemptsRemaining) || 0)} left)`
+    : `Play again (${Math.max(0, Number(attemptsRemaining) || 0)} left)`;
+  const choiceCopy = releasedToGradebook
+    ? 'Your result is now visible to your teacher (best score counts).'
+    : canRetry
+      ? didPass
+        ? 'You passed. Submit this grade to your teacher now, or use a remaining attempt first. Teachers only see a result after you submit or use all attempts.'
+        : 'Not passed yet (need 70%+). Retry, or submit this score to your teacher now. Teachers only see a result after you submit or use all attempts.'
+      : didPass
+        ? 'Great job — your result was sent to your teacher because no attempts remain.'
+        : 'No attempts left — your best result was sent to your teacher.';
 
   return (
     <MotionPaper
@@ -92,6 +118,35 @@ export default function FinalScore({
         <ScoreStat label="XP Earned" value={`+${xpEarned}`} accent />
       </Stack>
 
+      <Chip
+        size="small"
+        label={didPass ? 'Passed' : 'Not passed'}
+        color={didPass ? 'success' : 'default'}
+        variant={didPass ? 'filled' : 'outlined'}
+        sx={{ display: 'flex', mx: 'auto', mt: 1.5, width: 'fit-content', fontWeight: 800 }}
+      />
+
+      {maxAttempts != null ? (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          textAlign="center"
+          sx={{ mt: 1.5 }}
+        >
+          Attempts left: {Math.max(0, Number(attemptsRemaining) || 0)} / {maxAttempts}
+          {!canRetry ? ' · No retries left' : ''}
+        </Typography>
+      ) : null}
+
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        textAlign="center"
+        sx={{ mt: 1.5, maxWidth: 480, mx: 'auto' }}
+      >
+        {choiceCopy}
+      </Typography>
+
       {(badges.length || medals.length) ? (
         <Stack spacing={1} sx={{ mt: 3 }}>
           <Typography fontWeight={900}>Achievements Unlocked</Typography>
@@ -136,12 +191,24 @@ export default function FinalScore({
         spacing={1}
         sx={{ mt: 3, justifyContent: 'center' }}
       >
-        {onPlayAgain ? (
-          <Button variant="contained" onClick={onPlayAgain}>Play Again</Button>
+        {canRetry ? (
+          <Button
+            variant="contained"
+            color={didPass ? 'secondary' : 'primary'}
+            onClick={onPlayAgain}
+            disabled={releasingGrade}
+          >
+            {retryLabel}
+          </Button>
         ) : null}
         {onContinue ? (
-          <Button variant="outlined" color="secondary" onClick={onContinue}>
-            Browse Games
+          <Button
+            variant={canRetry ? 'outlined' : 'contained'}
+            color="secondary"
+            onClick={onContinue}
+            disabled={releasingGrade}
+          >
+            {keepLabel}
           </Button>
         ) : null}
         {onLeaderboard ? (

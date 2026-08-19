@@ -154,6 +154,20 @@ const LessonService = {
     if (!enrolled) throw new AppError("Enroll in the course first", 403);
     await CourseService.assertStudentCourseAccess(lesson.course_id, studentId);
 
+    const materials = await LessonModel.getMaterials(lessonId);
+    if (materials.length > 0) {
+      const views = await LessonModel.countMaterialViewsForLesson(
+        lessonId,
+        studentId,
+      );
+      if (views < 1) {
+        throw new AppError(
+          "Open or download at least one learning material before marking this lesson complete.",
+          400,
+        );
+      }
+    }
+
     const existing = await LessonModel.getProgress(lessonId, studentId);
     if (existing?.status === "completed") {
       return { progress: existing, xpAward: null, alreadyCompleted: true };

@@ -5,6 +5,7 @@ import { validate } from '../middleware/validateMiddleware.js';
 import {
   createGameValidation,
   generateGameValidation,
+  grantGameOverrideValidation,
   submitGameScoreValidation,
 } from '../validations/gameValidation.js';
 import { aiRateLimiter } from '../middleware/rateLimitMiddleware.js';
@@ -14,6 +15,11 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/scores/mine', authorize('student'), GameController.myScores);
+router.get(
+  '/mine',
+  authorize('teacher', 'administrator'),
+  GameController.listMine,
+);
 router.post(
   '/',
   authorize('teacher', 'administrator'),
@@ -29,6 +35,28 @@ router.post(
   validate,
   GameController.generate
 );
+router.get(
+  '/:id/scores/:scoreId',
+  authorize('teacher', 'administrator'),
+  GameController.scoreReview,
+);
+router.get(
+  '/:id/overrides',
+  authorize('teacher', 'administrator'),
+  GameController.listOverrides,
+);
+router.post(
+  '/:id/overrides',
+  authorize('teacher', 'administrator'),
+  grantGameOverrideValidation,
+  validate,
+  GameController.grantOverride,
+);
+router.delete(
+  '/:id/overrides/:studentId',
+  authorize('teacher', 'administrator'),
+  GameController.removeOverride,
+);
 router.get('/:id', GameController.getById);
 router.put('/:id', authorize('teacher', 'administrator'), GameController.update);
 router.delete('/:id', authorize('teacher', 'administrator'), GameController.remove);
@@ -38,6 +66,11 @@ router.post(
   submitGameScoreValidation,
   validate,
   GameController.submitScore
+);
+router.post(
+  '/:id/release-grade',
+  authorize('student'),
+  GameController.releaseGrade,
 );
 
 export default router;

@@ -287,8 +287,9 @@ export function calculateGameScore(gameType, gameData, answers) {
 export function calculateGameXp(score, xpReward) {
   const reward = Number(xpReward) || 0;
   const normalized = clampScore(score);
-  if (normalized >= 70) return reward;
-  return Math.floor(reward * (normalized / 100));
+  // Match quiz policy: no XP below the pass threshold.
+  if (normalized < 70) return 0;
+  return reward;
 }
 
 export { clampScore };

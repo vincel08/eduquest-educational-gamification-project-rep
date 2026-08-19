@@ -366,17 +366,27 @@ const AiReviewService = {
     const course = await CourseModel.findById(payload.courseId);
     assertCourseAccess(course, user);
 
-    const freeText = String(payload.lessonContent || payload.topic || '').trim();
+    const freeText = [payload.topic, payload.lessonContent]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join('\n\n')
+      .trim();
     let sourceText = freeText;
     if (payload.lessonId) {
       const fromLesson = await lessonSourceText(payload.courseId, payload.lessonId);
       if (fromLesson) sourceText = fromLesson;
     }
-    if (!sourceText || sourceText.length < 20) {
+    if (!sourceText || sourceText.length < 3) {
       throw new AppError(
-        'Provide lesson text/topic or select a lesson with content to generate a game.',
+        'Provide a topic, lesson text, or select a lesson to generate a game.',
         400,
       );
+    }
+    // Enrich short prompts so the model still has subject context.
+    if (sourceText.length < 20) {
+      const subject = course.subject || course.title || 'this subject';
+      const grade = course.grade_level || 'junior high school';
+      sourceText = `Topic: ${sourceText}\nSubject: ${subject}\nGrade level: ${grade}\nCreate an educational game about this topic for ${grade} students.`;
     }
     assertInputTextSize(sourceText, { label: 'Lesson content' });
 
@@ -798,8 +808,15 @@ const AiReviewService = {
     });
 
     try {
+    if (draft.sourceType === 'ai_game' && (target === 'quiz' || target === 'selected_question')) {
+      throw new AppError(
+        'AI Games drafts can only regenerate game content, not quizzes.',
+        400,
+      );
+    }
+
     if (target === 'all' || target === 'quiz') {
-      if (draft.quiz || target === 'quiz') {
+      if (draft.sourceType !== 'ai_game' && (draft.quiz || target === 'quiz')) {
         const questionCount = assertQuestionCount(
           payload.questionCount || draft.quiz?.questions?.length || 5
         );
@@ -815,6 +832,12 @@ const AiReviewService = {
     }
 
     if (target === 'selected_question' && draft.quiz) {
+      if (draft.sourceType === 'ai_game') {
+        throw new AppError(
+          'AI Games drafts can only regenerate game content, not quizzes.',
+          400,
+        );
+      }
       const index = Number(payload.questionIndex);
       if (Number.isNaN(index) || index < 0 || index >= draft.quiz.questions.length) {
         throw new AppError('Invalid question index', 400);

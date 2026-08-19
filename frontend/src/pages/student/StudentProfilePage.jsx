@@ -21,6 +21,7 @@ import gamificationService from "../../services/gamificationService";
 import analyticsService from "../../services/analyticsService";
 import courseService from "../../services/courseService";
 import authService from "../../services/authService";
+import classSectionService from "../../services/classSectionService";
 import { getErrorMessage } from "../../services/api";
 import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 import { useAuth } from "../../contexts/AuthContext";
@@ -34,6 +35,7 @@ import {
   listSchoolYearOptions,
 } from "../../utils/schoolYears";
 import { SECTION_PLACEHOLDER } from "../../utils/classSections";
+import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
 
 function resolveAvatarUrl(url) {
   if (!url) return undefined;
@@ -46,6 +48,7 @@ function resolveAvatarUrl(url) {
 export default function StudentProfilePage() {
   const { user, updateProfile } = useAuth();
   const fileInputRef = useRef(null);
+  const sectionsRevision = useClassSectionsRevision();
   const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [data, setData] = useState(null);
   const [courses, setCourses] = useState([]);
@@ -63,8 +66,43 @@ export default function StudentProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [sectionOptions, setSectionOptions] = useState([]);
 
   useEffect(() => {
+    let active = true;
+    if (!form.schoolYear || !form.gradeLevel) {
+      setSectionOptions([]);
+      return undefined;
+    }
+    classSectionService
+      .options({ schoolYear: form.schoolYear, gradeLevel: form.gradeLevel })
+      .then((response) => {
+        if (!active) return;
+        const options = response.data.data || [];
+        setSectionOptions(options);
+        setForm((prev) => {
+          if (!prev.section) return prev;
+          const matched = options.find(
+            (item) => item.toLowerCase() === String(prev.section).toLowerCase(),
+          );
+          if (matched) {
+            return matched === prev.section ? prev : { ...prev, section: matched };
+          }
+          // Stale section for this grade/SY — force a new choice.
+          return { ...prev, section: "" };
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+        setSectionOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [form.schoolYear, form.gradeLevel, sectionsRevision]);
+
+  useEffect(() => {
+    let active = true;
     async function load() {
       try {
         const [meRes, analyticsRes, coursesRes] = await Promise.all([
@@ -72,30 +110,38 @@ export default function StudentProfilePage() {
           analyticsService.student(),
           courseService.myCourses(),
         ]);
+        if (!active) return;
         const gamification = meRes.data.data;
         setData({ gamification, analytics: analyticsRes.data.data });
         updateProfile(gamification.profile);
         setCourses(coursesRes.data.data?.courses || coursesRes.data.data || []);
         const existingGrade = gamification.profile?.grade_level || "";
+        const existingSection = gamification.profile?.section || "";
         setForm({
           firstName: user?.firstName || "",
           lastName: user?.lastName || "",
           // Keep unknown/legacy values editable as empty so the student can pick a supported grade.
           gradeLevel: isValidGradeLevel(existingGrade) ? existingGrade : "",
           schoolName: gamification.profile?.school_name || "",
-          section: gamification.profile?.section || "",
+          section: existingSection,
           schoolYear:
             gamification.profile?.school_year || defaultSchoolYearValue(),
         });
         setAvatarUrl(user?.avatarUrl || "");
       } catch (err) {
+        if (!active) return;
         setError(getErrorMessage(err));
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
     load();
-  }, [updateProfile, user?.firstName, user?.lastName, user?.avatarUrl]);
+    return () => {
+      active = false;
+    };
+    // Load once per signed-in student; do not re-run when auth helpers/profile sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount/id load
+  }, [user?.id]);
 
   async function handleSave(event) {
     event.preventDefault();
@@ -109,6 +155,16 @@ export default function StudentProfilePage() {
       });
       updateProfile(response.data.data.profile, response.data.data.user);
       setAvatarUrl(response.data.data.user?.avatarUrl || "");
+      const nextProfile = response.data.data.profile || {};
+      setForm((prev) => ({
+        ...prev,
+        firstName: response.data.data.user?.firstName ?? prev.firstName,
+        lastName: response.data.data.user?.lastName ?? prev.lastName,
+        gradeLevel: nextProfile.grade_level || prev.gradeLevel,
+        schoolName: nextProfile.school_name || "",
+        section: nextProfile.section || "",
+        schoolYear: nextProfile.school_year || prev.schoolYear,
+      }));
       setData((prev) => {
         if (!prev) return prev;
         return {
@@ -117,7 +173,7 @@ export default function StudentProfilePage() {
             ...prev.gamification,
             profile: {
               ...prev.gamification.profile,
-              ...(response.data.data.profile || {}),
+              ...nextProfile,
             },
           },
         };
@@ -246,6 +302,15 @@ export default function StudentProfilePage() {
             <Typography sx={{ mt: 1 }}>
               Grade Level: {studentProfile.grade_level || "—"}
             </Typography>
+            <Typography>
+              Section: {studentProfile.section || "—"}
+            </Typography>
+            <Typography>
+              School Year:{" "}
+              {studentProfile.school_year
+                ? `SY ${studentProfile.school_year}`
+                : "—"}
+            </Typography>
             <Typography>Rank: #{studentProfile.rank || "—"}</Typography>
             <Typography>XP: {studentProfile.xp}</Typography>
             <Typography>
@@ -286,7 +351,11 @@ export default function StudentProfilePage() {
                 fullWidth
                 value={form.gradeLevel}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, gradeLevel: e.target.value }))
+                  setForm((p) => ({
+                    ...p,
+                    gradeLevel: e.target.value,
+                    section: "",
+                  }))
                 }
                 helperText={
                   form.gradeLevel ? undefined : GRADE_LEVEL_PLACEHOLDER
@@ -314,7 +383,11 @@ export default function StudentProfilePage() {
                 fullWidth
                 value={form.schoolYear}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, schoolYear: e.target.value }))
+                  setForm((p) => ({
+                    ...p,
+                    schoolYear: e.target.value,
+                    section: "",
+                  }))
                 }
               >
                 {schoolYearOptions.map((option) => (
@@ -324,13 +397,37 @@ export default function StudentProfilePage() {
                 ))}
               </TextField>
               <TextField
+                select
                 label="Section"
                 value={form.section}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, section: e.target.value }))
                 }
-                helperText={SECTION_PLACEHOLDER}
-              />
+                helperText={
+                  !form.gradeLevel
+                    ? "Select a grade level first"
+                    : sectionOptions.length
+                      ? "Sections for this grade and school year"
+                      : "No sections yet for this grade — ask an admin to add one"
+                }
+                disabled={!form.gradeLevel || !sectionOptions.length}
+                SelectProps={{
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    if (!selected) return SECTION_PLACEHOLDER;
+                    return selected;
+                  },
+                }}
+              >
+                <MenuItem value="" disabled>
+                  {SECTION_PLACEHOLDER}
+                </MenuItem>
+                {sectionOptions.map((section) => (
+                  <MenuItem key={section} value={section}>
+                    {section}
+                  </MenuItem>
+                ))}
+              </TextField>
               <TextField
                 label="School"
                 value={form.schoolName}

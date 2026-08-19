@@ -7,13 +7,21 @@ import {
 const CourseModel = {
   async create(data) {
     const result = await query(
-      `INSERT INTO courses (title, description, subject, grade_level, cover_image, teacher_id, is_published)
-       VALUES (:title, :description, :subject, :gradeLevel, :coverImage, :teacherId, :isPublished)`,
+      `INSERT INTO courses (
+         title, description, subject, grade_level, school_year, ends_at,
+         cover_image, teacher_id, is_published
+       )
+       VALUES (
+         :title, :description, :subject, :gradeLevel, :schoolYear, :endsAt,
+         :coverImage, :teacherId, :isPublished
+       )`,
       {
         title: data.title,
         description: data.description || null,
         subject: data.subject,
         gradeLevel: data.gradeLevel || null,
+        schoolYear: data.schoolYear || null,
+        endsAt: data.endsAt || null,
         coverImage: data.coverImage || null,
         teacherId: data.teacherId,
         isPublished: data.isPublished ? 1 : 0,
@@ -96,6 +104,8 @@ const CourseModel = {
       description: "description",
       subject: "subject",
       gradeLevel: "grade_level",
+      schoolYear: "school_year",
+      endsAt: "ends_at",
       coverImage: "cover_image",
       isPublished: "is_published",
       updatedBy: "updated_by",
@@ -107,7 +117,8 @@ const CourseModel = {
     for (const [key, column] of Object.entries(mapping)) {
       if (data[key] !== undefined) {
         sets.push(`${column} = :${key}`);
-        params[key] = key === "isPublished" ? (data[key] ? 1 : 0) : data[key];
+        params[key] =
+          key === "isPublished" ? (data[key] ? 1 : 0) : data[key];
       }
     }
 

@@ -204,6 +204,18 @@ const QuizController = {
     }
   },
 
+  async releaseGrade(req, res, next) {
+    try {
+      const data = await QuizService.releaseGradeToTeacher(
+        Number(req.params.id),
+        req.user.id,
+      );
+      return successResponse(res, "Quiz grade submitted to teacher", data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async myAttempts(req, res, next) {
     try {
       const quizId = req.query.quizId ? Number(req.query.quizId) : null;

@@ -9,6 +9,7 @@ import {
 } from "@mui/material";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 import courseService from "../../services/courseService";
+import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
 
 export default function TeacherSidebarFilters() {
   const {
@@ -22,6 +23,7 @@ export default function TeacherSidebarFilters() {
     gradeOptions,
     toQueryParams,
   } = useTeacherFilters();
+  const sectionsRevision = useClassSectionsRevision();
   const [sections, setSections] = useState([]);
 
   useEffect(() => {
@@ -32,16 +34,21 @@ export default function TeacherSidebarFilters() {
       .teacherSections(params)
       .then((response) => {
         if (!active) return;
-        setSections(response.data.data || []);
+        const next = response.data.data || [];
+        setSections(next);
+        setSection((current) =>
+          current !== "all" && !next.includes(current) ? "all" : current,
+        );
       })
       .catch(() => {
         if (!active) return;
         setSections([]);
+        setSection((current) => (current !== "all" ? "all" : current));
       });
     return () => {
       active = false;
     };
-  }, [schoolYear, gradeLevel, toQueryParams]);
+  }, [schoolYear, gradeLevel, toQueryParams, sectionsRevision, setSection]);
 
   return (
     <Box sx={{ px: 1.5, pb: 1.5 }}>

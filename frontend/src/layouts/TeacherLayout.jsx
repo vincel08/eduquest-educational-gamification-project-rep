@@ -13,7 +13,8 @@ import TeacherSidebarFilters from "../components/teacher/TeacherSidebarFilters";
 const navItems = [
   { label: "Dashboard", path: "/teacher/dashboard", icon: <DashboardIcon /> },
   { label: "My Subjects", path: "/teacher/courses", icon: <MenuBookIcon /> },
-  { label: "Quizzes", path: "/teacher/quizzes", icon: <QuizIcon /> },
+  { label: "My Quizzes", path: "/teacher/quizzes", icon: <QuizIcon /> },
+  { label: "My Games", path: "/teacher/games", icon: <SportsEsportsIcon /> },
   {
     label: "AI Content",
     path: "/teacher/ai-content",

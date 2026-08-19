@@ -70,7 +70,11 @@ export default function StudentQuizzesPage() {
         <Grid container spacing={2}>
           {visibleQuizzes.map((quiz) => {
             const unavailable = Boolean(
-              quiz.locked || quiz.isClosed || quiz.outOfAttempts,
+              quiz.locked ||
+                quiz.isClosed ||
+                quiz.outOfAttempts ||
+                quiz.gradeReleased ||
+                quiz.unavailable,
             );
             let unlockMessage = quiz.unlockMessage;
             let status = `${quiz.question_count || 0} Qs`;
@@ -84,13 +88,25 @@ export default function StudentQuizzesPage() {
               unlockMessage =
                 unlockMessage ||
                 "This quiz is closed (past due date or school year ended).";
+            } else if (quiz.gradeReleased) {
+              status = "Submitted";
+              statusColor = "success";
+              unlockMessage =
+                unlockMessage ||
+                "You already submitted this quiz grade. It is no longer available.";
             } else if (quiz.outOfAttempts) {
               status = "No attempts";
               statusColor = "warning";
               unlockMessage =
                 unlockMessage || "You used all attempts for this quiz.";
+            } else if (quiz.hasPassed) {
+              status = "Passed";
+              statusColor = "success";
             }
             const metaParts = [
+              quiz.bestScore != null
+                ? `Best ${Number(quiz.bestScore).toFixed(0)}%`
+                : null,
               quiz.attemptsRemaining != null
                 ? `${quiz.attemptsRemaining} attempt(s) left`
                 : null,
@@ -120,7 +136,19 @@ export default function StudentQuizzesPage() {
                     unavailable ? undefined : `/student/quizzes/${quiz.id}`
                   }
                   actionLabel={
-                    quiz.hasOverride ? "Continue (extended)" : "Start Challenge"
+                    quiz.hasOverride && !unavailable
+                      ? "Continue (extended)"
+                      : quiz.locked
+                        ? "Finish lesson first"
+                        : quiz.gradeReleased
+                          ? "Submitted"
+                          : quiz.isClosed || quiz.outOfAttempts
+                            ? "Unavailable"
+                            : quiz.hasAttempted
+                              ? quiz.attemptsRemaining > 0
+                                ? "Use another attempt"
+                                : "Open quiz"
+                              : "Start Challenge"
                   }
                 />
               </Grid>

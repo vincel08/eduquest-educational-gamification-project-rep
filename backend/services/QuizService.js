@@ -66,7 +66,21 @@ async function withStudentQuizMeta(quizzes, studentId) {
   const enriched = [];
   for (const quiz of quizzes) {
     const { meta } = await resolveStudentQuizAccess(quiz, studentId);
-    enriched.push({ ...quiz, ...meta });
+    const best = await QuizModel.findBestCompletedAttempt(quiz.id, studentId);
+    const gradeReleased = await QuizModel.hasReleasedAttempt(quiz.id, studentId);
+    const unavailable =
+      Boolean(meta.outOfAttempts) ||
+      Boolean(meta.isClosed) ||
+      gradeReleased;
+    enriched.push({
+      ...quiz,
+      ...meta,
+      bestScore: best ? Number(best.score) : null,
+      hasPassed: Boolean(best?.is_passed),
+      hasAttempted: Boolean(best),
+      gradeReleased,
+      unavailable,
+    });
   }
   return enriched;
 }
@@ -967,6 +981,14 @@ const QuizService = {
     const { attemptsUsed, effectiveDueAt, maxAttempts, meta } =
       await resolveStudentQuizAccess(quiz, studentId);
 
+    const gradeReleased = await QuizModel.hasReleasedAttempt(quizId, studentId);
+    if (gradeReleased) {
+      throw new AppError(
+        "You already submitted this quiz grade. It is no longer available.",
+        403,
+      );
+    }
+
     assertQuizOpenForAttempt(attemptsUsed, {
       effectiveDueAt,
       maxAttempts,
@@ -981,7 +1003,14 @@ const QuizService = {
       attempt = await QuizModel.createAttempt({ quizId, studentId });
     }
 
-    return { attempt, quiz, questions, ...meta };
+    return {
+      attempt,
+      quiz,
+      questions,
+      ...meta,
+      gradeReleased: false,
+      unavailable: Boolean(meta.outOfAttempts) || Boolean(meta.isClosed),
+    };
   },
 
   async submitAttempt(attemptId, answers, studentId) {
@@ -1002,6 +1031,18 @@ const QuizService = {
       studentId,
       contentLabel: "quiz",
     });
+
+    const alreadyReleased = await QuizModel.hasReleasedAttempt(
+      quiz.id,
+      studentId,
+    );
+    if (alreadyReleased) {
+      throw new AppError(
+        "You already submitted this quiz grade. It is no longer available.",
+        403,
+      );
+    }
+
     const questions = await QuizModel.getQuestions(attempt.quiz_id, {
       includeCorrect: true,
     });
@@ -1042,9 +1083,8 @@ const QuizService = {
       ? Number(((earnedPoints / totalPoints) * 100).toFixed(2))
       : 0;
     const isPassed = score >= quiz.passing_score;
-    const computedXp = isPassed
-      ? quiz.xp_reward
-      : Math.floor(quiz.xp_reward * 0.25);
+    // Failed attempts earn no XP (pass required for quiz XP reward).
+    const computedXp = isPassed ? quiz.xp_reward : 0;
     const qualifiesForRewards = score >= QUIZ_REWARD_SCORE_MIN;
 
     // Base quiz XP is one-time per student+quiz (retries allowed, no XP farming).
@@ -1074,6 +1114,7 @@ const QuizService = {
       earnedPoints,
       xpEarned,
       isPassed: isPassed ? 1 : 0,
+      releasedToGradebook: false,
     });
 
     if (qualifiesForRewards) {
@@ -1107,6 +1148,12 @@ const QuizService = {
     }
 
     const { meta } = await resolveStudentQuizAccess(quiz, studentId);
+    let releasedToGradebook = false;
+    if (meta.outOfAttempts || meta.attemptsRemaining <= 0) {
+      await QuizModel.releaseCompletedAttempts(quiz.id, studentId);
+      releasedToGradebook = true;
+    }
+
     const reviewItems = !isPassed
       ? buildFailPointers(questions, wrongQuestionIds)
       : [];
@@ -1122,6 +1169,40 @@ const QuizService = {
       perfectMedalAwarded,
       perfectMedal,
       reviewItems,
+      releasedToGradebook,
+      ...meta,
+    };
+  },
+
+  async releaseGradeToTeacher(quizId, studentId) {
+    const quiz = await QuizModel.findById(quizId);
+    if (!quiz || !quiz.is_published) {
+      throw new AppError("Quiz not available", 404);
+    }
+
+    const enrolled = await CourseModel.isEnrolled(quiz.course_id, studentId);
+    if (!enrolled) throw new AppError("Enroll in the course first", 403);
+    await CourseService.assertStudentCourseAccess(quiz.course_id, studentId);
+
+    const attemptsUsed = await QuizModel.countCompletedAttempts(
+      quizId,
+      studentId,
+    );
+    if (attemptsUsed <= 0) {
+      throw new AppError("Complete at least one attempt before submitting your grade", 400);
+    }
+
+    await QuizModel.releaseCompletedAttempts(quizId, studentId);
+    const best = await QuizModel.findBestCompletedAttempt(quizId, studentId);
+    const { meta } = await resolveStudentQuizAccess(quiz, studentId);
+
+    return {
+      quizId: Number(quizId),
+      releasedToGradebook: true,
+      gradeReleased: true,
+      unavailable: true,
+      bestScore: best ? Number(best.score) : null,
+      isPassed: Boolean(best?.is_passed),
       ...meta,
     };
   },
@@ -1138,6 +1219,12 @@ const QuizService = {
     }
     if (!attempt.completed_at) {
       throw new AppError("Attempt is not completed yet", 400);
+    }
+    if (!Number(attempt.released_to_gradebook)) {
+      throw new AppError(
+        "This attempt is not released to the gradebook yet",
+        403,
+      );
     }
 
     const [questions, answers] = await Promise.all([

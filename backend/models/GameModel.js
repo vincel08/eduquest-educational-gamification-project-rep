@@ -101,17 +101,127 @@ const GameModel = {
     return true;
   },
 
-  async saveScore({ gameId, studentId, score, xpEarned, durationSeconds = null }) {
+  async saveScore({
+    gameId,
+    studentId,
+    score,
+    xpEarned,
+    durationSeconds = null,
+    answers = null,
+    releasedToGradebook = false,
+  }) {
     const result = await query(
-      `INSERT INTO game_scores (game_id, student_id, score, xp_earned, duration_seconds)
-       VALUES (:gameId, :studentId, :score, :xpEarned, :durationSeconds)`,
-      { gameId, studentId, score, xpEarned, durationSeconds }
+      `INSERT INTO game_scores
+         (game_id, student_id, score, xp_earned, duration_seconds, answers_json, released_to_gradebook)
+       VALUES
+         (:gameId, :studentId, :score, :xpEarned, :durationSeconds, :answersJson, :releasedToGradebook)`,
+      {
+        gameId,
+        studentId,
+        score,
+        xpEarned,
+        durationSeconds,
+        answersJson: answers != null ? JSON.stringify(answers) : null,
+        releasedToGradebook: releasedToGradebook ? 1 : 0,
+      },
     );
 
-    const rows = await query('SELECT * FROM game_scores WHERE id = :id LIMIT 1', {
-      id: result.insertId,
-    });
+    const rows = await query(
+      `SELECT id, game_id, student_id, score, xp_earned, duration_seconds, played_at,
+              released_to_gradebook, created_at, updated_at
+       FROM game_scores
+       WHERE id = :id
+       LIMIT 1`,
+      { id: result.insertId },
+    );
     return rows[0];
+  },
+
+  async releaseStudentScores(gameId, studentId) {
+    await query(
+      `UPDATE game_scores
+       SET released_to_gradebook = 1
+       WHERE game_id = :gameId
+         AND student_id = :studentId
+         AND released_to_gradebook = 0`,
+      { gameId, studentId },
+    );
+    return true;
+  },
+
+  async hasReleasedScore(gameId, studentId) {
+    const rows = await query(
+      `SELECT id FROM game_scores
+       WHERE game_id = :gameId
+         AND student_id = :studentId
+         AND released_to_gradebook = 1
+       LIMIT 1`,
+      { gameId, studentId },
+    );
+    return Boolean(rows[0]);
+  },
+
+  async findScoreById(scoreId) {
+    const rows = await query(
+      `SELECT gs.*,
+              g.title AS game_title,
+              g.game_type,
+              g.game_data,
+              g.course_id,
+              g.xp_reward,
+              c.teacher_id,
+              u.first_name,
+              u.last_name,
+              u.email,
+              u.username
+       FROM game_scores gs
+       INNER JOIN educational_games g ON g.id = gs.game_id
+       INNER JOIN courses c ON c.id = g.course_id
+       INNER JOIN users u ON u.id = gs.student_id
+       WHERE gs.id = :scoreId
+       LIMIT 1`,
+      { scoreId },
+    );
+    if (!rows[0]) return null;
+
+    const row = rows[0];
+    let answers = null;
+    if (row.answers_json != null) {
+      answers =
+        typeof row.answers_json === 'string'
+          ? JSON.parse(row.answers_json)
+          : row.answers_json;
+    }
+    return {
+      ...row,
+      answers_json: answers,
+      game_data:
+        typeof row.game_data === 'string'
+          ? JSON.parse(row.game_data)
+          : row.game_data,
+    };
+  },
+
+  async countStudentPlays(gameId, studentId) {
+    const rows = await query(
+      `SELECT COUNT(*) AS total
+       FROM game_scores
+       WHERE game_id = :gameId AND student_id = :studentId`,
+      { gameId, studentId },
+    );
+    return Number(rows[0]?.total || 0);
+  },
+
+  async findBestScore(gameId, studentId) {
+    const rows = await query(
+      `SELECT id, score, xp_earned, played_at
+       FROM game_scores
+       WHERE game_id = :gameId AND student_id = :studentId
+       ORDER BY score DESC, played_at DESC, id DESC
+       LIMIT 1`,
+      { gameId, studentId },
+    );
+    return rows[0] || null;
   },
 
   async getStudentScores(studentId, gameId = null) {

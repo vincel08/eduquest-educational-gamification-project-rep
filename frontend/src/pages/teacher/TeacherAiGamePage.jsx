@@ -19,6 +19,7 @@ import ExtensionIcon from '@mui/icons-material/Extension';
 import CasinoIcon from '@mui/icons-material/Casino';
 import QuizIcon from '@mui/icons-material/Quiz';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import PageContainer from '../../components/common/PageContainer';
 import AiGeneratedReviewPanel from '../../components/ai-review/AiGeneratedReviewPanel';
@@ -43,6 +44,7 @@ const GAME_TYPE_OPTIONS = [
 ];
 
 export default function TeacherAiGamePage() {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [lessons, setLessons] = useState([]);
   const [form, setForm] = useState({
@@ -123,11 +125,11 @@ export default function TeacherAiGamePage() {
     }
   }
 
+  const freeText = `${form.topic} ${form.lessonContent}`.trim();
   const canGenerate = Boolean(form.courseId)
     && (
       Boolean(form.lessonId)
-      || form.lessonContent.trim().length >= 20
-      || form.topic.trim().length >= 20
+      || freeText.length >= 3
     );
 
   return (
@@ -204,18 +206,19 @@ export default function TeacherAiGamePage() {
             label="Topic (optional)"
             value={form.topic}
             onChange={(e) => setForm((p) => ({ ...p, topic: e.target.value }))}
-            placeholder="Short topic title for the game"
+            placeholder="e.g. Fractions"
+            helperText="Optional short title. You can generate from topic alone."
           />
 
           <TextField
-            label="Lesson text"
+            label="Lesson text (optional)"
             value={form.lessonContent}
             onChange={(e) => setForm((p) => ({ ...p, lessonContent: e.target.value }))}
             multiline
             minRows={6}
             maxRows={14}
             placeholder="Paste lesson content used to generate the game…"
-            helperText="Provide lesson text (20+ characters) and/or link an existing lesson."
+            helperText="Optional. Topic, lesson text, or a linked lesson — at least one is required."
           />
 
           <TextField
@@ -223,7 +226,11 @@ export default function TeacherAiGamePage() {
             label="Link to lesson (optional)"
             value={form.lessonId}
             onChange={(e) => setForm((p) => ({ ...p, lessonId: e.target.value }))}
-            helperText={!lessons.length ? 'No lessons in this subject yet — use lesson text above.' : ' '}
+            helperText={
+              !lessons.length
+                ? 'No lessons in this subject yet — use topic or lesson text above.'
+                : 'Optional. Links generation to an existing lesson.'
+            }
           >
             <MenuItem value="">None</MenuItem>
             {lessons.map((lesson) => (
@@ -239,6 +246,11 @@ export default function TeacherAiGamePage() {
           >
             {loading ? 'Generating...' : 'Generate Game'}
           </Button>
+          {!canGenerate ? (
+            <Typography variant="caption" color="text.secondary">
+              Enter a topic or lesson text, or link a lesson, to enable Generate.
+            </Typography>
+          ) : null}
         </Stack>
       </Paper>
 
@@ -253,10 +265,11 @@ export default function TeacherAiGamePage() {
           }}
           onPublished={(payload) => {
             setDraft(null);
-            if (payload?.game?.id) {
-              setMessage('Game published successfully to Educational Games.');
+            const id = payload?.game?.id || payload?.gameId;
+            if (id) {
+              navigate(`/teacher/games/${id}/edit`);
             } else {
-              setMessage('Published, but no game record was created. Check the draft and try again.');
+              setMessage('Published. Open Games from the sidebar to revisit it.');
             }
           }}
         />

@@ -219,6 +219,18 @@ describe('authenticated file API', () => {
     assert.equal(text, 'lesson-material-content');
   });
 
+  it('enrolled student can force-download material with attachment disposition', async () => {
+    const token = signUser(studentA);
+    const response = await fetch(
+      `${appHandle.baseUrl}/api/files/materials/${materialA.id}?download=1`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    assert.equal(response.status, 200);
+    const disposition = response.headers.get('content-disposition') || '';
+    assert.match(disposition, /attachment/i);
+    assert.match(disposition, /notes\.txt/i);
+  });
+
   it('TEST 3: student cannot access another course material (IDOR)', async () => {
     const token = signUser(studentB);
     const response = await fetch(

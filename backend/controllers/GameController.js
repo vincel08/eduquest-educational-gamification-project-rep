@@ -38,6 +38,17 @@ const GameController = {
     }
   },
 
+  async listMine(req, res, next) {
+    try {
+      const data = await GameService.listForTeacher(req.user, {
+        gradeLevel: req.query.gradeLevel,
+      });
+      return successResponse(res, 'Games retrieved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async getById(req, res, next) {
     try {
       const data = await GameService.getGameById(Number(req.params.id), req.user);
@@ -75,6 +86,69 @@ const GameController = {
         durationSeconds: req.body.durationSeconds,
       });
       return successResponse(res, 'Score submitted', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async releaseGrade(req, res, next) {
+    try {
+      const data = await GameService.releaseGradeToTeacher(
+        Number(req.params.id),
+        req.user.id,
+      );
+      return successResponse(res, 'Game grade submitted to teacher', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async scoreReview(req, res, next) {
+    try {
+      const data = await GameService.getScoreReview(
+        Number(req.params.id),
+        Number(req.params.scoreId),
+        req.user,
+      );
+      return successResponse(res, 'Game score review retrieved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async listOverrides(req, res, next) {
+    try {
+      const data = await GameService.listStudentOverrides(
+        Number(req.params.id),
+        req.user,
+      );
+      return successResponse(res, 'Game overrides retrieved', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async grantOverride(req, res, next) {
+    try {
+      const data = await GameService.grantStudentOverride(
+        Number(req.params.id),
+        req.body,
+        req.user,
+      );
+      return successResponse(res, 'Game access extended for student', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async removeOverride(req, res, next) {
+    try {
+      await GameService.removeStudentOverride(
+        Number(req.params.id),
+        Number(req.params.studentId),
+        req.user,
+      );
+      return successResponse(res, 'Game override removed', {});
     } catch (error) {
       return next(error);
     }

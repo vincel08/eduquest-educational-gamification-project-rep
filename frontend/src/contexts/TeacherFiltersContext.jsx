@@ -62,8 +62,15 @@ export function TeacherFiltersProvider({ children }) {
     setFilters((prev) => ({ ...prev, gradeLevel, section: "all" }));
   }, []);
 
-  const setSection = useCallback((section) => {
-    setFilters((prev) => ({ ...prev, section }));
+  const setSection = useCallback((sectionOrUpdater) => {
+    setFilters((prev) => {
+      const next =
+        typeof sectionOrUpdater === "function"
+          ? sectionOrUpdater(prev.section)
+          : sectionOrUpdater;
+      if (next === prev.section) return prev;
+      return { ...prev, section: next };
+    });
   }, []);
 
   const toQueryParams = useCallback(() => {

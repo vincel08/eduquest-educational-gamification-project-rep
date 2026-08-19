@@ -26,17 +26,23 @@ import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
 import { GRADE_LEVELS } from "../../utils/gradeLevels";
+import {
+  defaultSchoolYearValue,
+  listSchoolYearOptions,
+} from "../../utils/schoolYears";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
 const emptyForm = {
   subject: "",
   description: "",
   gradeLevel: "Grade 10",
+  schoolYear: defaultSchoolYearValue(),
   isPublished: true,
 };
 
 export default function TeacherCoursesPage() {
   const { toQueryParams, gradeLevel } = useTeacherFilters();
+  const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [courses, setCourses] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(false);
@@ -77,6 +83,7 @@ export default function TeacherCoursesPage() {
         title: subject,
         description: form.description,
         gradeLevel: form.gradeLevel,
+        schoolYear: form.schoolYear,
         isPublished: form.isPublished,
       });
       setOpen(false);
@@ -130,6 +137,13 @@ export default function TeacherCoursesPage() {
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {course.grade_level || "Grade not set"}
+                  {course.school_year ? ` · SY ${course.school_year}` : ""}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {course.is_published ? "Published" : "Unpublished"}
+                  {course.ends_at
+                    ? ` · ends ${new Date(course.ends_at).toLocaleDateString()}`
+                    : ""}
                 </Typography>
                 {course.description ? (
                   <Typography
@@ -188,6 +202,21 @@ export default function TeacherCoursesPage() {
               {GRADE_LEVELS.map((grade) => (
                 <MenuItem key={grade} value={grade}>
                   {grade}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="School Year"
+              value={form.schoolYear}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, schoolYear: e.target.value }))
+              }
+              helperText="Subject auto-deactivates when this school year ends (May 1)"
+            >
+              {schoolYearOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
                 </MenuItem>
               ))}
             </TextField>

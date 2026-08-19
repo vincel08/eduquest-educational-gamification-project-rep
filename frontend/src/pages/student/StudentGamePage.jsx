@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Button, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import { useNavigate, useParams, Link as RouterLink } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
@@ -27,12 +27,32 @@ export default function StudentGamePage() {
   const [sessionKey, setSessionKey] = useState(0);
   const [motivation, setMotivation] = useState("");
   const [nextGame, setNextGame] = useState(null);
+  const [releasingGrade, setReleasingGrade] = useState(false);
+  const [attemptMeta, setAttemptMeta] = useState({
+    attemptsUsed: 0,
+    attemptsRemaining: 3,
+    maxAttempts: 3,
+    outOfAttempts: false,
+    gradeReleased: false,
+    unavailable: false,
+  });
 
   useEffect(() => {
     async function load() {
       try {
         const response = await gameService.getById(gameId);
-        setGame(response.data.data);
+        const data = response.data.data;
+        setGame(data);
+        setAttemptMeta({
+          attemptsUsed: data.attemptsUsed ?? 0,
+          attemptsRemaining: data.attemptsRemaining ?? 3,
+          maxAttempts: data.maxAttempts ?? data.maxGameAttempts ?? 3,
+          outOfAttempts: Boolean(data.outOfAttempts),
+          gradeReleased: Boolean(data.gradeReleased),
+          unavailable: Boolean(
+            data.unavailable || data.outOfAttempts || data.gradeReleased,
+          ),
+        });
         try {
           const enrolledRes = await courseService.myCourses();
           const courses = enrolledRes.data.data || [];
@@ -42,7 +62,15 @@ export default function StudentGamePage() {
               return gamesRes.data.data || [];
             }),
           );
-          const allGames = groups.flat().filter((item) => !item.locked);
+          const allGames = groups
+            .flat()
+            .filter(
+              (item) =>
+                !item.locked &&
+                !item.outOfAttempts &&
+                !item.gradeReleased &&
+                !item.unavailable,
+            );
           const currentIndex = allGames.findIndex(
             (item) => Number(item.id) === Number(gameId),
           );
@@ -88,21 +116,50 @@ export default function StudentGamePage() {
       const serverScore =
         payload.serverScore ?? payload.score?.score ?? clientScore;
       const xpEarned = payload.score?.xp_earned || 0;
-      setMotivation(pickMotivationalMessage());
+      const nextAttempts = {
+        attemptsUsed: payload.attemptsUsed ?? attemptMeta.attemptsUsed + 1,
+        attemptsRemaining:
+          payload.attemptsRemaining ??
+          Math.max(0, attemptMeta.attemptsRemaining - 1),
+        maxAttempts: payload.maxAttempts ?? attemptMeta.maxAttempts,
+        outOfAttempts: Boolean(
+          payload.outOfAttempts ??
+            (payload.attemptsRemaining ?? attemptMeta.attemptsRemaining - 1) <=
+              0,
+        ),
+        gradeReleased: Boolean(payload.releasedToGradebook),
+        unavailable: Boolean(
+          payload.releasedToGradebook ||
+            payload.outOfAttempts ||
+            (payload.attemptsRemaining ?? attemptMeta.attemptsRemaining - 1) <=
+              0,
+        ),
+      };
+      setAttemptMeta(nextAttempts);
+      const passed = serverScore >= 70;
+      setMotivation(
+        passed
+          ? pickMotivationalMessage()
+          : "Keep practicing — no XP below 70%.",
+      );
       playSound(SOUND_KEYS.gameComplete);
       notifyReward({
-        xpEarned,
+        xpEarned: passed ? xpEarned : 0,
         badges: payload.xpAward?.newlyUnlocked?.badges || [],
         medals: payload.xpAward?.newlyUnlocked?.medals || [],
-        celebrateWin: serverScore >= 70,
+        celebrateWin: passed,
       });
       setResult({
         score: serverScore,
         percentage: Math.max(0, Math.min(100, Number(serverScore) || 0)),
-        xpEarned,
+        xpEarned: passed ? xpEarned : 0,
         badges: payload.xpAward?.newlyUnlocked?.badges || [],
         medals: payload.xpAward?.newlyUnlocked?.medals || [],
-        motivation: pickMotivationalMessage(),
+        motivation: passed
+          ? pickMotivationalMessage()
+          : "Keep practicing — no XP below 70%.",
+        passed,
+        releasedToGradebook: Boolean(payload.releasedToGradebook),
       });
     } catch (err) {
       setFinished(false);
@@ -111,10 +168,41 @@ export default function StudentGamePage() {
   }
 
   function playAgain() {
+    if (
+      attemptMeta.unavailable ||
+      attemptMeta.gradeReleased ||
+      attemptMeta.outOfAttempts ||
+      attemptMeta.attemptsRemaining <= 0 ||
+      result?.releasedToGradebook
+    ) {
+      return;
+    }
     setFinished(false);
     setResult(null);
     setError("");
     setSessionKey((prev) => prev + 1);
+  }
+
+  async function handleKeepScore() {
+    setReleasingGrade(true);
+    setError("");
+    try {
+      if (!result?.releasedToGradebook) {
+        await gameService.releaseGrade(gameId);
+        setResult((prev) =>
+          prev ? { ...prev, releasedToGradebook: true } : prev,
+        );
+        setAttemptMeta((prev) => ({
+          ...prev,
+          gradeReleased: true,
+          unavailable: true,
+        }));
+      }
+      navigate("/student/games");
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setReleasingGrade(false);
+    }
   }
 
   if (loading) return <LoadingScreen />;
@@ -133,6 +221,12 @@ export default function StudentGamePage() {
     );
   }
 
+  const blocked = Boolean(
+    attemptMeta.unavailable ||
+      attemptMeta.outOfAttempts ||
+      attemptMeta.gradeReleased,
+  );
+
   return (
     <>
       <PageHeader title={game.title} subtitle={game.description} />
@@ -149,12 +243,52 @@ export default function StudentGamePage() {
       ) : null}
 
       <Paper sx={{ p: 3 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Type: {game.game_type} · XP reward: {game.xp_reward} (student
-          progress)
-        </Typography>
+        <Stack
+          direction="row"
+          spacing={1}
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ mb: 2 }}
+        >
+          <Chip
+            size="small"
+            label={`Type: ${String(game.game_type || "").replace(/_/g, " ")}`}
+          />
+          <Chip size="small" label={`XP reward: ${game.xp_reward}`} />
+          <Chip
+            size="small"
+            color={blocked ? "warning" : "default"}
+            label={`Attempts ${attemptMeta.attemptsUsed}/${attemptMeta.maxAttempts}`}
+          />
+          {blocked ? (
+            <Chip
+              size="small"
+              color={attemptMeta.gradeReleased ? "success" : "warning"}
+              label={
+                attemptMeta.gradeReleased ? "Submitted" : "No attempts left"
+              }
+            />
+          ) : null}
+        </Stack>
 
-        {!finished ? (
+        {blocked && !finished ? (
+          <Stack spacing={2}>
+            <Alert
+              severity={attemptMeta.gradeReleased ? "success" : "warning"}
+            >
+              {attemptMeta.gradeReleased
+                ? "You already submitted this game grade. It is no longer available."
+                : `You have used all ${attemptMeta.maxAttempts} attempts for this game.`}
+            </Alert>
+            <Button
+              component={RouterLink}
+              to="/student/games"
+              variant="contained"
+            >
+              Browse games
+            </Button>
+          </Stack>
+        ) : !finished ? (
           <GamePreview
             key={sessionKey}
             gameType={game.game_type}
@@ -170,16 +304,29 @@ export default function StudentGamePage() {
             badges={result.badges}
             medals={result.medals}
             motivation={motivation || result.motivation}
-            nextGame={nextGame}
+            passed={result.passed}
+            releasedToGradebook={Boolean(result.releasedToGradebook)}
+            releasingGrade={releasingGrade}
+            nextGame={
+              nextGame && !nextGame.outOfAttempts ? nextGame : null
+            }
             onNextGame={
-              nextGame
+              nextGame && !nextGame.outOfAttempts
                 ? () => navigate(`/student/games/${nextGame.id}`)
                 : undefined
             }
-            onPlayAgain={playAgain}
+            onPlayAgain={
+              !result.releasedToGradebook &&
+              attemptMeta.attemptsRemaining > 0 &&
+              !attemptMeta.gradeReleased
+                ? playAgain
+                : undefined
+            }
+            attemptsRemaining={attemptMeta.attemptsRemaining}
+            maxAttempts={attemptMeta.maxAttempts}
             onDashboard={() => navigate("/student/dashboard")}
             onLeaderboard={() => navigate("/student/leaderboard")}
-            onContinue={() => navigate("/student/games")}
+            onContinue={handleKeepScore}
           />
         ) : (
           <Typography>Finishing game...</Typography>

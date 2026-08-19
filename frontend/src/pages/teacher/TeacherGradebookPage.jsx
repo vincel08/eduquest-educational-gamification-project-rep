@@ -28,6 +28,8 @@ import PageContainer from "../../components/common/PageContainer";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import TeacherQuizAttemptReviewDialog from "../../components/quiz/TeacherQuizAttemptReviewDialog";
 import TeacherQuizExtendDialog from "../../components/quiz/TeacherQuizExtendDialog";
+import TeacherGameScoreReviewDialog from "../../components/games/TeacherGameScoreReviewDialog";
+import TeacherGameExtendDialog from "../../components/games/TeacherGameExtendDialog";
 import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
@@ -63,6 +65,9 @@ export default function TeacherGradebookPage() {
   const [enrollments, setEnrollments] = useState([]);
   const [extendOpen, setExtendOpen] = useState(false);
   const [extendStudentId, setExtendStudentId] = useState("");
+  const [gameReviewTarget, setGameReviewTarget] = useState(null);
+  const [gameExtendOpen, setGameExtendOpen] = useState(false);
+  const [gameExtendStudentId, setGameExtendStudentId] = useState("");
 
   function applyGradebook(data) {
     setGradebook(data);
@@ -133,13 +138,85 @@ export default function TeacherGradebookPage() {
     return `${gradebook.course.subject || gradebook.course.title} · Scores`;
   }, [gradebook]);
 
+  function downloadCsvReport() {
+    if (!gradebook) return;
+    const rows = [
+      [
+        "Type",
+        "Assessment",
+        "Student",
+        "Email",
+        "Score %",
+        "Points",
+        "Passed",
+        "Submitted",
+      ],
+    ];
+
+    for (const quiz of gradebook.quizzes || []) {
+      for (const result of quiz.results || []) {
+        rows.push([
+          "Quiz",
+          quiz.title,
+          `${result.firstName || ""} ${result.lastName || ""}`.trim(),
+          result.email || result.username || "",
+          result.score ?? "",
+          formatPoints(result.earnedPoints, result.totalPoints),
+          result.passed ? "Yes" : "No",
+          formatWhen(result.completedAt),
+        ]);
+      }
+    }
+
+    for (const game of gradebook.games || []) {
+      for (const result of game.results || []) {
+        rows.push([
+          "Game",
+          game.title,
+          `${result.firstName || ""} ${result.lastName || ""}`.trim(),
+          result.email || result.username || "",
+          result.score ?? "",
+          formatPoints(result.earnedPoints, result.totalPoints || 100),
+          Number(result.score) >= 70 ? "Yes" : "No",
+          formatWhen(result.playedAt || result.completedAt),
+        ]);
+      }
+    }
+
+    const csv = rows
+      .map((cols) =>
+        cols
+          .map((value) => {
+            const cell = String(value ?? "");
+            if (/[",\n]/.test(cell)) {
+              return `"${cell.replace(/"/g, '""')}"`;
+            }
+            return cell;
+          })
+          .join(","),
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const subject =
+      gradebook.course?.subject || gradebook.course?.title || "subject";
+    anchor.href = url;
+    anchor.download = `${subject.replace(/\s+/g, "-").toLowerCase()}-outcomes.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   if (loading) return <LoadingScreen />;
 
   return (
     <PageContainer>
       <PageHeader
         title={title}
-        subtitle="Choose a quiz or game to view scores. Open View answers to see each student’s quiz responses."
+        subtitle="Choose a quiz or game to view scores. Open View answers to see each student’s responses."
         action={
           <Button
             component={RouterLink}
@@ -170,6 +247,9 @@ export default function TeacherGradebookPage() {
               label={`${gradebook.summary.gameCount} games`}
               variant="outlined"
             />
+            <Button size="small" variant="outlined" onClick={downloadCsvReport}>
+              Download CSV report
+            </Button>
           </Stack>
 
           <Paper sx={{ p: { xs: 1.5, md: 2 } }}>
@@ -432,21 +512,43 @@ export default function TeacherGradebookPage() {
                   ) : (
                     <Stack spacing={2}>
                       <Box>
-                        <Typography
-                          variant="h6"
-                          fontWeight={800}
-                          color="text.primary"
+                        <Stack
+                          direction={{ xs: "column", sm: "row" }}
+                          justifyContent="space-between"
+                          alignItems={{ xs: "stretch", sm: "flex-start" }}
+                          spacing={1}
                         >
-                          {selectedGame.title}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Best score per student
-                        </Typography>
+                          <Box>
+                            <Typography
+                              variant="h6"
+                              fontWeight={800}
+                              color="text.primary"
+                            >
+                              {selectedGame.title}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Pass 70% · best score per student · 3 attempts
+                              default
+                            </Typography>
+                          </Box>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            disabled={!enrollments.length}
+                            onClick={() => {
+                              setGameExtendStudentId("");
+                              setGameExtendOpen(true);
+                            }}
+                          >
+                            Extend / reopen
+                          </Button>
+                        </Stack>
                       </Box>
 
                       {!gameResults.length ? (
                         <Alert severity="info">
-                          No students have played this game yet.
+                          No students have played this game yet. Use Extend /
+                          reopen to grant extra attempts.
                         </Alert>
                       ) : (
                         <TableContainer sx={{ overflowX: "auto" }}>
@@ -462,39 +564,113 @@ export default function TeacherGradebookPage() {
                                 >
                                   Grade score
                                 </TableCell>
+                                <TableCell
+                                  sx={{ fontWeight: 800 }}
+                                  align="center"
+                                >
+                                  Status
+                                </TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>
                                   Played
+                                </TableCell>
+                                <TableCell
+                                  sx={{ fontWeight: 800 }}
+                                  align="right"
+                                >
+                                  Actions
                                 </TableCell>
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {gameResults.map((result) => (
-                                <TableRow key={result.studentId} hover>
-                                  <TableCell>
-                                    <Typography fontWeight={700}>
-                                      {result.firstName} {result.lastName}
-                                    </Typography>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      {result.playCount} play
-                                      {result.playCount === 1 ? "" : "s"}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell align="center">
-                                    <Typography fontWeight={800}>
-                                      {formatPoints(
-                                        result.earnedPoints,
-                                        result.totalPoints || 100,
-                                      )}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell>
-                                    {formatWhen(result.playedAt)}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                              {gameResults.map((result) => {
+                                const passed = Number(result.score) >= 70;
+                                return (
+                                  <TableRow key={result.studentId} hover>
+                                    <TableCell>
+                                      <Typography fontWeight={700}>
+                                        {result.firstName} {result.lastName}
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        {result.playCount} play
+                                        {result.playCount === 1 ? "" : "s"}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell align="center">
+                                      <Typography fontWeight={800}>
+                                        {formatPoints(
+                                          result.earnedPoints,
+                                          result.totalPoints || 100,
+                                        )}
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                      >
+                                        {result.score != null
+                                          ? `${Number(result.score).toFixed(1)}%`
+                                          : "—"}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell align="center">
+                                      <Chip
+                                        size="small"
+                                        label={
+                                          passed ? "Passed" : "Not passed"
+                                        }
+                                        color={passed ? "success" : "default"}
+                                        variant={
+                                          passed ? "filled" : "outlined"
+                                        }
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      {formatWhen(result.playedAt)}
+                                    </TableCell>
+                                    <TableCell align="right">
+                                      <Stack
+                                        direction="row"
+                                        spacing={1}
+                                        justifyContent="flex-end"
+                                        flexWrap="wrap"
+                                        useFlexGap
+                                      >
+                                        {result.scoreId ? (
+                                          <Link
+                                            component="button"
+                                            type="button"
+                                            underline="hover"
+                                            onClick={() =>
+                                              setGameReviewTarget({
+                                                gameId: selectedGame.id,
+                                                scoreId: result.scoreId,
+                                              })
+                                            }
+                                          >
+                                            View answers
+                                          </Link>
+                                        ) : null}
+                                        <Link
+                                          component="button"
+                                          type="button"
+                                          underline="hover"
+                                          onClick={() => {
+                                            setGameExtendStudentId(
+                                              String(result.studentId),
+                                            );
+                                            setGameExtendOpen(true);
+                                          }}
+                                        >
+                                          Extend
+                                        </Link>
+                                      </Stack>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </TableContainer>
@@ -521,6 +697,22 @@ export default function TeacherGradebookPage() {
         quiz={selectedQuiz}
         students={enrollments}
         initialStudentId={extendStudentId}
+        onGranted={() => setError("")}
+      />
+
+      <TeacherGameScoreReviewDialog
+        open={Boolean(gameReviewTarget)}
+        onClose={() => setGameReviewTarget(null)}
+        gameId={gameReviewTarget?.gameId}
+        scoreId={gameReviewTarget?.scoreId}
+      />
+
+      <TeacherGameExtendDialog
+        open={gameExtendOpen}
+        onClose={() => setGameExtendOpen(false)}
+        game={selectedGame}
+        students={enrollments}
+        initialStudentId={gameExtendStudentId}
         onGranted={() => setError("")}
       />
     </PageContainer>

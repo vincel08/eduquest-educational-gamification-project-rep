@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -19,6 +19,7 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import { getErrorMessage } from "../../services/api";
+import classSectionService from "../../services/classSectionService";
 import {
   getPasswordError,
   getUsernameError,
@@ -31,10 +32,12 @@ import {
   listSchoolYearOptions,
 } from "../../utils/schoolYears";
 import { SECTION_PLACEHOLDER } from "../../utils/classSections";
+import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const sectionsRevision = useClassSectionsRevision();
   const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [form, setForm] = useState({
     firstName: "",
@@ -48,10 +51,38 @@ export default function RegisterPage() {
     section: "",
     schoolYear: defaultSchoolYearValue(),
   });
+  const [sectionOptions, setSectionOptions] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.schoolYear || !form.gradeLevel) {
+      setSectionOptions([]);
+      return undefined;
+    }
+    classSectionService
+      .options({ schoolYear: form.schoolYear, gradeLevel: form.gradeLevel })
+      .then((response) => {
+        if (!active) return;
+        const options = response.data.data || [];
+        setSectionOptions(options);
+        setForm((prev) =>
+          prev.section && !options.includes(prev.section)
+            ? { ...prev, section: "" }
+            : prev,
+        );
+      })
+      .catch(() => {
+        if (!active) return;
+        setSectionOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [form.schoolYear, form.gradeLevel, sectionsRevision]);
 
   function updateField(field) {
     return (event) => {
@@ -270,14 +301,39 @@ export default function RegisterPage() {
                 ))}
               </TextField>
               <TextField
+                select
                 label="Section"
                 required
                 fullWidth
                 value={form.section}
                 onChange={updateField("section")}
                 error={Boolean(fieldErrors.section)}
-                helperText={fieldErrors.section || SECTION_PLACEHOLDER}
-              />
+                helperText={
+                  fieldErrors.section ||
+                  (!form.gradeLevel
+                    ? "Select a grade level first"
+                    : sectionOptions.length
+                      ? SECTION_PLACEHOLDER
+                      : "No sections yet for this grade — ask an admin to add one")
+                }
+                disabled={!form.gradeLevel || !sectionOptions.length}
+                SelectProps={{
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    if (!selected) return SECTION_PLACEHOLDER;
+                    return selected;
+                  },
+                }}
+              >
+                <MenuItem value="" disabled>
+                  {SECTION_PLACEHOLDER}
+                </MenuItem>
+                {sectionOptions.map((section) => (
+                  <MenuItem key={section} value={section}>
+                    {section}
+                  </MenuItem>
+                ))}
+              </TextField>
               <TextField
                 label="School name"
                 value={form.schoolName}

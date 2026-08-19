@@ -68,28 +68,77 @@ export default function StudentGamesPage() {
       />
       {visibleGames.length ? (
         <Grid container spacing={2}>
-          {visibleGames.map((game) => (
-            <Grid key={game.id} size={{ xs: 12, sm: 6, md: 4 }}>
-              <QuestCard
-                title={game.title}
-                description={game.courseTitle || game.description}
-                icon={<SportsEsportsIcon />}
-                accent="orange"
-                difficulty={game.difficulty || game.game_type}
-                xpReward={game.xp_reward}
-                estimatedTime={game.estimated_time}
-                status={game.locked ? "Locked" : "Playable"}
-                statusColor={game.locked ? "warning" : "success"}
-                meta={String(game.game_type || "").replace(/_/g, " ")}
-                showTimestamp
-                item={game}
-                locked={Boolean(game.locked)}
-                unlockMessage={game.unlockMessage}
-                to={game.locked ? undefined : `/student/games/${game.id}`}
-                actionLabel="Play Now"
-              />
-            </Grid>
-          ))}
+          {visibleGames.map((game) => {
+            const unavailable = Boolean(
+              game.locked ||
+                game.outOfAttempts ||
+                game.gradeReleased ||
+                game.unavailable,
+            );
+            let status = "Playable";
+            let statusColor = "success";
+            let unlockMessage = game.unlockMessage;
+            if (game.locked) {
+              status = "Locked";
+              statusColor = "warning";
+            } else if (game.gradeReleased) {
+              status = "Submitted";
+              statusColor = "success";
+              unlockMessage =
+                "You already submitted this game grade. It is no longer available.";
+            } else if (game.outOfAttempts) {
+              status = "No attempts";
+              statusColor = "warning";
+              unlockMessage = "You used all attempts for this game.";
+            } else if (game.hasPassed) {
+              status = "Passed";
+              statusColor = "success";
+            }
+            const metaParts = [
+              String(game.game_type || "").replace(/_/g, " "),
+              game.bestScore != null
+                ? `Best ${Number(game.bestScore).toFixed(0)}%`
+                : null,
+              game.attemptsRemaining != null && !unavailable
+                ? `${game.attemptsRemaining} attempt(s) left`
+                : null,
+            ].filter(Boolean);
+
+            return (
+              <Grid key={game.id} size={{ xs: 12, sm: 6, md: 4 }}>
+                <QuestCard
+                  title={game.title}
+                  description={game.courseTitle || game.description}
+                  icon={<SportsEsportsIcon />}
+                  accent="orange"
+                  difficulty={game.difficulty || game.game_type}
+                  xpReward={game.xp_reward}
+                  estimatedTime={game.estimated_time}
+                  status={status}
+                  statusColor={statusColor}
+                  meta={metaParts.join(" · ")}
+                  showTimestamp
+                  item={game}
+                  locked={unavailable}
+                  unlockMessage={unlockMessage}
+                  to={unavailable ? undefined : `/student/games/${game.id}`}
+                  actionLabel={
+                    game.locked
+                      ? "Finish lesson first"
+                      : game.gradeReleased
+                        ? "Submitted"
+                        : game.outOfAttempts
+                          ? "Unavailable"
+                          : game.hasAttempted
+                            ? game.attemptsRemaining > 0
+                              ? "Use another attempt"
+                              : "Open game"
+                            : "Play Now"
+                  }
+                />
+              </Grid>
+            );
+          })}
         </Grid>
       ) : (
         <EmptyState

@@ -28,12 +28,15 @@ import TeacherAiContentPage from "../pages/teacher/TeacherAiContentPage";
 import TeacherAwardsPage from "../pages/teacher/TeacherAwardsPage";
 import TeacherQuizzesPage from "../pages/teacher/TeacherQuizzesPage";
 import TeacherQuizEditorPage from "../pages/teacher/TeacherQuizEditorPage";
+import TeacherGamesPage from "../pages/teacher/TeacherGamesPage";
+import TeacherGameEditorPage from "../pages/teacher/TeacherGameEditorPage";
 import TeacherProfilePage from "../pages/teacher/TeacherProfilePage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminCoursesPage from "../pages/admin/AdminCoursesPage";
 import AdminLeaderboardPage from "../pages/admin/AdminLeaderboardPage";
 import AdminBadgesPage from "../pages/admin/AdminBadgesPage";
+import AdminSectionsPage from "../pages/admin/AdminSectionsPage";
 import StudentProfilePage from "../pages/student/StudentProfilePage";
 import { useAuth } from "../contexts/AuthContext";
 import LoadingScreen from "../components/common/LoadingScreen";
@@ -97,6 +100,11 @@ export default function AppRoutes() {
             path="quizzes/:quizId/edit"
             element={<TeacherQuizEditorPage />}
           />
+          <Route path="games" element={<TeacherGamesPage />} />
+          <Route
+            path="games/:gameId/edit"
+            element={<TeacherGameEditorPage />}
+          />
           <Route path="ai-content" element={<TeacherAiContentPage />} />
           <Route path="ai-quiz" element={<TeacherAiQuizPage />} />
           <Route path="ai-game" element={<TeacherAiGamePage />} />
@@ -112,6 +120,7 @@ export default function AppRoutes() {
           <Route path="courses" element={<AdminCoursesPage />} />
           <Route path="leaderboard" element={<AdminLeaderboardPage />} />
           <Route path="badges" element={<AdminBadgesPage />} />
+          <Route path="sections" element={<AdminSectionsPage />} />
         </Route>
       </Route>
 

@@ -45,8 +45,8 @@ export default function TeacherQuizzesPage() {
   return (
     <Stack spacing={3}>
       <PageHeader
-        title="Quizzes"
-        subtitle="Create quizzes manually or continue using the AI Quiz Generator. Students only see published quizzes."
+        title="My Quizzes"
+        subtitle="Open any quiz you created to edit, preview, or publish. Students only see published quizzes."
         action={
           <Stack direction="row" spacing={1}>
             <Button
@@ -135,7 +135,7 @@ export default function TeacherQuizzesPage() {
                       to={`/teacher/quizzes/${quiz.id}/edit`}
                       size="small"
                     >
-                      Edit
+                      Open
                     </Button>
                   </TableCell>
                 </TableRow>

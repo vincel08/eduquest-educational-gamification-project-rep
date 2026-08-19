@@ -1,6 +1,8 @@
 import CourseModel from "../models/CourseModel.js";
 import LessonModel from "../models/LessonModel.js";
 import GameModel from "../models/GameModel.js";
+import GameStudentOverrideModel from "../models/GameStudentOverrideModel.js";
+import NotificationModel from "../models/NotificationModel.js";
 import AiService from "./AiService.js";
 import CourseService from "./CourseService.js";
 import GamificationService from "./GamificationService.js";
@@ -13,18 +15,42 @@ import {
 } from "../utils/gameTypes.js";
 import { assertGameDataMatchesType } from "../utils/gameDataValidation.js";
 import { calculateGameScore, calculateGameXp } from "../utils/gameScoring.js";
+import { buildGameAnswerReviewItems } from "../utils/gameAnswerReview.js";
 import { ensureWordSearchData } from "../utils/wordSearchGrid.js";
 import {
   assertContentUnlocked,
   withUnlockState,
 } from "../utils/contentUnlock.js";
 import { QUIZ_REWARD_SCORE_MIN } from "../utils/quizAttemptRules.js";
+import {
+  assertGameAttemptsAvailable,
+  buildGameAttemptMeta,
+  MAX_GAME_ATTEMPTS,
+  MAX_GAME_EXTRA_ATTEMPTS_GRANT,
+} from "../utils/gameAttemptRules.js";
 
 function assertCourseAccess(course, user) {
   if (!course) throw new AppError("Course not found", 404);
   if (user.role === "teacher" && course.teacher_id !== user.id) {
     throw new AppError("Access denied", 403);
   }
+}
+
+async function assertTeacherOwnsGame(gameId, user) {
+  const game = await GameModel.findById(gameId);
+  if (!game) throw new AppError("Game not found", 404);
+  if (user.role === "teacher" && game.teacher_id !== user.id) {
+    throw new AppError("Access denied", 403);
+  }
+  return game;
+}
+
+async function getStudentExtraAttempts(gameId, studentId) {
+  const override = await GameStudentOverrideModel.findByGameAndStudent(
+    gameId,
+    studentId,
+  );
+  return Number(override?.extra_attempts || 0);
 }
 
 function validateGamePayload(data) {
@@ -183,6 +209,23 @@ const GameService = {
         studentId: user.id,
         contentLabel: "game",
       });
+      const attemptsUsed = await GameModel.countStudentPlays(id, user.id);
+      const extraAttempts = await getStudentExtraAttempts(id, user.id);
+      const attemptMeta = buildGameAttemptMeta({ attemptsUsed, extraAttempts });
+      const best = await GameModel.findBestScore(id, user.id);
+      const bestScore = best ? Number(best.score) : null;
+      const gradeReleased = await GameModel.hasReleasedScore(id, user.id);
+      const unavailable = attemptMeta.outOfAttempts || gradeReleased;
+      return {
+        ...game,
+        ...attemptMeta,
+        maxGameAttempts: MAX_GAME_ATTEMPTS,
+        bestScore,
+        hasPassed: bestScore != null && bestScore >= 70,
+        hasAttempted: Boolean(best),
+        gradeReleased,
+        unavailable,
+      };
     }
 
     return game;
@@ -195,8 +238,72 @@ const GameService = {
     const publishedOnly = user.role === "student";
     const games = await GameModel.findByCourse(courseId, { publishedOnly });
     if (user.role === "student") {
-      return withUnlockState(games, user.id);
+      const unlocked = await withUnlockState(games, user.id);
+      return Promise.all(
+        unlocked.map(async (game) => {
+          const attemptsUsed = await GameModel.countStudentPlays(
+            game.id,
+            user.id,
+          );
+          const extraAttempts = await getStudentExtraAttempts(game.id, user.id);
+          const attemptMeta = buildGameAttemptMeta({
+            attemptsUsed,
+            extraAttempts,
+          });
+          const best = await GameModel.findBestScore(game.id, user.id);
+          const bestScore = best ? Number(best.score) : null;
+          const gradeReleased = await GameModel.hasReleasedScore(
+            game.id,
+            user.id,
+          );
+          const unavailable = attemptMeta.outOfAttempts || gradeReleased;
+          return {
+            ...game,
+            ...attemptMeta,
+            maxGameAttempts: MAX_GAME_ATTEMPTS,
+            bestScore,
+            hasPassed: bestScore != null && bestScore >= 70,
+            hasAttempted: Boolean(best),
+            gradeReleased,
+            unavailable,
+          };
+        }),
+      );
     }
+    return games;
+  },
+
+  async listForTeacher(user, filters = {}) {
+    if (user.role !== "teacher" && user.role !== "administrator") {
+      throw new AppError("Access denied", 403);
+    }
+
+    const courseFilters = {
+      teacherId: user.role === "teacher" ? user.id : undefined,
+      limit: 200,
+      page: 1,
+    };
+    if (filters.gradeLevel && filters.gradeLevel !== "all") {
+      courseFilters.gradeLevel = filters.gradeLevel;
+    }
+
+    const { courses: courseList } = await CourseModel.findAll(courseFilters);
+    const games = [];
+    for (const course of courseList) {
+      const courseGames = await GameModel.findByCourse(course.id, {
+        publishedOnly: false,
+      });
+      for (const game of courseGames) {
+        games.push({
+          ...game,
+          course_title: course.title,
+          subject: course.subject,
+          grade_level: course.grade_level,
+        });
+      }
+    }
+
+    games.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     return games;
   },
 
@@ -249,6 +356,19 @@ const GameService = {
       contentLabel: "game",
     });
 
+    const attemptsUsed = await GameModel.countStudentPlays(gameId, studentId);
+    const extraAttempts = await getStudentExtraAttempts(gameId, studentId);
+
+    const gradeReleased = await GameModel.hasReleasedScore(gameId, studentId);
+    if (gradeReleased) {
+      throw new AppError(
+        "You already submitted this game grade. It is no longer available.",
+        403,
+      );
+    }
+
+    const attemptMeta = assertGameAttemptsAvailable(attemptsUsed, extraAttempts);
+
     // Reject absurd client scores even before answer validation.
     if (score != null && Number(score) > 100) {
       throw new AppError("Invalid score", 400);
@@ -298,7 +418,20 @@ const GameService = {
       score: normalizedScore,
       xpEarned,
       durationSeconds: durationSeconds || null,
+      answers,
+      releasedToGradebook: false,
     });
+
+    const nextMeta = buildGameAttemptMeta({
+      attemptsUsed: attemptMeta.attemptsUsed + 1,
+      extraAttempts,
+    });
+
+    let releasedToGradebook = false;
+    if (nextMeta.outOfAttempts || nextMeta.attemptsRemaining <= 0) {
+      await GameModel.releaseStudentScores(gameId, studentId);
+      releasedToGradebook = true;
+    }
 
     return {
       score: saved,
@@ -306,11 +439,168 @@ const GameService = {
       xpAlreadyAwarded,
       computedXp,
       serverScore: normalizedScore,
+      releasedToGradebook,
+      ...nextMeta,
+      maxGameAttempts: MAX_GAME_ATTEMPTS,
+    };
+  },
+
+  async releaseGradeToTeacher(gameId, studentId) {
+    const game = await GameModel.findById(gameId);
+    if (!game || !game.is_published) {
+      throw new AppError("Game not available", 404);
+    }
+
+    const enrolled = await CourseModel.isEnrolled(game.course_id, studentId);
+    if (!enrolled) throw new AppError("Enroll in the course first", 403);
+    await CourseService.assertStudentCourseAccess(game.course_id, studentId);
+
+    const attemptsUsed = await GameModel.countStudentPlays(gameId, studentId);
+    if (attemptsUsed <= 0) {
+      throw new AppError("Play at least once before submitting your grade", 400);
+    }
+
+    await GameModel.releaseStudentScores(gameId, studentId);
+    const best = await GameModel.findBestScore(gameId, studentId);
+    const extraAttempts = await getStudentExtraAttempts(gameId, studentId);
+    const attemptMeta = buildGameAttemptMeta({ attemptsUsed, extraAttempts });
+
+    return {
+      gameId: Number(gameId),
+      releasedToGradebook: true,
+      gradeReleased: true,
+      unavailable: true,
+      bestScore: best ? Number(best.score) : null,
+      hasPassed: best ? Number(best.score) >= 70 : false,
+      ...attemptMeta,
+      maxGameAttempts: MAX_GAME_ATTEMPTS,
     };
   },
 
   async getStudentScores(studentId, gameId = null) {
     return GameModel.getStudentScores(studentId, gameId);
+  },
+
+  async getScoreReview(gameId, scoreId, user) {
+    await assertTeacherOwnsGame(gameId, user);
+    const score = await GameModel.findScoreById(scoreId);
+    if (!score || Number(score.game_id) !== Number(gameId)) {
+      throw new AppError("Game score not found", 404);
+    }
+    if (!Number(score.released_to_gradebook)) {
+      throw new AppError(
+        "This score is not released to the gradebook yet",
+        403,
+      );
+    }
+
+    const answers = score.answers_json;
+    const items = buildGameAnswerReviewItems(
+      score.game_type,
+      score.game_data,
+      answers,
+    );
+    const answerItems = items.filter((item) => item.answerStored);
+
+    return {
+      game: {
+        id: Number(score.game_id),
+        title: score.game_title,
+        gameType: score.game_type,
+        courseId: score.course_id,
+      },
+      score: {
+        id: Number(score.id),
+        studentId: Number(score.student_id),
+        studentFirstName: score.first_name,
+        studentLastName: score.last_name,
+        studentEmail: score.email || null,
+        studentUsername: score.username || null,
+        score: Number(score.score) || 0,
+        earnedPoints: Number(score.score) || 0,
+        totalPoints: 100,
+        xpEarned: Number(score.xp_earned) || 0,
+        playedAt: score.played_at,
+        durationSeconds: score.duration_seconds,
+      },
+      answersAvailable: Boolean(answers),
+      answerCount: answerItems.length,
+      items,
+    };
+  },
+
+  async listStudentOverrides(gameId, user) {
+    await assertTeacherOwnsGame(gameId, user);
+    const rows = await GameStudentOverrideModel.findByGame(gameId);
+    return rows.map((row) => ({
+      id: row.id,
+      gameId: row.game_id,
+      studentId: row.student_id,
+      studentName: `${row.first_name} ${row.last_name}`.trim(),
+      studentEmail: row.email || null,
+      extraAttempts: Number(row.extra_attempts || 0),
+      reason: row.reason,
+      grantedBy: row.granted_by,
+      granterName: `${row.granter_first_name} ${row.granter_last_name}`.trim(),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  },
+
+  async grantStudentOverride(gameId, payload, user) {
+    const game = await assertTeacherOwnsGame(gameId, user);
+    const studentId = Number(payload.studentId);
+    if (!studentId) throw new AppError("studentId is required", 400);
+
+    const enrolled = await CourseModel.isEnrolled(game.course_id, studentId);
+    if (!enrolled) {
+      throw new AppError("Student is not enrolled in this subject", 400);
+    }
+
+    const extraAttempts = Math.max(0, Number(payload.extraAttempts) || 0);
+    if (extraAttempts > MAX_GAME_EXTRA_ATTEMPTS_GRANT) {
+      throw new AppError(
+        `extraAttempts cannot exceed ${MAX_GAME_EXTRA_ATTEMPTS_GRANT}`,
+        400,
+      );
+    }
+    if (extraAttempts <= 0) {
+      throw new AppError("Provide at least one extra attempt", 400);
+    }
+
+    const reason = String(payload.reason || "")
+      .trim()
+      .slice(0, 500) || null;
+    const override = await GameStudentOverrideModel.upsert({
+      gameId,
+      studentId,
+      extraAttempts,
+      reason,
+      grantedBy: user.id,
+    });
+
+    await NotificationModel.create({
+      userId: studentId,
+      title: "Game access extended",
+      message: `Your teacher granted ${extraAttempts} extra attempt(s) for "${game.title}".`,
+      type: "info",
+      link: `/student/games/${game.id}`,
+    });
+
+    return {
+      gameId: Number(game.id),
+      studentId,
+      extraAttempts: Number(override.extra_attempts || 0),
+      reason: override.reason,
+      grantedBy: override.granted_by,
+      updatedAt: override.updated_at,
+    };
+  },
+
+  async removeStudentOverride(gameId, studentId, user) {
+    await assertTeacherOwnsGame(gameId, user);
+    await GameStudentOverrideModel.remove(gameId, Number(studentId));
+    return true;
   },
 };
 

@@ -49,6 +49,9 @@ const quizService = {
   submit(attemptId, answers) {
     return api.post(`/quizzes/attempts/${attemptId}/submit`, { answers });
   },
+  releaseGrade(quizId) {
+    return api.post(`/quizzes/${quizId}/release-grade`);
+  },
   myAttempts(params) {
     return api.get("/quizzes/attempts/mine", { params });
   },

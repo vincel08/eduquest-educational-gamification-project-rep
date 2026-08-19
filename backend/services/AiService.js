@@ -4,6 +4,7 @@ import env from '../config/env.js';
 import AppError from '../utils/AppError.js';
 import { GAME_TYPES, normalizeGameType } from '../utils/gameTypes.js';
 import { assertGameDataMatchesType } from '../utils/gameDataValidation.js';
+import { coerceGameDataToType } from '../utils/gameDataCoercion.js';
 import { ensureWordSearchData } from '../utils/wordSearchGrid.js';
 import {
   clampQuestionCount,
@@ -407,6 +408,8 @@ function normalizeGeneratedGame(raw, requestedType) {
     }));
   }
 
+  gameData = coerceGameDataToType(resolvedType, gameData);
+
   if (resolvedType === 'word_search' || resolvedType === 'word_scramble') {
     gameData = ensureWordSearchData(gameData);
   }
@@ -575,7 +578,7 @@ ${contentSnippet}`
     try {
       const typeInstruction = requestedType === 'auto'
         ? 'Choose the single best gameType for this lesson from: flashcards, memory_match, crossword, word_search, quiz_show, jeopardy, drag_drop, spin_wheel, millionaire, escape_room, mission_adventure, puzzle_challenge.'
-        : `Use gameType exactly: "${requestedType}".`;
+        : `Use gameType exactly: "${requestedType}". Fill gameData using ONLY the schema for "${requestedType}" below. Do not return another game type's fields.`;
 
       const { data, source } = await chatJson(
         `You are an educational game designer for junior high school students.

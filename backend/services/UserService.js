@@ -33,6 +33,7 @@ import {
   formatSchoolYearLabel,
   isValidSchoolYearLabel,
 } from '../utils/schoolYears.js';
+import ClassSectionService from './ClassSectionService.js';
 
 function normalizeStoredAvatarUrl(avatarUrl) {
   if (avatarUrl === null || avatarUrl === '') return null;
@@ -54,7 +55,7 @@ function normalizeOptionalEmail(email) {
 
 function sanitizeUser(user) {
   if (!user) return null;
-  return {
+  const payload = {
     id: user.id,
     username: user.username || null,
     email: user.email || null,
@@ -66,6 +67,12 @@ function sanitizeUser(user) {
     createdAt: user.created_at,
     updatedAt: user.updated_at,
   };
+  if (user.role === 'student') {
+    payload.gradeLevel = user.grade_level || null;
+    payload.section = user.section || null;
+    payload.schoolYear = user.school_year || null;
+  }
+  return payload;
 }
 
 async function assertAdminCanResetStudentPassword(actor, student) {
@@ -160,14 +167,6 @@ const UserService = {
         throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
       }
 
-      const normalizedSection = normalizeSection(data.section);
-      if (!normalizedSection) {
-        throw new AppError(SECTION_REQUIRED_MESSAGE, 400);
-      }
-      if (!isValidSection(normalizedSection)) {
-        throw new AppError(SECTION_INVALID_MESSAGE, 400);
-      }
-
       const resolvedSchoolYear =
         data.schoolYear && String(data.schoolYear).trim()
           ? String(data.schoolYear).trim()
@@ -176,10 +175,16 @@ const UserService = {
         throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
       }
 
+      const catalogSection = await ClassSectionService.assertSectionInCatalog(
+        resolvedSchoolYear,
+        normalizedGrade,
+        data.section,
+      );
+
       await StudentProfileModel.create(user.id, {
         gradeLevel: normalizedGrade,
         schoolName: data.schoolName || null,
-        section: normalizedSection,
+        section: catalogSection,
         schoolYear: resolvedSchoolYear,
       });
     }
@@ -238,7 +243,7 @@ const UserService = {
   },
 
   async listDistinctSections(filters = {}) {
-    return StudentProfileModel.listDistinctSections(filters);
+    return ClassSectionService.listOptions(filters);
   },
 
   async deleteUser(id) {

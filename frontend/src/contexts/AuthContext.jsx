@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import authService from '../services/authService';
 import { getErrorMessage } from '../services/api';
 
@@ -39,42 +39,42 @@ export function AuthProvider({ children }) {
     bootstrap();
   }, [token]);
 
-  function applyAuth({ token: nextToken, user: nextUser, profile: nextProfile }) {
+  const applyAuth = useCallback(({ token: nextToken, user: nextUser, profile: nextProfile }) => {
     localStorage.setItem('eduquest_token', nextToken);
     localStorage.setItem('eduquest_user', JSON.stringify(nextUser));
     setToken(nextToken);
     setUser(nextUser);
     setProfile(nextProfile);
     return nextUser;
-  }
+  }, []);
 
-  async function login(credentials) {
+  const login = useCallback(async (credentials) => {
     const response = await authService.login(credentials);
     return applyAuth(response.data.data);
-  }
+  }, [applyAuth]);
 
-  async function register(payload) {
+  const register = useCallback(async (payload) => {
     const response = await authService.register(payload);
     const data = response.data.data;
     applyAuth(data);
     return data;
-  }
+  }, [applyAuth]);
 
-  function logout() {
+  const logout = useCallback(() => {
     localStorage.removeItem('eduquest_token');
     localStorage.removeItem('eduquest_user');
     setToken(null);
     setUser(null);
     setProfile(null);
-  }
+  }, []);
 
-  function updateProfile(nextProfile, nextUser = null) {
+  const updateProfile = useCallback((nextProfile, nextUser = null) => {
     setProfile(nextProfile);
     if (nextUser) {
       setUser(nextUser);
       localStorage.setItem('eduquest_user', JSON.stringify(nextUser));
     }
-  }
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -89,7 +89,7 @@ export function AuthProvider({ children }) {
       getErrorMessage,
       isAuthenticated: Boolean(user && token),
     }),
-    [user, profile, token, loading]
+    [user, profile, token, loading, login, register, logout, updateProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

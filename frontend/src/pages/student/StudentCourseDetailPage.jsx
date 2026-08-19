@@ -309,7 +309,13 @@ export default function StudentCourseDetailPage() {
               const locked = Boolean(quiz.locked);
               const closed = Boolean(quiz.isClosed);
               const outOfAttempts = Boolean(quiz.outOfAttempts);
-              const blocked = locked || closed || outOfAttempts;
+              const gradeReleased = Boolean(quiz.gradeReleased);
+              const blocked =
+                locked ||
+                closed ||
+                outOfAttempts ||
+                gradeReleased ||
+                Boolean(quiz.unavailable);
               let actionChip = null;
               if (!enrolled) {
                 actionChip = <Chip size="small" label="Enroll to take" />;
@@ -320,6 +326,10 @@ export default function StudentCourseDetailPage() {
               } else if (closed) {
                 actionChip = (
                   <Chip size="small" color="warning" label="Closed" />
+                );
+              } else if (gradeReleased) {
+                actionChip = (
+                  <Chip size="small" color="success" label="Submitted" />
                 );
               } else if (outOfAttempts) {
                 actionChip = (
@@ -336,7 +346,11 @@ export default function StudentCourseDetailPage() {
                         component={RouterLink}
                         to={`/student/quizzes/${quiz.id}`}
                       >
-                        Take Quiz
+                        {quiz.hasAttempted
+                          ? quiz.attemptsRemaining > 0
+                            ? "Retake"
+                            : "View"
+                          : "Take Quiz"}
                       </Button>
                     )
                   }
@@ -351,6 +365,17 @@ export default function StudentCourseDetailPage() {
                         useFlexGap
                       >
                         <Typography fontWeight={700}>{quiz.title}</Typography>
+                        {quiz.hasPassed ? (
+                          <Chip
+                            size="small"
+                            color="success"
+                            label={
+                              quiz.bestScore != null
+                                ? `Passed · ${Number(quiz.bestScore).toFixed(0)}%`
+                                : "Passed"
+                            }
+                          />
+                        ) : null}
                         {quiz.attemptsRemaining != null && !blocked ? (
                           <Chip
                             size="small"
@@ -388,6 +413,11 @@ export default function StudentCourseDetailPage() {
                             You used all attempts for this quiz.
                           </Typography>
                         ) : null}
+                        {gradeReleased ? (
+                          <Typography variant="body2" color="success.main">
+                            Grade submitted — this quiz is no longer available.
+                          </Typography>
+                        ) : null}
                         <ContentTimestamp
                           item={quiz}
                           variant="date"
@@ -419,12 +449,27 @@ export default function StudentCourseDetailPage() {
           <List>
             {games.map((game) => {
               const locked = Boolean(game.locked);
+              const outOfAttempts = Boolean(game.outOfAttempts);
+              const gradeReleased = Boolean(game.gradeReleased);
+              const blocked =
+                locked ||
+                outOfAttempts ||
+                gradeReleased ||
+                Boolean(game.unavailable);
               let actionChip = null;
               if (!enrolled) {
                 actionChip = <Chip size="small" label="Enroll to play" />;
               } else if (locked) {
                 actionChip = (
                   <Chip size="small" color="warning" label="Locked" />
+                );
+              } else if (gradeReleased) {
+                actionChip = (
+                  <Chip size="small" color="success" label="Submitted" />
+                );
+              } else if (outOfAttempts) {
+                actionChip = (
+                  <Chip size="small" color="warning" label="No attempts" />
                 );
               }
               return (
@@ -437,7 +482,11 @@ export default function StudentCourseDetailPage() {
                         component={RouterLink}
                         to={`/student/games/${game.id}`}
                       >
-                        Play
+                        {game.hasAttempted
+                          ? game.attemptsRemaining > 0
+                            ? "Play again"
+                            : "View"
+                          : "Play"}
                       </Button>
                     )
                   }
@@ -455,10 +504,28 @@ export default function StudentCourseDetailPage() {
                           sx={{ textTransform: "capitalize" }}
                         >
                           {String(game.game_type || "").replace(/_/g, " ")}
+                          {game.attemptsRemaining != null
+                            ? ` · ${game.attemptsRemaining} attempt(s) left`
+                            : ""}
+                          {game.hasPassed
+                            ? ` · Passed${game.bestScore != null ? ` (${Number(game.bestScore).toFixed(0)}%)` : ""}`
+                            : game.bestScore != null
+                              ? ` · Best ${Number(game.bestScore).toFixed(0)}%`
+                              : ""}
                         </Typography>
                         {locked && game.unlockMessage ? (
                           <Typography variant="body2" color="warning.main">
                             {game.unlockMessage}
+                          </Typography>
+                        ) : null}
+                        {outOfAttempts ? (
+                          <Typography variant="body2" color="warning.main">
+                            You used all attempts for this game.
+                          </Typography>
+                        ) : null}
+                        {gradeReleased ? (
+                          <Typography variant="body2" color="success.main">
+                            Grade submitted — this game is no longer available.
                           </Typography>
                         ) : null}
                         <ContentTimestamp

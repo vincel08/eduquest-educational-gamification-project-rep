@@ -15,8 +15,9 @@ import {
   Typography,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import BoltIcon from "@mui/icons-material/Bolt";
-import { useParams, Link as RouterLink } from "react-router-dom";
+import { useParams, Link as RouterLink, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
@@ -32,6 +33,7 @@ import { useRewards } from "../../contexts/RewardsContext";
 
 export default function StudentQuizPage() {
   const { quizId } = useParams();
+  const navigate = useNavigate();
   const { updateProfile } = useAuth();
   const { notifyReward } = useRewards();
   const [quiz, setQuiz] = useState(null);
@@ -43,6 +45,7 @@ export default function StudentQuizPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [releasingGrade, setReleasingGrade] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [startedAt, setStartedAt] = useState(null);
   const [reviewMode, setReviewMode] = useState(false);
@@ -159,22 +162,50 @@ export default function StudentQuizPage() {
         hasOverride: Boolean(data.hasOverride),
         extraAttempts: Number(data.extraAttempts || 0),
       });
-      setMotivation(pickMotivationalMessage());
+      setMotivation(data.isPassed ? pickMotivationalMessage() : "");
       playSound(SOUND_KEYS.quizComplete);
       if (data.xpAward?.profile) {
         updateProfile(data.xpAward.profile);
       }
       notifyReward({
-        xpEarned: data.attempt?.xp_earned || data.xpAward?.amount || 0,
-        badges: data.xpAward?.newlyUnlocked?.badges || [],
-        medals: data.xpAward?.newlyUnlocked?.medals || [],
+        xpEarned: data.isPassed
+          ? data.attempt?.xp_earned || data.xpAward?.amount || 0
+          : 0,
+        badges: data.isPassed
+          ? data.xpAward?.newlyUnlocked?.badges || []
+          : [],
+        medals: data.isPassed
+          ? data.xpAward?.newlyUnlocked?.medals || []
+          : [],
         celebrateWin: Boolean(data.isPassed),
       });
-      if (data.perfect) celebrateAchievement();
+      if (data.isPassed && data.perfect) celebrateAchievement();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleKeepScore() {
+    setReleasingGrade(true);
+    setError("");
+    try {
+      if (!result?.releasedToGradebook) {
+        await quizService.releaseGrade(quizId);
+        setResult((prev) =>
+          prev ? { ...prev, releasedToGradebook: true } : prev,
+        );
+        setAttemptMeta((prev) => ({
+          ...prev,
+          gradeReleased: true,
+          unavailable: true,
+        }));
+      }
+      navigate("/student/quizzes");
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setReleasingGrade(false);
     }
   }
 
@@ -379,29 +410,41 @@ export default function StudentQuizPage() {
           sx={{
             p: { xs: 3, md: 4 },
             textAlign: "center",
-            background:
-              "linear-gradient(145deg, rgba(59,130,246,0.1), rgba(139,92,246,0.12))",
+            background: result.isPassed
+              ? "linear-gradient(145deg, rgba(59,130,246,0.1), rgba(139,92,246,0.12))"
+              : "linear-gradient(145deg, rgba(239,68,68,0.08), rgba(245,158,11,0.1))",
             borderRadius: 4,
           }}
         >
-          <CheckCircleIcon
-            sx={{
-              fontSize: 72,
-              color: result.isPassed ? "success.main" : "warning.main",
-              mb: 1,
-            }}
-          />
+          {result.isPassed ? (
+            <CheckCircleIcon
+              sx={{ fontSize: 72, color: "success.main", mb: 1 }}
+            />
+          ) : (
+            <CancelIcon sx={{ fontSize: 72, color: "error.main", mb: 1 }} />
+          )}
           <Typography variant="h3" fontWeight={800} gutterBottom>
-            {result.isPassed ? "Quest Complete!" : "Keep Going!"}
+            {result.isPassed ? "Quest Complete!" : "Not Passed"}
           </Typography>
-          <Typography
-            variant="h6"
-            color="secondary.main"
-            fontWeight={700}
-            sx={{ mb: 1 }}
-          >
-            {motivation || "Excellent work!"}
-          </Typography>
+          {result.isPassed ? (
+            <Typography
+              variant="h6"
+              color="secondary.main"
+              fontWeight={700}
+              sx={{ mb: 1 }}
+            >
+              {motivation || "Excellent work!"}
+            </Typography>
+          ) : (
+            <Typography
+              variant="h6"
+              color="error.main"
+              fontWeight={700}
+              sx={{ mb: 1 }}
+            >
+              Keep practicing — you can retry if attempts remain.
+            </Typography>
+          )}
           <Typography
             variant="h2"
             fontWeight={800}
@@ -423,17 +466,21 @@ export default function StudentQuizPage() {
             sx={{ mb: 2 }}
           >
             <Chip
-              label={result.isPassed ? "Passed" : "Not passed yet"}
-              color={result.isPassed ? "success" : "warning"}
+              label={result.isPassed ? "Passed" : "Failed"}
+              color={result.isPassed ? "success" : "error"}
             />
-            {result.attempt?.xp_earned ? (
+            {result.isPassed && result.attempt?.xp_earned ? (
               <Chip
                 icon={<BoltIcon />}
-                label={`+${result.attempt.xp_earned} XP progress`}
+                label={`+${result.attempt.xp_earned} XP`}
                 sx={{ bgcolor: "rgba(250,204,21,0.28)", fontWeight: 800 }}
               />
-            ) : result.xpAlreadyAwarded ? (
+            ) : null}
+            {result.isPassed && result.xpAlreadyAwarded ? (
               <Chip label="XP already earned earlier" variant="outlined" />
+            ) : null}
+            {!result.isPassed ? (
+              <Chip label="No XP awarded" variant="outlined" color="default" />
             ) : null}
             {(result.xpAward?.newlyUnlocked?.badges || []).length ? (
               <Chip
@@ -447,11 +494,17 @@ export default function StudentQuizPage() {
           </Stack>
           <Typography
             color="text.secondary"
-            sx={{ mb: 2, maxWidth: 480, mx: "auto" }}
+            sx={{ mb: 2, maxWidth: 520, mx: "auto" }}
           >
-            {result.isPassed
-              ? "Amazing work — rewards are saved to your profile."
-              : "Review the pointers below, then retry if you still have attempts left."}
+            {result.releasedToGradebook
+              ? "Your result is now visible to your teacher (best score counts)."
+              : result.isPassed
+                ? attemptMeta.attemptsRemaining > 0
+                  ? "You passed. Submit this grade to your teacher now, or use a remaining attempt first. Teachers only see a result after you submit or use all attempts."
+                  : "Amazing work — your result was sent to your teacher because no attempts remain."
+                : attemptMeta.attemptsRemaining > 0
+                  ? "Not passed yet. Retry with a remaining attempt, or submit this grade to your teacher now. Teachers only see a result after you submit or use all attempts."
+                  : "No attempts left — your best result was sent to your teacher."}
           </Typography>
           {!result.isPassed && (result.reviewItems || []).length ? (
             <Stack
@@ -475,7 +528,9 @@ export default function StudentQuizPage() {
           ) : null}
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Attempts used: {attemptMeta.attemptsUsed}/{attemptMeta.maxAttempts}
-            {attemptMeta.attemptsRemaining === 0 ? " · No retries left" : ""}
+            {attemptMeta.attemptsRemaining === 0
+              ? " · No retries left"
+              : ` · ${attemptMeta.attemptsRemaining} left`}
           </Typography>
           <Stack
             direction={{ xs: "column", sm: "row" }}
@@ -491,35 +546,48 @@ export default function StudentQuizPage() {
             >
               Review Answers
             </Button>
+            {attemptMeta.attemptsRemaining > 0 &&
+            !attemptMeta.isClosed &&
+            !result.releasedToGradebook ? (
+              <Button
+                variant="contained"
+                color={result.isPassed ? "secondary" : "primary"}
+                disabled={releasingGrade}
+                onClick={() => {
+                  setResult(null);
+                  setReviewMode(false);
+                  setAnswers({});
+                  setCurrentIndex(0);
+                  setMotivation("");
+                  setLoading(true);
+                  quizService
+                    .start(quizId)
+                    .then((response) => applyStartPayload(response.data.data))
+                    .catch((err) => setError(getErrorMessage(err)))
+                    .finally(() => setLoading(false));
+                }}
+              >
+                {result.isPassed
+                  ? `Use another attempt (${attemptMeta.attemptsRemaining} left)`
+                  : `Retry quiz (${attemptMeta.attemptsRemaining} left)`}
+              </Button>
+            ) : null}
             <Button
-              variant="outlined"
-              disabled={
-                attemptMeta.attemptsRemaining <= 0 || attemptMeta.isClosed
+              variant={
+                attemptMeta.attemptsRemaining > 0 && !attemptMeta.isClosed
+                  ? "outlined"
+                  : "contained"
               }
-              onClick={() => {
-                setResult(null);
-                setReviewMode(false);
-                setAnswers({});
-                setCurrentIndex(0);
-                setMotivation("");
-                setLoading(true);
-                quizService
-                  .start(quizId)
-                  .then((response) => applyStartPayload(response.data.data))
-                  .catch((err) => setError(getErrorMessage(err)))
-                  .finally(() => setLoading(false));
-              }}
+              disabled={releasingGrade}
+              onClick={handleKeepScore}
             >
-              {attemptMeta.attemptsRemaining <= 0
-                ? "No retries left"
-                : "Retry Quiz"}
-            </Button>
-            <Button
-              component={RouterLink}
-              to="/student/quizzes"
-              variant="contained"
-            >
-              Continue Learning
+              {releasingGrade
+                ? "Submitting…"
+                : result.releasedToGradebook
+                  ? "Back to quizzes"
+                  : result.isPassed
+                    ? "Submit grade to teacher"
+                    : "Submit this score to teacher"}
             </Button>
           </Stack>
         </Paper>

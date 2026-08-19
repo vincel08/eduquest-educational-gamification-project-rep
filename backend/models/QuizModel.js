@@ -331,6 +331,20 @@ const QuizModel = {
     return Number(rows[0]?.total) || 0;
   },
 
+  async findBestCompletedAttempt(quizId, studentId) {
+    const rows = await query(
+      `SELECT id, score, is_passed, earned_points, total_points, completed_at
+       FROM quiz_attempts
+       WHERE quiz_id = :quizId
+         AND student_id = :studentId
+         AND completed_at IS NOT NULL
+       ORDER BY score DESC, completed_at DESC, id DESC
+       LIMIT 1`,
+      { quizId, studentId },
+    );
+    return rows[0] || null;
+  },
+
   async findOpenAttempt(quizId, studentId) {
     const rows = await query(
       `SELECT * FROM quiz_attempts
@@ -420,11 +434,46 @@ const QuizModel = {
            earned_points = :earnedPoints,
            xp_earned = :xpEarned,
            is_passed = :isPassed,
-           completed_at = CURRENT_TIMESTAMP
+           completed_at = CURRENT_TIMESTAMP,
+           released_to_gradebook = :releasedToGradebook
        WHERE id = :attemptId`,
-      { attemptId, ...data },
+      {
+        attemptId,
+        score: data.score,
+        totalPoints: data.totalPoints,
+        earnedPoints: data.earnedPoints,
+        xpEarned: data.xpEarned,
+        isPassed: data.isPassed,
+        releasedToGradebook: data.releasedToGradebook ? 1 : 0,
+      },
     );
     return this.findAttemptById(attemptId);
+  },
+
+  async releaseCompletedAttempts(quizId, studentId) {
+    await query(
+      `UPDATE quiz_attempts
+       SET released_to_gradebook = 1
+       WHERE quiz_id = :quizId
+         AND student_id = :studentId
+         AND completed_at IS NOT NULL
+         AND released_to_gradebook = 0`,
+      { quizId, studentId },
+    );
+    return true;
+  },
+
+  async hasReleasedAttempt(quizId, studentId) {
+    const rows = await query(
+      `SELECT id FROM quiz_attempts
+       WHERE quiz_id = :quizId
+         AND student_id = :studentId
+         AND completed_at IS NOT NULL
+         AND released_to_gradebook = 1
+       LIMIT 1`,
+      { quizId, studentId },
+    );
+    return Boolean(rows[0]);
   },
 
   async saveAnswer(data) {
