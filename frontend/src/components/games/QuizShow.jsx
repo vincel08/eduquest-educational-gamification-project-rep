@@ -3,7 +3,8 @@ import { Box, LinearProgress, Stack, Typography, useTheme } from '@mui/material'
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
-import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
+import { playSound, SOUND_KEYS, syncQuizShowMusic } from '../../utils/soundEffects';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
   AnimatePresence,
   MotionBox,
@@ -15,6 +16,7 @@ import {
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 const QUESTION_SECONDS = 30;
 const UNANSWERED = -1;
+const TENSION_SECONDS = 5;
 
 export default function QuizShow({ gameData, onComplete, xpReward = 50 }) {
   const theme = useTheme();
@@ -37,8 +39,13 @@ export default function QuizShow({ gameData, onComplete, xpReward = 50 }) {
   const [pressed, setPressed] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
   const resolvedRef = useRef(false);
+  const introPlayedRef = useRef(false);
   const stateRef = useRef({ score: 0, choices: [], index: 0 });
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+  useRegisterTimeoutSubmit(() => ({
+    score,
+    answers: { choices },
+  }));
 
   useEffect(() => {
     stateRef.current = { score, choices, index };
@@ -52,11 +59,12 @@ export default function QuizShow({ gameData, onComplete, xpReward = 50 }) {
     const isCorrect = choiceIndex !== UNANSWERED && choiceIndex === round?.correctIndex;
     const correctLabel = round?.choices?.[round?.correctIndex] ?? '';
     const perQuestionXp = Math.max(5, Math.round(Number(xpReward) / Math.max(rounds.length, 1)));
+    const isLast = questionIndex + 1 >= rounds.length;
 
     showFeedback({
       isCorrect,
       silent: fromTimeout,
-      soundKey: fromTimeout ? undefined : (isCorrect ? SOUND_KEYS.correct : SOUND_KEYS.wrong),
+      soundKey: fromTimeout ? undefined : (isCorrect ? SOUND_KEYS.quizShowCorrect : SOUND_KEYS.quizShowWrong),
       userAnswer: fromTimeout ? 'No answer' : (round?.choices?.[choiceIndex] ?? ''),
       correctAnswer: correctLabel,
       explanation: fromTimeout
@@ -71,14 +79,38 @@ export default function QuizShow({ gameData, onComplete, xpReward = 50 }) {
         setScore(nextScore);
         setLocked(false);
         setPressed(null);
-        if (questionIndex + 1 >= rounds.length) {
+        if (isLast) {
+          playSound(SOUND_KEYS.quizShowComplete);
           onComplete?.({ score: nextScore, answers: { choices: nextChoices } });
           return;
         }
+        playSound(SOUND_KEYS.quizShowRound);
         setIndex(questionIndex + 1);
       },
     });
   }, [onComplete, rounds, showFeedback, xpReward]);
+
+  // Game start intro + question reveal sting
+  useEffect(() => {
+    if (!rounds.length) return;
+    if (!introPlayedRef.current) {
+      introPlayedRef.current = true;
+      playSound(SOUND_KEYS.quizShowIntro);
+      return;
+    }
+    playSound(SOUND_KEYS.quizShowReveal);
+  }, [index, rounds.length]);
+
+  // Upbeat answering bed; tension in the last few seconds
+  useEffect(() => {
+    if (!rounds.length) return;
+    if (feedback?.open || locked) return;
+    if (secondsLeft > 0 && secondsLeft <= TENSION_SECONDS) {
+      syncQuizShowMusic('tension');
+    } else {
+      syncQuizShowMusic('play');
+    }
+  }, [secondsLeft, locked, feedback?.open, rounds.length, index]);
 
   // Reset the 30s clock whenever a new question starts.
   useEffect(() => {

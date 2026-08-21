@@ -373,6 +373,7 @@ export default function AiGeneratedReviewPanel({
                   gameType={draft.game.gameType}
                   gameData={draft.game.gameData}
                   xpReward={draft.game.xpReward}
+                  timeLimitMinutes={Number(draft.game.estimatedTime) || null}
                   onComplete={() => {
                     setHasPlayedGamePreview(true);
                     setSnack('Game preview completed. You can publish when ready.');

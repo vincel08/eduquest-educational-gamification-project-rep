@@ -3,6 +3,7 @@ import { Box, LinearProgress, Stack, Typography, useTheme } from '@mui/material'
 import StyleOutlinedIcon from '@mui/icons-material/StyleOutlined';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
 import {
   AnimatePresence,
@@ -24,6 +25,10 @@ export default function Flashcards({ gameData, onComplete, xpReward = 50 }) {
   const [remembered, setRemembered] = useState([]);
   const [exitDir, setExitDir] = useState(0);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+  useRegisterTimeoutSubmit(() => ({
+    score: Math.round((known / Math.max(items.length, 1)) * 100),
+    answers: { remembered },
+  }));
 
   useEffect(() => {
     setExitDir(0);

@@ -4,6 +4,7 @@ import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
 import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
   AnimatePresence,
   MotionBox,
@@ -25,6 +26,10 @@ export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
   const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+  useRegisterTimeoutSubmit(() => ({
+    score,
+    answers: { rounds: roundsPlayed },
+  }));
 
   const totalRounds = Math.min(items.length, 5);
   const perSpinXp = Math.max(5, Math.round(Number(xpReward) / Math.max(totalRounds, 1)));

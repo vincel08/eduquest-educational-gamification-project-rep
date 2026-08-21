@@ -3,7 +3,8 @@ import { Box, Stack, Typography, useTheme } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
-import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
+import { playSound, SOUND_KEYS, syncMillionaireMusic } from '../../utils/soundEffects';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
   AnimatePresence,
   MotionBox,
@@ -16,16 +17,13 @@ import {
 const LADDER = [100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000, 32000];
 const LETTERS = ['A', 'B', 'C', 'D'];
 const ATTEMPTS_PER_QUESTION = 2;
-const TIME_LIMIT_SECONDS = 15 * 60;
 
-function formatClock(totalSeconds) {
-  const safe = Math.max(0, Number(totalSeconds) || 0);
-  const minutes = Math.floor(safe / 60);
-  const seconds = safe % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
-export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
+export default function Millionaire({
+  gameData,
+  onComplete,
+  xpReward = 50,
+  sessionTimedOut = false,
+}) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const items = useMemo(
@@ -36,11 +34,14 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
   const [score, setScore] = useState(0);
   const [choices, setChoices] = useState([]);
   const [attemptsLeft, setAttemptsLeft] = useState(ATTEMPTS_PER_QUESTION);
-  const [secondsLeft, setSecondsLeft] = useState(TIME_LIMIT_SECONDS);
   const [nextLabel, setNextLabel] = useState('Next Question');
   const submittedRef = useRef(false);
-  const stateRef = useRef({ score: 0, choices: [] });
   const { feedback, showFeedback, clearFeedback, handleNext } = useAnswerFeedback();
+
+  useRegisterTimeoutSubmit(() => ({
+    score,
+    answers: { choices, completed: false },
+  }));
 
   const finish = useCallback((finalScore, finalChoices, reason) => {
     if (submittedRef.current) return;
@@ -57,32 +58,9 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
   }, [clearFeedback, onComplete]);
 
   useEffect(() => {
-    stateRef.current = { score, choices };
-  }, [score, choices]);
-
-  useEffect(() => {
-    if (!items.length || submittedRef.current) return undefined;
-
-    const timer = setInterval(() => {
-      setSecondsLeft((prev) => (prev <= 1 ? 0 : prev - 1));
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [items.length]);
-
-  useEffect(() => {
-    if (secondsLeft > 0 || submittedRef.current || !items.length) return;
-    playSound(SOUND_KEYS.timeout);
-    const latest = stateRef.current;
-    finish(latest.score, latest.choices, 'timeout');
-  }, [secondsLeft, items.length, finish]);
-
-  useEffect(() => {
-    if (submittedRef.current || feedback?.open) return;
-    if (secondsLeft === 60 || secondsLeft === 30 || secondsLeft === 10) {
-      playSound(SOUND_KEYS.timerUrgent);
-    }
-  }, [secondsLeft, feedback?.open]);
+    if (!items.length || submittedRef.current) return;
+    syncMillionaireMusic(index, items.length);
+  }, [index, items.length]);
 
   if (!items.length) {
     return <Typography color="text.secondary">No Millionaire questions available.</Typography>;
@@ -92,10 +70,9 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
   const ladderValue = LADDER[Math.min(index, LADDER.length - 1)];
   const perXp = Math.max(5, Math.round(Number(xpReward) / items.length));
   const visibleLadder = LADDER.slice(0, Math.min(items.length, LADDER.length));
-  const timeUrgent = secondsLeft <= 60;
 
   function answer(choiceIndex) {
-    if (feedback?.open || submittedRef.current || secondsLeft <= 0) return;
+    if (feedback?.open || submittedRef.current || sessionTimedOut) return;
 
     const isCorrect = choiceIndex === current.correctIndex;
 
@@ -107,7 +84,7 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
       setNextLabel(finishedAll ? 'See Results' : 'Next Question');
       showFeedback({
         isCorrect: true,
-        soundKey: SOUND_KEYS.ladderSafe,
+        soundKey: SOUND_KEYS.millionaireVictory,
         userAnswer: current.choices?.[choiceIndex],
         correctAnswer: current.choices?.[current.correctIndex],
         explanation: finishedAll
@@ -120,6 +97,7 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
           setChoices(nextChoices);
           setScore(nextScore);
           if (finishedAll) {
+            playSound(SOUND_KEYS.gameComplete);
             finish(nextScore, nextChoices, 'complete');
             return;
           }
@@ -137,6 +115,7 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
       setNextLabel('Try Again');
       showFeedback({
         isCorrect: false,
+        soundKey: SOUND_KEYS.millionaireFail,
         userAnswer: current.choices?.[choiceIndex],
         correctAnswer: null,
         explanation: `Wrong answer. ${remaining} attempt left on this question.`,
@@ -148,11 +127,10 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
       return;
     }
 
-    // Used both attempts — back to the start of the ladder.
     setNextLabel('Restart Ladder');
     showFeedback({
       isCorrect: false,
-      soundKey: SOUND_KEYS.fail,
+      soundKey: SOUND_KEYS.millionaireFail,
       userAnswer: current.choices?.[choiceIndex],
       correctAnswer: current.choices?.[current.correctIndex],
       explanation: 'No attempts left. Back to the start of the ladder!',
@@ -226,50 +204,31 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
       </MotionBox>
 
       <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ alignItems: 'center' }}>
-          <MotionBox
-            key={`hotseat-${index}`}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: [0.9, 1.05, 1] }}
-            transition={{ duration: 0.45 }}
-            sx={{
-              px: 1.75,
-              py: 0.85,
-              borderRadius: 999,
-              bgcolor: '#CA8A04',
-              color: '#1C1917',
-              fontWeight: 900,
-              letterSpacing: 0.4,
-              boxShadow: '0 8px 20px rgba(202,138,4,0.35)',
-            }}
-          >
-            {ladderValue.toLocaleString()} points
-          </MotionBox>
-
-          <Box
-            sx={{
-              px: 1.5,
-              py: 0.75,
-              borderRadius: 999,
-              border: '1px solid',
-              borderColor: timeUrgent ? 'error.main' : 'divider',
-              bgcolor: timeUrgent
-                ? (isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.08)')
-                : 'action.hover',
-              color: timeUrgent ? 'error.main' : 'text.primary',
-              fontWeight: 800,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            Time {formatClock(secondsLeft)}
-          </Box>
-        </Stack>
+        <MotionBox
+          key={`hotseat-${index}`}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: [0.9, 1.05, 1] }}
+          transition={{ duration: 0.45 }}
+          sx={{
+            alignSelf: 'flex-start',
+            px: 1.75,
+            py: 0.85,
+            borderRadius: 999,
+            bgcolor: '#CA8A04',
+            color: '#1C1917',
+            fontWeight: 900,
+            letterSpacing: 0.4,
+            boxShadow: '0 8px 20px rgba(202,138,4,0.35)',
+          }}
+        >
+          {ladderValue.toLocaleString()} points
+        </MotionBox>
 
         <Typography variant="body2" color="text.secondary">
           Score: {score} · Q{index + 1}/{items.length} · Attempts left: {attemptsLeft}/{ATTEMPTS_PER_QUESTION}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          2 tries per question. Miss both and the ladder resets. Results submit when you finish or when 15:00 runs out.
+          2 tries per question. Miss both and the ladder resets. Results submit when you finish or when the teacher time limit runs out.
         </Typography>
 
         <AnimatePresence mode="wait">
@@ -304,7 +263,7 @@ export default function Millionaire({ gameData, onComplete, xpReward = 50 }) {
                   key={`${choice}-${choiceIndex}`}
                   variants={choiceItemVariants}
                   variant="outlined"
-                  disabled={feedback?.open || secondsLeft <= 0}
+                  disabled={feedback?.open || sessionTimedOut}
                   onClick={() => answer(choiceIndex)}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}

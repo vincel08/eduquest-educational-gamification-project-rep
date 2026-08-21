@@ -4,6 +4,7 @@ import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { resolveWordSearchPuzzle } from '../../utils/wordSearchGrid';
 import { SOUND_KEYS } from '../../utils/soundEffects';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import { MotionBox } from './GameMotion';
 
 function cellsToWord(path, grid) {
@@ -43,6 +44,10 @@ export default function WordSearch({ gameData, onComplete, xpReward = 50 }) {
   const [startCell, setStartCell] = useState(null);
   const [activePath, setActivePath] = useState([]);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+  useRegisterTimeoutSubmit(() => ({
+    score: words.length ? Math.round((found.length / words.length) * 100) : 0,
+    answers: { foundWords: found },
+  }));
 
   const perWordXp = Math.max(5, Math.round(Number(xpReward) / Math.max(words.length, 1)));
   const pathSet = useMemo(

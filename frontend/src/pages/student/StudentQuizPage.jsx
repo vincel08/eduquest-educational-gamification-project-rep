@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -28,6 +28,8 @@ import { celebrateAchievement } from "../../utils/confetti";
 import { pickMotivationalMessage } from "../../utils/feedbackMessages";
 import { playSound, SOUND_KEYS, unlockAudio } from "../../utils/soundEffects";
 import SoundToggle from "../../components/games/SoundToggle";
+import SessionTimerBar from "../../components/games/SessionTimerBar";
+import useSessionCountdown from "../../hooks/useSessionCountdown";
 import { useAuth } from "../../contexts/AuthContext";
 import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 import { useRewards } from "../../contexts/RewardsContext";
@@ -60,6 +62,8 @@ export default function StudentQuizPage() {
     hasOverride: false,
     extraAttempts: 0,
   });
+  const submitOnceRef = useRef(false);
+  const handleSubmitRef = useRef(null);
 
   function applyStartPayload(data) {
     setQuiz(data.quiz);
@@ -67,6 +71,7 @@ export default function StudentQuizPage() {
     setAttemptId(data.attempt.id);
     setStartedAt(Date.now());
     setReviewMode(false);
+    submitOnceRef.current = false;
     setAttemptMeta({
       attemptsUsed: data.attemptsUsed ?? 0,
       attemptsRemaining: data.attemptsRemaining ?? 3,
@@ -139,6 +144,7 @@ export default function StudentQuizPage() {
   }
 
   async function handleSubmit() {
+    if (submitting || result) return;
     setSubmitting(true);
     setError("");
     try {
@@ -189,6 +195,7 @@ export default function StudentQuizPage() {
       setSubmitting(false);
     }
   }
+  handleSubmitRef.current = handleSubmit;
 
   async function handleKeepScore() {
     setReleasingGrade(true);
@@ -331,6 +338,22 @@ export default function StudentQuizPage() {
     );
   }
 
+  const question = questions[currentIndex];
+  const startBlocked =
+    Boolean(attemptMeta.isClosed) || Boolean(attemptMeta.outOfAttempts);
+  const quizActive = Boolean(
+    quiz && questions.length && !result && !reviewMode && !startBlocked && !loading,
+  );
+  const countdown = useSessionCountdown(quiz?.time_limit_minutes, {
+    enabled: quizActive && !submitting,
+    onExpire: () => {
+      if (submitOnceRef.current) return;
+      submitOnceRef.current = true;
+      handleSubmitRef.current?.();
+    },
+    fallbackMinutes: 15,
+  });
+
   if (loading) return <LoadingScreen />;
   if (error && !quiz) {
     return (
@@ -346,10 +369,6 @@ export default function StudentQuizPage() {
       </Stack>
     );
   }
-
-  const question = questions[currentIndex];
-  const startBlocked =
-    Boolean(attemptMeta.isClosed) || Boolean(attemptMeta.outOfAttempts);
 
   return (
     <>
@@ -682,16 +701,21 @@ export default function StudentQuizPage() {
                 Question {currentIndex + 1} of {questions.length}
               </Typography>
               <Stack direction="row" spacing={1}>
-                {quiz.time_limit_minutes ? (
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    label={`${quiz.time_limit_minutes} min limit`}
-                  />
-                ) : null}
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color={countdown.isUrgent ? "error" : "default"}
+                  label={`Time ${countdown.formatted}`}
+                />
                 <Chip size="small" label={`${progress}%`} color="primary" />
               </Stack>
             </Stack>
+            <SessionTimerBar
+              formatted={countdown.formatted}
+              limitFormatted={countdown.limitFormatted}
+              progress={countdown.progress}
+              isUrgent={countdown.isUrgent}
+            />
             <LinearProgress variant="determinate" value={progress} />
           </Paper>
 

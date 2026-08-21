@@ -55,11 +55,11 @@ export default function SoundToggle({ gameType = null, size = 'small' }) {
           {sfxOn ? <VolumeUpRoundedIcon fontSize="small" /> : <VolumeOffRoundedIcon fontSize="small" />}
         </IconButton>
       </Tooltip>
-      <Tooltip title={musicOn ? 'Mute music' : 'Enable ambient music'}>
+      <Tooltip title={musicOn ? 'Mute game music' : 'Enable game music'}>
         <IconButton
           size={size}
           onClick={toggleMusic}
-          aria-label="Toggle ambient music"
+          aria-label="Toggle game music"
           color={musicOn && sfxOn ? 'primary' : 'default'}
           disabled={!sfxOn}
         >

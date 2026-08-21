@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Button, LinearProgress, Stack, Typography, useTheme } from '@mui/material';
 import ExploreIcon from '@mui/icons-material/Explore';
 import FavoriteIcon from '@mui/icons-material/Favorite';
@@ -6,7 +6,8 @@ import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FlagIcon from '@mui/icons-material/Flag';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
-import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
+import { playSound, SOUND_KEYS, syncMissionAdventureMusic } from '../../utils/soundEffects';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
   AnimatePresence,
   MotionBox,
@@ -51,7 +52,38 @@ export default function MissionAdventure({ gameData, onComplete, xpReward = 50 }
   const [choices, setChoices] = useState([]);
   const [energy, setEnergy] = useState(STARTING_ENERGY);
   const [failed, setFailed] = useState(false);
+  const [awaitingChoice, setAwaitingChoice] = useState(false);
+  const choiceTimerRef = useRef(null);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+  useRegisterTimeoutSubmit(() => ({
+    score,
+    answers: { choices, energyLeft: energy, failed, completed: false },
+  }));
+
+  useEffect(() => {
+    if (!missions.length) return undefined;
+
+    if (!started) {
+      syncMissionAdventureMusic('select');
+      return undefined;
+    }
+
+    if (awaitingChoice) {
+      syncMissionAdventureMusic('choice');
+      return undefined;
+    }
+
+    if (index >= missions.length - 1) {
+      syncMissionAdventureMusic('final');
+    } else {
+      syncMissionAdventureMusic('reading');
+    }
+    return undefined;
+  }, [started, index, missions.length, awaitingChoice]);
+
+  useEffect(() => () => {
+    if (choiceTimerRef.current) window.clearTimeout(choiceTimerRef.current);
+  }, []);
 
   if (!missions.length) {
     return <Typography color="text.secondary">No mission adventure data available.</Typography>;
@@ -62,6 +94,9 @@ export default function MissionAdventure({ gameData, onComplete, xpReward = 50 }
   const progressPct = (index / missions.length) * 100;
 
   function finish(finalScore, finalChoices, reason, energyLeft) {
+    if (reason === 'complete') {
+      playSound(SOUND_KEYS.missionComplete);
+    }
     onComplete?.({
       score: Math.max(0, Math.min(100, Math.round(finalScore))),
       answers: {
@@ -74,7 +109,7 @@ export default function MissionAdventure({ gameData, onComplete, xpReward = 50 }
   }
 
   function choose(choiceIndex) {
-    if (feedback?.open || failed || !started) return;
+    if (feedback?.open || failed || !started || awaitingChoice) return;
 
     const isCorrect = choiceIndex === current.correctIndex;
     const nextScore = isCorrect ? Math.min(100, score + Math.round(100 / missions.length)) : score;
@@ -82,41 +117,49 @@ export default function MissionAdventure({ gameData, onComplete, xpReward = 50 }
     const outOfEnergy = !isCorrect && nextEnergy <= 0;
     const finishedAll = index + 1 >= missions.length;
 
-    showFeedback({
-      isCorrect,
-      soundKey: isCorrect
-        ? SOUND_KEYS.correct
-        : (outOfEnergy ? SOUND_KEYS.fail : SOUND_KEYS.energyDown),
-      userAnswer: current.choices?.[choiceIndex],
-      correctAnswer: current.choices?.[current.correctIndex],
-      explanation: isCorrect
-        ? `Path clear — advancing toward ${finishedAll ? 'the final flag' : locationLabel(missions[index + 1], index + 1)}.`
-        : (outOfEnergy
-          ? 'You are out of energy. The mission ends here.'
-          : `Setback! Energy -1. ${nextEnergy} left.`),
-      xpEarned: isCorrect ? (Number(current.xp) || perXp) : 0,
-      score: nextScore,
-      progress: (index + 1) / missions.length,
-      onNext: () => {
-        const nextChoices = [...choices, choiceIndex];
-        setChoices(nextChoices);
-        setScore(nextScore);
-        setEnergy(nextEnergy);
+    setAwaitingChoice(true);
+    playSound(SOUND_KEYS.missionChoice);
 
-        if (outOfEnergy) {
-          setFailed(true);
-          finish(nextScore, nextChoices, 'energy', nextEnergy);
-          return;
-        }
+    if (choiceTimerRef.current) window.clearTimeout(choiceTimerRef.current);
+    choiceTimerRef.current = window.setTimeout(() => {
+      setAwaitingChoice(false);
+      showFeedback({
+        isCorrect,
+        soundKey: isCorrect ? SOUND_KEYS.missionVictory : SOUND_KEYS.missionError,
+        userAnswer: current.choices?.[choiceIndex],
+        correctAnswer: current.choices?.[current.correctIndex],
+        explanation: isCorrect
+          ? `Path clear — advancing toward ${finishedAll ? 'the final flag' : locationLabel(missions[index + 1], index + 1)}.`
+          : (outOfEnergy
+            ? 'You are out of energy. The mission ends here.'
+            : `Setback! Energy -1. ${nextEnergy} left.`),
+        xpEarned: isCorrect ? (Number(current.xp) || perXp) : 0,
+        score: nextScore,
+        progress: (index + 1) / missions.length,
+        onNext: () => {
+          const nextChoices = [...choices, choiceIndex];
+          setChoices(nextChoices);
+          setScore(nextScore);
+          setEnergy(nextEnergy);
 
-        if (finishedAll) {
-          finish(nextScore, nextChoices, 'complete', nextEnergy);
-          return;
-        }
+          if (outOfEnergy) {
+            setFailed(true);
+            finish(nextScore, nextChoices, 'energy', nextEnergy);
+            return;
+          }
 
-        setIndex((prev) => prev + 1);
-      },
-    });
+          if (finishedAll) {
+            finish(nextScore, nextChoices, 'complete', nextEnergy);
+            return;
+          }
+
+          if (isCorrect) {
+            playSound(SOUND_KEYS.missionUnlock);
+          }
+          setIndex((prev) => prev + 1);
+        },
+      });
+    }, 380);
   }
 
   if (!started) {
@@ -384,7 +427,7 @@ export default function MissionAdventure({ gameData, onComplete, xpReward = 50 }
                 key={`${choice}-${choiceIndex}`}
                 variants={choiceItemVariants}
                 variant="outlined"
-                disabled={feedback?.open || failed}
+                disabled={feedback?.open || failed || awaitingChoice}
                 onClick={() => choose(choiceIndex)}
                 whileTap={{ scale: 0.98 }}
                 whileHover={{ x: 8 }}

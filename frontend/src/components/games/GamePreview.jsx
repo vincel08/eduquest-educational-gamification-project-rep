@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Box, Stack, Typography } from '@mui/material';
 import Flashcards from './Flashcards';
 import MemoryMatch from './MemoryMatch';
@@ -13,10 +13,13 @@ import EscapeRoom from './EscapeRoom';
 import MissionAdventure from './MissionAdventure';
 import PuzzleChallenge from './PuzzleChallenge';
 import SoundToggle from './SoundToggle';
+import SessionTimerBar from './SessionTimerBar';
 import { formatGameTypeLabel } from '../../utils/gameTypes';
 import { syncCrosswordGameData } from '../../utils/crosswordGrid';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
-import { stopAmbient, syncAmbientForGame, unlockAudio } from '../../utils/soundEffects';
+import { playSound, SOUND_KEYS, stopAmbient, syncAmbientForGame, unlockAudio } from '../../utils/soundEffects';
+import useSessionCountdown, { resolveTimeLimitMinutes } from '../../hooks/useSessionCountdown';
+import { GameSessionProvider } from '../../contexts/GameSessionContext';
 
 const COMPONENT_MAP = {
   flashcards: Flashcards,
@@ -33,7 +36,6 @@ const COMPONENT_MAP = {
   mission_adventure: MissionAdventure,
   puzzle_challenge: PuzzleChallenge,
   word_scramble: WordSearch,
-  // true_false_blitz intentionally omitted (deprecated)
 };
 
 function prepareGameData(gameType, gameData) {
@@ -54,9 +56,71 @@ function prepareGameData(gameType, gameData) {
   return gameData;
 }
 
-export default function GamePreview({ gameType, gameData, onComplete, xpReward = 50 }) {
+export default function GamePreview({
+  gameType,
+  gameData,
+  onComplete,
+  xpReward = 50,
+  timeLimitMinutes = null,
+}) {
   const Component = COMPONENT_MAP[gameType];
   const prepared = prepareGameData(gameType, gameData);
+  const limitMinutes = resolveTimeLimitMinutes(timeLimitMinutes, 10);
+  const submitRef = useRef(null);
+  const finishedRef = useRef(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const [sessionDone, setSessionDone] = useState(false);
+
+  const registerSubmit = useCallback((fn) => {
+    submitRef.current = fn;
+    return () => {
+      if (submitRef.current === fn) submitRef.current = null;
+    };
+  }, []);
+
+  const handleExpire = useCallback(() => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    setTimedOut(true);
+    setSessionDone(true);
+    playSound(SOUND_KEYS.timeout);
+    const payload = submitRef.current?.() || {
+      score: 0,
+      answers: { timedOut: true },
+    };
+    onComplete?.({
+      ...payload,
+      answers: {
+        ...(payload.answers || {}),
+        timedOut: true,
+      },
+    });
+  }, [onComplete]);
+
+  const countdown = useSessionCountdown(limitMinutes, {
+    enabled: Boolean(Component && gameData) && !sessionDone,
+    onExpire: handleExpire,
+    fallbackMinutes: 10,
+  });
+
+  const wrapComplete = useCallback((payload) => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    setSessionDone(true);
+    const next = typeof payload === 'number'
+      ? { score: payload, durationSeconds: countdown.elapsedSeconds }
+      : {
+          ...payload,
+          durationSeconds: payload?.durationSeconds ?? countdown.elapsedSeconds,
+        };
+    onComplete?.(next);
+  }, [onComplete, countdown.elapsedSeconds]);
+
+  useEffect(() => {
+    finishedRef.current = false;
+    setTimedOut(false);
+    setSessionDone(false);
+  }, [gameType, gameData, limitMinutes]);
 
   useEffect(() => {
     const unlock = () => unlockAudio();
@@ -86,11 +150,28 @@ export default function GamePreview({ gameType, gameData, onComplete, xpReward =
       <Stack direction="row" justifyContent="flex-end" alignItems="center" sx={{ mb: 0.5 }}>
         <SoundToggle gameType={gameType} />
       </Stack>
-      <Component
-        gameData={prepared}
-        onComplete={onComplete}
-        xpReward={xpReward}
+
+      <SessionTimerBar
+        formatted={countdown.formatted}
+        limitFormatted={countdown.limitFormatted}
+        progress={countdown.progress}
+        isUrgent={countdown.isUrgent || timedOut}
+        label={timedOut ? 'Time is up' : 'Time left'}
       />
+
+      <GameSessionProvider
+        registerSubmit={registerSubmit}
+        timedOut={timedOut}
+        elapsedSeconds={countdown.elapsedSeconds}
+      >
+        <Component
+          gameData={prepared}
+          onComplete={wrapComplete}
+          xpReward={xpReward}
+          timeLimitMinutes={limitMinutes}
+          sessionTimedOut={timedOut}
+        />
+      </GameSessionProvider>
     </Box>
   );
 }
