@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -33,6 +33,7 @@ export default function TeacherAiQuizPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const generateInFlight = useRef(false);
 
   useEffect(() => {
     courseService.list({ limit: 50 })
@@ -63,6 +64,8 @@ export default function TeacherAiQuizPage() {
 
   async function handleGenerate(event) {
     event.preventDefault();
+    if (generateInFlight.current) return;
+    generateInFlight.current = true;
     setLoading(true);
     setError('');
     setMessage('');
@@ -75,6 +78,10 @@ export default function TeacherAiQuizPage() {
         difficulty: form.difficulty,
         questionCount: Number(form.questionCount),
         questionType: form.questionType,
+        requestId:
+          typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       });
       const data = response.data.data;
       if (data.source === 'fallback') {
@@ -88,6 +95,7 @@ export default function TeacherAiQuizPage() {
       setDraft(null);
       setError(getErrorMessage(err));
     } finally {
+      generateInFlight.current = false;
       setLoading(false);
     }
   }

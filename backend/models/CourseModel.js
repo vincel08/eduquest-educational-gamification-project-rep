@@ -107,6 +107,7 @@ const CourseModel = {
       schoolYear: "school_year",
       endsAt: "ends_at",
       coverImage: "cover_image",
+      teacherId: "teacher_id",
       isPublished: "is_published",
       updatedBy: "updated_by",
     };

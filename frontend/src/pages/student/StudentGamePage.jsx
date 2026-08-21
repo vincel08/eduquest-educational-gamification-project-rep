@@ -13,6 +13,7 @@ import { pickMotivationalMessage } from "../../utils/feedbackMessages";
 import { playSound, SOUND_KEYS } from "../../utils/soundEffects";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRewards } from "../../contexts/RewardsContext";
+import { formatGameTypeLabel } from "../../utils/gameTypes";
 
 export default function StudentGamePage() {
   const { gameId } = useParams();
@@ -252,7 +253,7 @@ export default function StudentGamePage() {
         >
           <Chip
             size="small"
-            label={`Type: ${String(game.game_type || "").replace(/_/g, " ")}`}
+            label={`Type: ${formatGameTypeLabel(game.game_type)}`}
           />
           <Chip size="small" label={`XP reward: ${game.xp_reward}`} />
           <Chip

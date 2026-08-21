@@ -2,6 +2,7 @@ import CourseModel from "../models/CourseModel.js";
 import LessonModel from "../models/LessonModel.js";
 import NotificationModel from "../models/NotificationModel.js";
 import StudentProfileModel from "../models/StudentProfileModel.js";
+import UserModel from "../models/UserModel.js";
 import AppError from "../utils/AppError.js";
 import {
   GRADE_LEVEL_MISMATCH_MESSAGE,
@@ -120,6 +121,22 @@ const CourseService = {
     }
 
     const patch = { ...data, updatedBy: user.id };
+
+    if (data.teacherId !== undefined) {
+      if (user.role !== "administrator") {
+        throw new AppError("Only administrators can reassign subject teachers", 403);
+      }
+      const nextTeacherId = Number(data.teacherId);
+      if (!Number.isInteger(nextTeacherId) || nextTeacherId < 1) {
+        throw new AppError("Please select a valid teacher", 400);
+      }
+      const teacher = await UserModel.findById(nextTeacherId);
+      if (!teacher || teacher.role !== "teacher" || !teacher.is_active) {
+        throw new AppError("Selected user must be an active teacher", 400);
+      }
+      patch.teacherId = nextTeacherId;
+    }
+
     if (data.schoolYear !== undefined || data.endsAt !== undefined) {
       const schedule = resolveScheduleFields({
         schoolYear:

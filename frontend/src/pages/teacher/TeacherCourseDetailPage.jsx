@@ -21,6 +21,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import ContentTimestamp from "../../components/common/ContentTimestamp";
 import ContentTimestampToolbar from "../../components/common/ContentTimestampToolbar";
 import courseService from "../../services/courseService";
@@ -36,6 +37,7 @@ import {
   materialViewUrl,
 } from "../../utils/materialActions";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
+import { formatGameTypeLabel } from "../../utils/gameTypes";
 
 export default function TeacherCourseDetailPage() {
   const { courseId } = useParams();
@@ -46,6 +48,7 @@ export default function TeacherCourseDetailPage() {
   const [games, setGames] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
   const [open, setOpen] = useState(false);
+  const [lessonToDelete, setLessonToDelete] = useState(null);
   const [form, setForm] = useState({
     title: "",
     competency: "",
@@ -60,6 +63,7 @@ export default function TeacherCourseDetailPage() {
   const [sort, setSort] = useState("newest");
   const [filters, setFilters] = useState({});
   const [downloadingId, setDownloadingId] = useState(null);
+  const [deletingLessonId, setDeletingLessonId] = useState(null);
 
   async function load() {
     try {
@@ -133,6 +137,23 @@ export default function TeacherCourseDetailPage() {
       setError(getErrorMessage(err));
     } finally {
       event.target.value = "";
+    }
+  }
+
+  async function handleDeleteLesson() {
+    if (!lessonToDelete) return;
+    setError("");
+    setMessage("");
+    setDeletingLessonId(lessonToDelete.id);
+    try {
+      await lessonService.remove(lessonToDelete.id);
+      setLessonToDelete(null);
+      setMessage("Lesson deleted");
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setDeletingLessonId(null);
     }
   }
 
@@ -224,15 +245,26 @@ export default function TeacherCourseDetailPage() {
                   alignItems="flex-start"
                   sx={{ px: 0 }}
                   secondaryAction={
-                    <Button component="label" size="small" variant="outlined">
-                      Upload Material
-                      <input
-                        hidden
-                        type="file"
-                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.rtf,.md,.png,.jpg,.jpeg,.webp,.gif,.zip,application/pdf,image/*"
-                        onChange={(event) => handleUpload(lesson.id, event)}
-                      />
-                    </Button>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Button component="label" size="small" variant="outlined">
+                        Upload Material
+                        <input
+                          hidden
+                          type="file"
+                          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.rtf,.md,.png,.jpg,.jpeg,.webp,.gif,.zip,application/pdf,image/*"
+                          onChange={(event) => handleUpload(lesson.id, event)}
+                        />
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="outlined"
+                        disabled={deletingLessonId === lesson.id}
+                        onClick={() => setLessonToDelete(lesson)}
+                      >
+                        {deletingLessonId === lesson.id ? "…" : "Delete"}
+                      </Button>
+                    </Stack>
                   }
                 >
                   <ListItemText
@@ -240,7 +272,7 @@ export default function TeacherCourseDetailPage() {
                     secondary={
                       <Stack
                         spacing={0.5}
-                        sx={{ mt: 0.5, pr: { xs: 0, sm: 16 } }}
+                        sx={{ mt: 0.5, pr: { xs: 0, sm: 28 } }}
                       >
                         {lesson.competency ? (
                           <Typography variant="body2" color="text.secondary">
@@ -498,9 +530,8 @@ export default function TeacherCourseDetailPage() {
                       <Typography
                         variant="body2"
                         color="text.secondary"
-                        sx={{ textTransform: "capitalize" }}
                       >
-                        {(game.game_type || "").replace(/_/g, " ")} ·{" "}
+                        {formatGameTypeLabel(game.game_type)} ·{" "}
                         {game.xp_reward} XP · Open to revisit
                       </Typography>
                       <ContentTimestamp item={game} dense />
@@ -534,6 +565,26 @@ export default function TeacherCourseDetailPage() {
           </List>
         </Paper>
       </Stack>
+
+      <ConfirmDialog
+        open={Boolean(lessonToDelete)}
+        title="Delete lesson?"
+        description={
+          <>
+            You’re about to delete{" "}
+            <strong>{lessonToDelete?.title || "this lesson"}</strong>. This can’t
+            be undone.
+          </>
+        }
+        details="Uploaded materials and student progress for this lesson will be removed. Quizzes and games stay in the subject, but won’t be linked to this lesson anymore."
+        cancelLabel="Keep lesson"
+        confirmLabel="Delete lesson"
+        confirmColor="error"
+        loading={Boolean(deletingLessonId)}
+        loadingLabel="Deleting…"
+        onClose={() => setLessonToDelete(null)}
+        onConfirm={handleDeleteLesson}
+      />
 
       <Dialog
         open={open}

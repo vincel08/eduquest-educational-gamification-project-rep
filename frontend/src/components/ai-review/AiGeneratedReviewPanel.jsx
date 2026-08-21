@@ -20,9 +20,12 @@ import {
 } from '@mui/material';
 import GamePreview from '../games/GamePreview';
 import ContentTimestamp from '../common/ContentTimestamp';
+import ConfirmDialog from '../common/ConfirmDialog';
 import QuizEditor from './QuizEditor';
 import GameEditor from './GameEditor';
 import { validateGameDataClient } from '../../utils/gameDataValidation';
+import { formatGameTypeLabel } from '../../utils/gameTypes';
+import { gameDataContentKey, quizContentKey } from '../../utils/gameDataLists';
 import ObjectivesEditor from './ObjectivesEditor';
 import SummaryEditor from './SummaryEditor';
 import aiReviewService from '../../services/aiReviewService';
@@ -94,6 +97,10 @@ export default function AiGeneratedReviewPanel({
 
   function patchDraft(partial) {
     setDraft((prev) => ({ ...prev, ...partial }));
+    // Remount play/quiz preview so teacher edits are visible immediately.
+    if (partial.game || partial.quiz) {
+      setGamePreviewKey((prev) => prev + 1);
+    }
   }
 
   async function runAction(actionFn, successMessage) {
@@ -294,17 +301,22 @@ export default function AiGeneratedReviewPanel({
         ) : null}
 
         {activeKey === 'quiz' ? (
-          <QuizEditor
-            quiz={draft.quiz}
-            onChange={(quiz) => canEdit && patchDraft({ quiz })}
-            selectedIndex={selectedQuestion}
-            onSelectIndex={setSelectedQuestion}
-          />
+          <Stack spacing={2}>
+            <Alert severity="info">
+              Question edits appear in Preview Quiz immediately. Publish (or Save Draft then open the quiz editor) so students get the updated quiz.
+            </Alert>
+            <QuizEditor
+              quiz={draft.quiz}
+              onChange={(quiz) => canEdit && patchDraft({ quiz })}
+              selectedIndex={selectedQuestion}
+              onSelectIndex={setSelectedQuestion}
+            />
+          </Stack>
         ) : null}
         {activeKey === 'game' && draft.game ? (
           <Stack spacing={2}>
             <Alert severity="info">
-              Play the actual student game before publishing. Edits you make are reflected when you restart the preview.
+              Edits in Edit Content are used immediately in Play as Student. Use Restart Preview to replay from the start.
             </Alert>
             <Tabs
               value={gameReviewMode === 'edit' ? 0 : 1}
@@ -341,7 +353,7 @@ export default function AiGeneratedReviewPanel({
                   <Box>
                     <Typography variant="h6">{draft.game.title}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {String(draft.game.gameType || '').replace(/_/g, ' ')}
+                      {formatGameTypeLabel(draft.game.gameType)}
                       {' · '}
                       {draft.game.instructions || draft.game.description}
                     </Typography>
@@ -357,7 +369,7 @@ export default function AiGeneratedReviewPanel({
                   </Button>
                 </Stack>
                 <GamePreview
-                  key={gamePreviewKey}
+                  key={`${gamePreviewKey}-${gameDataContentKey(draft.game?.gameData)}`}
                   gameType={draft.game.gameType}
                   gameData={draft.game.gameData}
                   xpReward={draft.game.xpReward}
@@ -433,17 +445,17 @@ export default function AiGeneratedReviewPanel({
 
       <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>Quiz Preview</DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers key={`${gamePreviewKey}-${quizContentKey(draft.quiz)}`}>
           {draft.quiz ? (
             <Box>
               <Typography variant="h6" gutterBottom>{draft.quiz.title}</Typography>
               <Typography color="text.secondary" sx={{ mb: 2 }}>{draft.quiz.description}</Typography>
               <Stack spacing={1.5}>
                 {quizPreviewQuestions.map((question, index) => (
-                  <Paper key={question.id} variant="outlined" sx={{ p: 2 }}>
+                  <Paper key={`${question.id}-${question.question_text}-${index}`} variant="outlined" sx={{ p: 2 }}>
                     <Typography fontWeight={700}>{index + 1}. {question.question_text}</Typography>
                     {(question.options || []).map((opt) => (
-                      <Typography key={opt.id} sx={{ ml: 1 }}>
+                      <Typography key={`${opt.id}-${opt.option_text}`} sx={{ ml: 1 }}>
                         {opt.is_correct ? '✓' : '•'} {opt.option_text}
                       </Typography>
                     ))}
@@ -461,41 +473,41 @@ export default function AiGeneratedReviewPanel({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={Boolean(confirm)} onClose={() => setConfirm(null)}>
-        <DialogTitle>
-          {confirm === 'publish' ? 'Publish content?' : 'Discard generated content?'}
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={1.5}>
-            <Typography>
-              {confirm === 'publish'
-                ? 'Published content will become visible to students and may update the linked lesson.'
-                : 'This will discard the generated content. This action cannot be undone.'}
-            </Typography>
-            {confirm === 'publish' && draft.game && !hasPlayedGamePreview ? (
-              <Alert severity="warning">
-                You have not opened the playable game preview yet. Use &quot;Play as Student&quot; to review the actual gameplay before publishing.
-              </Alert>
-            ) : null}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirm(null)}>Cancel</Button>
-          <Button
-            color={confirm === 'discard' ? 'warning' : 'primary'}
-            variant="contained"
-            disabled={busy}
-            onClick={async () => {
-              const action = confirm;
-              setConfirm(null);
-              if (action === 'publish') await handlePublish();
-              if (action === 'discard') await handleDiscard();
-            }}
-          >
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={confirm === 'publish'}
+        title="Publish content?"
+        description="Published content will become visible to students and may update the linked lesson."
+        details={
+          draft.game && !hasPlayedGamePreview
+            ? 'Tip: open Play as Student first so you can review the real gameplay before publishing.'
+            : undefined
+        }
+        cancelLabel="Keep editing"
+        confirmLabel="Publish"
+        loading={busy}
+        loadingLabel="Publishing…"
+        onClose={() => setConfirm(null)}
+        onConfirm={async () => {
+          setConfirm(null);
+          await handlePublish();
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirm === 'discard'}
+        title="Discard generated content?"
+        description="This will discard the generated content. This action cannot be undone."
+        cancelLabel="Keep draft"
+        confirmLabel="Discard"
+        confirmColor="warning"
+        loading={busy}
+        loadingLabel="Discarding…"
+        onClose={() => setConfirm(null)}
+        onConfirm={async () => {
+          setConfirm(null);
+          await handleDiscard();
+        }}
+      />
 
       <Snackbar
         open={Boolean(snack)}

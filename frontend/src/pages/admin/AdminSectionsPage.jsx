@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import classSectionService from "../../services/classSectionService";
 import userService from "../../services/userService";
 import { getErrorMessage } from "../../services/api";
@@ -44,6 +45,8 @@ export default function AdminSectionsPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sectionToDelete, setSectionToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function load() {
     const [sectionsRes, teachersRes] = await Promise.all([
@@ -104,17 +107,22 @@ export default function AdminSectionsPage() {
     }
   }
 
-  async function handleDelete(section) {
+  async function handleDelete() {
+    if (!sectionToDelete) return;
+    setDeleting(true);
     setError("");
     setMessage("");
     try {
-      await classSectionService.remove(section.id);
-      setMessage(`Deleted section ${section.name}`);
-      if (editingId === section.id) resetForm();
+      await classSectionService.remove(sectionToDelete.id);
+      setMessage(`Deleted section ${sectionToDelete.name}`);
+      if (editingId === sectionToDelete.id) resetForm();
+      setSectionToDelete(null);
       await load();
       notifyClassSectionsChanged();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -235,7 +243,7 @@ export default function AdminSectionsPage() {
                   <Button
                     size="small"
                     color="error"
-                    onClick={() => handleDelete(section)}
+                    onClick={() => setSectionToDelete(section)}
                   >
                     Delete
                   </Button>
@@ -252,6 +260,30 @@ export default function AdminSectionsPage() {
           </TableBody>
         </Table>
       </Paper>
+
+      <ConfirmDialog
+        open={Boolean(sectionToDelete)}
+        title="Delete this class section?"
+        description={
+          <>
+            You’re about to delete{" "}
+            <strong>
+              {sectionToDelete
+                ? `${sectionToDelete.gradeLevel} · ${sectionToDelete.name}`
+                : "this section"}
+            </strong>
+            .
+          </>
+        }
+        details="Students assigned to this section may need to be reassigned. This can’t be undone."
+        cancelLabel="Keep section"
+        confirmLabel="Delete section"
+        confirmColor="error"
+        loading={deleting}
+        loadingLabel="Deleting…"
+        onClose={() => setSectionToDelete(null)}
+        onConfirm={handleDelete}
+      />
     </>
   );
 }

@@ -94,30 +94,105 @@ function normalizeQuiz(raw) {
 
 function normalizeGame(raw) {
   if (!raw) return null;
+  const gameType = normalizeGameType(raw.gameType) || raw.gameType || 'flashcards';
   const gameData = raw.gameData && typeof raw.gameData === 'object'
-    ? raw.gameData
-    : { items: raw.items || [] };
-  if (!Array.isArray(gameData.items) && Array.isArray(raw.items)) {
-    gameData.items = raw.items;
-  }
-  if (!Array.isArray(gameData.items)) gameData.items = [];
+    ? { ...raw.gameData }
+    : {};
 
-  gameData.items = gameData.items.map((item, i) => {
+  const pickList = (...candidates) => {
+    for (const list of candidates) {
+      if (Array.isArray(list) && list.length) return list;
+    }
+    return Array.isArray(candidates[0]) ? candidates[0] : [];
+  };
+
+  // Teacher edits may live on pairs/clues/rounds while items is []. Prefer non-empty.
+  let items = pickList(gameData.items, gameData.pairs, gameData.clues, raw.items);
+  items = items.map((item, i) => {
     const id = item.id || tempId('g');
     return {
       ...item,
       id,
+      term: item.term || item.front || item.left || undefined,
+      definition: item.definition || item.back || item.right || undefined,
       prompt: item.prompt || item.question || item.term || item.clue || item.word || `Item ${i + 1}`,
-      answer: item.answer || item.definition || item.match || item.response || '',
+      question: item.question || item.prompt || undefined,
+      clue: item.clue || item.prompt || item.question || item.term || '',
+      answer: item.answer || item.word || item.definition || item.match || item.response || '',
       hint: item.hint || item.explanation || '',
+      choices: Array.isArray(item.choices) ? item.choices : item.choices,
+      correctIndex: item.correctIndex,
+      direction: item.direction || undefined,
+      row: item.row,
+      col: item.col,
     };
   });
 
+  if (items.length) {
+    gameData.items = items;
+  } else if (!Array.isArray(gameData.items)) {
+    gameData.items = [];
+  }
+
+  if (['flashcards', 'memory_match', 'drag_drop'].includes(gameType)) {
+    const pairs = pickList(gameData.pairs, gameData.items);
+    if (pairs.length) {
+      gameData.items = pairs;
+      gameData.pairs = pairs;
+    }
+  }
+
+  if (gameType === 'crossword' || gameType === 'puzzle_challenge') {
+    const clues = pickList(gameData.clues, gameData.items);
+    if (clues.length) {
+      gameData.items = clues;
+      gameData.clues = clues;
+    }
+  }
+
+  if (['quiz_show', 'quiz_rush', 'spin_wheel', 'millionaire'].includes(gameType)) {
+    const rounds = pickList(gameData.rounds, gameData.items);
+    if (rounds.length) {
+      gameData.rounds = rounds.map((item) => ({
+        ...item,
+        prompt: item.prompt || item.question || item.label || '',
+        question: item.question || item.prompt || item.label || '',
+        choices: item.choices || [],
+        correctIndex: item.correctIndex ?? 0,
+        explanation: item.explanation || null,
+        timeLimitSeconds: item.timeLimitSeconds || 20,
+      }));
+      gameData.items = gameData.rounds;
+    }
+  }
+
+  if (['word_search', 'word_scramble'].includes(gameType)) {
+    const words = pickList(
+      gameData.words,
+      (gameData.items || []).map((item) => item.term || item.answer || item.word).filter(Boolean),
+    );
+    if (words.length) {
+      gameData.words = words.map((word) => (
+        typeof word === 'string' ? word : (word?.word || word?.term || String(word || ''))
+      )).filter(Boolean);
+      gameData.items = gameData.words.map((word, index) => ({
+        id: `w_${index}`,
+        term: word,
+        answer: word,
+        word,
+      }));
+      // Force rebuild on next ensure — teacher may have changed the word list.
+      delete gameData.grid;
+      delete gameData.placements;
+    }
+  }
+
+  // Keep structured collections (categories, stages, missions) from the teacher edit as-is.
   return {
     title: raw.title || 'Untitled Game',
     description: raw.description || '',
     instructions: raw.instructions || raw.description || 'Complete the activity to earn XP.',
-    gameType: normalizeGameType(raw.gameType) || raw.gameType || 'flashcards',
+    gameType,
     difficulty: raw.difficulty || 'medium',
     estimatedTime: Number(raw.estimatedTime || 10),
     xpReward: Number(raw.xpReward || 100),
@@ -299,6 +374,7 @@ const AiReviewService = {
         questionCount,
         payload.questionType || 'multiple_choice',
         textFingerprint,
+        payload.requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       ]),
     });
 
@@ -330,9 +406,17 @@ const AiReviewService = {
       let learningObjectives = null;
 
       if (sourceText && sourceText.length > 40) {
-        const extras = await AiService.summarizeLesson(sourceText);
-        lessonSummary = normalizeSummary(extras.summary);
-        learningObjectives = normalizeObjectives(extras.learningObjectives);
+        try {
+          const extras = await AiService.summarizeLesson(sourceText);
+          lessonSummary = normalizeSummary(extras.summary);
+          learningObjectives = normalizeObjectives(extras.learningObjectives);
+        } catch (extraError) {
+          // Quiz already succeeded — do not fail the whole generate for extras.
+          console.error(
+            'AI lesson summary skipped after quiz generate:',
+            extraError?.message || extraError,
+          );
+        }
       }
 
       const draft = await this.createDraft({
@@ -402,6 +486,8 @@ const AiReviewService = {
         payload.lessonId || 'none',
         payload.gameType || 'auto',
         crypto.createHash('sha256').update(String(sourceText || '')).digest('hex').slice(0, 16),
+        // Unique per Generate click so intentional retries are never treated as duplicates.
+        payload.requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       ]),
     });
 
@@ -427,9 +513,16 @@ const AiReviewService = {
       let learningObjectives = null;
       // Only attach lesson extras when linking to an existing lesson — keeps game drafts game-first.
       if (payload.lessonId && sourceText.length > 40) {
-        const extras = await AiService.summarizeLesson(sourceText);
-        lessonSummary = normalizeSummary(extras.summary);
-        learningObjectives = normalizeObjectives(extras.learningObjectives);
+        try {
+          const extras = await AiService.summarizeLesson(sourceText);
+          lessonSummary = normalizeSummary(extras.summary);
+          learningObjectives = normalizeObjectives(extras.learningObjectives);
+        } catch (extraError) {
+          console.error(
+            'AI lesson summary skipped after game generate:',
+            extraError?.message || extraError,
+          );
+        }
       }
 
       const draft = await this.createDraft({
@@ -550,6 +643,7 @@ const AiReviewService = {
         questionCount,
         payload.gameType || '',
         textFingerprint,
+        payload.requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       ]),
     });
 
@@ -596,10 +690,17 @@ const AiReviewService = {
       source = source || extras.source;
     } else if ((needsQuiz || needsGame) && lessonId) {
       // Optional lesson extras only when publishing will update a linked lesson.
-      const extras = await AiService.summarizeLesson(sourceText);
-      lessonSummary = normalizeSummary(extras.summary);
-      learningObjectives = normalizeObjectives(extras.learningObjectives);
-      source = source || extras.source;
+      try {
+        const extras = await AiService.summarizeLesson(sourceText);
+        lessonSummary = normalizeSummary(extras.summary);
+        learningObjectives = normalizeObjectives(extras.learningObjectives);
+        source = source || extras.source;
+      } catch (extraError) {
+        console.error(
+          'AI lesson summary skipped after content generate:',
+          extraError?.message || extraError,
+        );
+      }
     }
 
     if (needsQuiz && !quiz) {
@@ -804,6 +905,7 @@ const AiReviewService = {
         payload.questionIndex,
         payload.itemIndex,
         payload.count,
+        payload.requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       ]),
     });
 
@@ -871,26 +973,28 @@ const AiReviewService = {
 
     if (target === 'selected_game_item' && draft.game) {
       const index = Number(payload.itemIndex);
-      const items = draft.game.gameData?.items || [];
+      const gameType = draft.game.gameType || 'flashcards';
+      const current = normalizeGame(draft.game);
+      const items = current.gameData?.items || [];
       if (Number.isNaN(index) || index < 0 || index >= items.length) {
         throw new AppError('Invalid game item index', 400);
       }
       const generated = await AiService.generateGame({
         topic: draft.game.title,
-        gameType: draft.game.gameType || 'flashcards',
+        gameType,
         gradeLevel: course.grade_level || "junior high school",
         lessonContent: sourceText || draft.game.title,
       });
-      const newItems = generated.gameData?.items || [];
-      const replacement = normalizeGame(generated).gameData.items[0];
+      const replacement = normalizeGame(generated).gameData.items?.[0];
       const nextItems = [...items];
-      nextItems[index] = replacement || nextItems[index];
-      if (newItems.length) {
-        updates.game = {
-          ...draft.game,
-          gameData: { ...draft.game.gameData, items: nextItems },
-        };
-      }
+      if (replacement) nextItems[index] = replacement;
+      updates.game = normalizeGame({
+        ...current,
+        gameData: {
+          ...current.gameData,
+          items: nextItems,
+        },
+      });
     }
 
     if (target === 'all' || target === 'summary' || target === 'objectives') {
@@ -929,14 +1033,15 @@ const AiReviewService = {
         gradeLevel: course.grade_level || "junior high school",
         lessonContent: sourceText || draft.game.title,
       });
+      const current = normalizeGame(draft.game);
       const extra = normalizeGame(generated).gameData.items || [];
-      updates.game = {
-        ...draft.game,
+      updates.game = normalizeGame({
+        ...current,
         gameData: {
-          ...draft.game.gameData,
-          items: [...(draft.game.gameData.items || []), ...extra],
+          ...current.gameData,
+          items: [...(current.gameData.items || []), ...extra],
         },
-      };
+      });
     }
 
     updates.generationMeta = {

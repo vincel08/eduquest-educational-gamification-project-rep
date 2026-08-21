@@ -34,6 +34,7 @@ import {
   isValidSchoolYearLabel,
 } from '../utils/schoolYears.js';
 import ClassSectionService from './ClassSectionService.js';
+import { query } from '../config/db.js';
 
 function normalizeStoredAvatarUrl(avatarUrl) {
   if (avatarUrl === null || avatarUrl === '') return null;
@@ -246,11 +247,60 @@ const UserService = {
     return ClassSectionService.listOptions(filters);
   },
 
-  async deleteUser(id) {
+  async deleteUser(id, actor = null) {
     const user = await UserModel.findById(id);
     if (!user) throw new AppError('User not found', 404);
+
+    if (actor?.id != null && Number(actor.id) === Number(id)) {
+      throw new AppError('You cannot delete your own account', 400);
+    }
+
     if (user.role === 'administrator') {
       throw new AppError('Administrator accounts cannot be deleted this way', 400);
+    }
+
+    const [courseCount] = await query(
+      'SELECT COUNT(*) AS total FROM courses WHERE teacher_id = :id',
+      { id },
+    );
+    if (Number(courseCount?.total) > 0) {
+      throw new AppError(
+        'Cannot delete this teacher while they still own subjects. Reassign or delete their subjects first.',
+        400,
+      );
+    }
+
+    const [quizCount] = await query(
+      'SELECT COUNT(*) AS total FROM quizzes WHERE created_by = :id',
+      { id },
+    );
+    if (Number(quizCount?.total) > 0) {
+      throw new AppError(
+        'Cannot delete this user while they still have quizzes. Delete or reassign those quizzes first.',
+        400,
+      );
+    }
+
+    const [gameCount] = await query(
+      'SELECT COUNT(*) AS total FROM educational_games WHERE created_by = :id',
+      { id },
+    );
+    if (Number(gameCount?.total) > 0) {
+      throw new AppError(
+        'Cannot delete this user while they still have games. Delete or reassign those games first.',
+        400,
+      );
+    }
+
+    const [materialCount] = await query(
+      'SELECT COUNT(*) AS total FROM lesson_materials WHERE uploaded_by = :id',
+      { id },
+    );
+    if (Number(materialCount?.total) > 0) {
+      throw new AppError(
+        'Cannot delete this user while their uploaded materials still exist. Remove those materials first.',
+        400,
+      );
     }
 
     if (user.avatar_url) {

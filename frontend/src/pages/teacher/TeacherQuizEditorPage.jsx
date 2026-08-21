@@ -7,6 +7,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
 import LoadingScreen from "../../components/common/LoadingScreen";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import ManualQuizEditor from "../../components/quiz/ManualQuizEditor";
 import QuizPreviewDialog from "../../components/quiz/QuizPreviewDialog";
 import courseService from "../../services/courseService";
@@ -59,6 +60,7 @@ export default function TeacherQuizEditorPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewQuiz, setPreviewQuiz] = useState(null);
   const [savedQuizId, setSavedQuizId] = useState(isNew ? null : Number(quizId));
+  const [publishOpen, setPublishOpen] = useState(false);
 
   useEffect(() => {
     courseService
@@ -276,7 +278,7 @@ export default function TeacherQuizEditorPage() {
                 variant="contained"
                 startIcon={<PublishIcon />}
                 disabled={saving}
-                onClick={handlePublish}
+                onClick={() => setPublishOpen(true)}
                 sx={{
                   bgcolor: "#FACC15",
                   color: "#1E293B",
@@ -328,7 +330,7 @@ export default function TeacherQuizEditorPage() {
           <Button
             variant="contained"
             disabled={saving}
-            onClick={handlePublish}
+            onClick={() => setPublishOpen(true)}
             startIcon={<PublishIcon />}
           >
             Publish
@@ -339,6 +341,27 @@ export default function TeacherQuizEditorPage() {
           open={previewOpen}
           onClose={() => setPreviewOpen(false)}
           quiz={previewQuiz}
+        />
+
+        <ConfirmDialog
+          open={publishOpen}
+          title="Publish this quiz?"
+          description={
+            <>
+              <strong>{form.title.trim() || "This quiz"}</strong> will become
+              available to enrolled students.
+            </>
+          }
+          details="Your latest draft is saved first, then published. Students can take it and earn XP once it’s live."
+          cancelLabel="Keep editing"
+          confirmLabel="Publish quiz"
+          loading={saving}
+          loadingLabel="Publishing…"
+          onClose={() => setPublishOpen(false)}
+          onConfirm={async () => {
+            setPublishOpen(false);
+            await handlePublish();
+          }}
         />
       </Stack>
     </PageContainer>

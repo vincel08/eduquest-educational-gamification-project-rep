@@ -1,4 +1,5 @@
 import AppError from './AppError.js';
+import { firstNonEmptyList } from './gameDataLists.js';
 
 function clampScore(value) {
   const score = Number(value);
@@ -11,18 +12,19 @@ function normalizeText(value) {
 }
 
 function normalizeCompact(value) {
-  return String(value || '').replace(/\s+/g, '').toUpperCase();
+  return String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 }
 
 function getItems(gameData) {
-  return gameData?.items || gameData?.pairs || [];
+  return firstNonEmptyList(gameData?.items, gameData?.pairs, gameData?.clues, gameData?.rounds);
 }
 
 function getRounds(gameData) {
+  const rounds = firstNonEmptyList(gameData?.rounds, gameData?.items);
   if (Array.isArray(gameData?.rounds) && gameData.rounds.length) {
     return gameData.rounds;
   }
-  return getItems(gameData).map((item) => ({
+  return rounds.map((item) => ({
     prompt: item.question || item.prompt,
     choices: item.choices || [],
     correctIndex: item.correctIndex ?? 0,
@@ -189,8 +191,12 @@ function scoreTextItems(items, answers, { compact = false } = {}) {
 }
 
 function scoreWordSearch(gameData, answers) {
-  const words = (gameData?.words || getItems(gameData).map((item) => item.term || item.word))
-    .map((word) => normalizeText(word))
+  const rawWords = firstNonEmptyList(
+    gameData?.words,
+    getItems(gameData).map((item) => item.term || item.word || item.answer).filter(Boolean),
+  );
+  const words = rawWords
+    .map((word) => normalizeText(typeof word === 'string' ? word : word?.word || word?.term || ''))
     .filter(Boolean);
   const found = Array.isArray(answers?.foundWords)
     ? answers.foundWords.map((word) => normalizeText(word))
@@ -204,7 +210,7 @@ function scoreWordSearch(gameData, answers) {
 }
 
 function scoreCrossword(gameData, answers) {
-  const clues = gameData?.clues || getItems(gameData);
+  const clues = firstNonEmptyList(gameData?.items, gameData?.clues);
   const responses = answers?.answers && typeof answers.answers === 'object'
     ? answers.answers
     : null;
@@ -214,7 +220,7 @@ function scoreCrossword(gameData, answers) {
 
   let correct = 0;
   clues.forEach((clue, index) => {
-    const expected = clue.answer || clue.solution;
+    const expected = clue.answer || clue.word || clue.solution;
     const given = responses[String(index)] ?? responses[index] ?? responses[clue.id];
     if (normalizeCompact(given) === normalizeCompact(expected)) {
       correct += 1;
@@ -250,7 +256,7 @@ export function calculateGameScore(gameType, gameData, answers) {
       score = scoreSpinRounds(getItems(gameData), answers);
       break;
     case 'mission_adventure':
-      score = scoreChoicePool(gameData.missions || [], answers);
+      score = scoreChoicePool(gameData.missions || [], answers, { allowPartial: true });
       break;
     case 'puzzle_challenge':
       score = scoreTextItems(getItems(gameData), answers, { compact: true });

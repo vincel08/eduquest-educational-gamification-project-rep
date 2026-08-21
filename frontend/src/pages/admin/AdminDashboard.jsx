@@ -28,6 +28,7 @@ import {
 import { Line } from 'react-chartjs-2';
 import PageHeader from '../../components/common/PageHeader';
 import PageContainer from '../../components/common/PageContainer';
+import { formatGameTypeLabel } from '../../utils/gameTypes';
 import StatCard from '../../components/common/StatCard';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import ContentTimestamp from '../../components/common/ContentTimestamp';
@@ -189,8 +190,8 @@ export default function AdminDashboard() {
                     primary={<Typography fontWeight={700}>{game.title}</Typography>}
                     secondary={(
                       <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
-                          {game.course_title} · {String(game.game_type || '').replace(/_/g, ' ')}
+                        <Typography variant="caption" color="text.secondary">
+                          {game.course_title} · {formatGameTypeLabel(game.game_type)}
                           {game.is_published ? ' · Published' : ' · Draft'}
                         </Typography>
                         <ContentTimestamp item={game} dense />

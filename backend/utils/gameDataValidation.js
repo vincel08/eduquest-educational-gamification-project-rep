@@ -1,5 +1,6 @@
 import AppError from './AppError.js';
 import { ALL_GAME_TYPES, isDeprecatedGameType, normalizeGameType } from './gameTypes.js';
+import { firstNonEmptyList } from './gameDataLists.js';
 
 const TYPE_MISMATCH_MESSAGE =
   'AI generated content did not match the selected game type. Please regenerate.';
@@ -40,9 +41,7 @@ function requireNonEmptyArray(list, label) {
 }
 
 function assertPairCollection(gameData, { min = 1, label = 'items' } = {}) {
-  const list = asArray(gameData.items).length
-    ? asArray(gameData.items)
-    : asArray(gameData.pairs);
+  const list = firstNonEmptyList(gameData.items, gameData.pairs);
   requireNonEmptyArray(list, label);
   if (list.length < min) {
     throw new AppError(`${label} must include at least ${min} entries`, 400);
@@ -102,14 +101,12 @@ export function assertGameDataMatchesType(gameType, gameData, options = {}) {
         break;
 
       case 'crossword': {
-        const items = asArray(gameData.items).length
-          ? asArray(gameData.items)
-          : asArray(gameData.clues);
+        const items = firstNonEmptyList(gameData.items, gameData.clues);
         requireNonEmptyArray(items, 'crossword items');
         const valid = items.filter(
           (item) => item
             && String(item.clue || item.prompt || '').trim()
-            && String(item.answer || '').trim()
+            && String(item.answer || item.word || '').trim()
         );
         if (!valid.length) {
           throw new AppError('crossword items require clue and answer', 400);
@@ -119,11 +116,13 @@ export function assertGameDataMatchesType(gameType, gameData, options = {}) {
 
       case 'word_search':
       case 'word_scramble': {
-        const words = asArray(gameData.words);
-        const itemWords = asArray(gameData.items)
-          .map((item) => item?.term || item?.answer || item?.word)
-          .filter(Boolean);
-        if (!words.length && !itemWords.length) {
+        const words = firstNonEmptyList(
+          gameData.words,
+          asArray(gameData.items)
+            .map((item) => item?.term || item?.answer || item?.word)
+            .filter(Boolean),
+        );
+        if (!words.length) {
           throw new AppError('word_search requires words or items with terms', 400);
         }
         if (Array.isArray(gameData.grid)) {
@@ -136,9 +135,7 @@ export function assertGameDataMatchesType(gameType, gameData, options = {}) {
 
       case 'quiz_show':
       case 'quiz_rush': {
-        const list = asArray(gameData.rounds).length
-          ? asArray(gameData.rounds)
-          : asArray(gameData.items);
+        const list = firstNonEmptyList(gameData.rounds, gameData.items);
         assertChoiceCollection(list, { label: 'quiz items' });
         break;
       }
@@ -158,11 +155,17 @@ export function assertGameDataMatchesType(gameType, gameData, options = {}) {
       }
 
       case 'spin_wheel':
-        assertChoiceCollection(asArray(gameData.items), { label: 'spin_wheel items' });
+        assertChoiceCollection(
+          firstNonEmptyList(gameData.items, gameData.rounds),
+          { label: 'spin_wheel items' },
+        );
         break;
 
       case 'millionaire':
-        assertChoiceCollection(asArray(gameData.items), { min: 1, label: 'millionaire items' });
+        assertChoiceCollection(
+          firstNonEmptyList(gameData.items, gameData.rounds),
+          { min: 1, label: 'millionaire items' },
+        );
         break;
 
       case 'escape_room': {
@@ -184,12 +187,12 @@ export function assertGameDataMatchesType(gameType, gameData, options = {}) {
         break;
 
       case 'puzzle_challenge': {
-        const items = asArray(gameData.items);
+        const items = firstNonEmptyList(gameData.items, gameData.clues);
         requireNonEmptyArray(items, 'puzzle items');
         const valid = items.filter(
           (item) => item
             && String(item.prompt || item.question || item.clue || '').trim()
-            && String(item.answer || '').trim()
+            && String(item.answer || item.word || '').trim()
         );
         if (!valid.length) {
           throw new AppError('puzzle items require prompt and answer', 400);

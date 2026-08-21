@@ -27,6 +27,7 @@ import {
   computeLearningProgressPercent,
   summarizeLessonStatuses,
 } from "../../utils/courseProgressDisplay";
+import { formatGameTypeLabel } from "../../utils/gameTypes";
 
 export default function StudentCourseDetailPage() {
   const { courseId } = useParams();
@@ -501,9 +502,8 @@ export default function StudentCourseDetailPage() {
                         <Typography
                           variant="body2"
                           color="text.secondary"
-                          sx={{ textTransform: "capitalize" }}
                         >
-                          {String(game.game_type || "").replace(/_/g, " ")}
+                          {formatGameTypeLabel(game.game_type)}
                           {game.attemptsRemaining != null
                             ? ` · ${game.attemptsRemaining} attempt(s) left`
                             : ""}

@@ -20,6 +20,7 @@ export const createFromQuizReviewValidation = [
     }),
   body('lessonContent').optional({ nullable: true }).isString().isLength({ max: 100000 }),
   body('questionType').optional().isString(),
+  body('requestId').optional({ nullable: true }).isString().isLength({ max: 80 }),
 ];
 
 export const createFromGameReviewValidation = [
@@ -40,11 +41,14 @@ export const createFromGameReviewValidation = [
     .optional()
     .custom((value) => value === 'auto' || GAME_TYPES.includes(value) || !value)
     .withMessage('Invalid game type'),
+  body('requestId').optional({ nullable: true }).isString().isLength({ max: 80 }),
   body().custom((_, { req }) => {
     const hasLesson = Boolean(req.body?.lessonId);
-    const hasText = String(req.body?.lessonContent || req.body?.topic || '').trim().length >= 20;
+    const topic = String(req.body?.topic || '').trim();
+    const lessonContent = String(req.body?.lessonContent || '').trim();
+    const hasText = topic.length >= 3 || lessonContent.length >= 3;
     if (!hasLesson && !hasText) {
-      throw new Error('Provide lesson text/topic or select a lesson to generate a game.');
+      throw new Error('Provide a topic, lesson text, or select a lesson to generate a game.');
     }
     return true;
   }),

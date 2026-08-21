@@ -2,11 +2,22 @@ import { useMemo, useState } from 'react';
 import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
+import { firstNonEmptyList } from '../../utils/gameDataLists';
+import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
+import {
+  AnimatePresence,
+  MotionBox,
+  MotionButton,
+  MotionStack,
+} from './GameMotion';
 
 const COLORS = ['#6366F1', '#22C55E', '#F59E0B', '#EF4444', '#0EA5E9', '#A855F7', '#14B8A6', '#F97316'];
 
 export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
-  const items = useMemo(() => gameData?.items || [], [gameData]);
+  const items = useMemo(
+    () => firstNonEmptyList(gameData?.items, gameData?.rounds),
+    [gameData],
+  );
   const [index, setIndex] = useState(null);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState(0);
@@ -37,8 +48,8 @@ export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
 
   function spin() {
     if (spinning || feedback?.open || index !== null || answered >= totalRounds) return;
+    playSound(SOUND_KEYS.spin);
     const selected = Math.floor(Math.random() * items.length);
-    // Pointer is at top (-90deg). Align selected segment center under the pointer.
     const segmentCenter = selected * segment + segment / 2;
     const extraTurns = 4 + Math.floor(Math.random() * 3);
     const nextRotation = rotation + extraTurns * 360 + (360 - segmentCenter);
@@ -89,7 +100,11 @@ export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
       </Typography>
 
       <Paper sx={{ p: 3, textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-        <Box sx={{ width: 18, height: 24, mx: 'auto', mb: -1.25, position: 'relative', zIndex: 2 }}>
+        <MotionBox
+          animate={spinning ? { y: [0, -3, 0] } : { y: 0 }}
+          transition={{ duration: 0.35, repeat: spinning ? Infinity : 0 }}
+          sx={{ width: 18, height: 24, mx: 'auto', mb: -1.25, position: 'relative', zIndex: 2 }}
+        >
           <Box
             sx={{
               width: 0,
@@ -99,11 +114,21 @@ export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
               borderTop: '18px solid',
               borderTopColor: 'error.main',
               mx: 'auto',
+              filter: spinning ? 'drop-shadow(0 0 6px rgba(239,68,68,0.7))' : 'none',
             }}
           />
-        </Box>
+        </MotionBox>
 
-        <Box
+        <MotionBox
+          animate={{
+            rotate: rotation,
+            scale: spinning ? [1, 1.02, 1] : current ? [1, 1.04, 1] : 1,
+          }}
+          transition={
+            spinning
+              ? { rotate: { duration: 3.2, ease: [0.12, 0.75, 0.12, 1] }, scale: { duration: 0.6, repeat: Infinity } }
+              : { rotate: { duration: 0 }, scale: { duration: 0.45 } }
+          }
           sx={{
             width: { xs: 240, sm: 280 },
             height: { xs: 240, sm: 280 },
@@ -111,10 +136,10 @@ export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
             borderRadius: '50%',
             background: gradient,
             border: '6px solid',
-            borderColor: 'divider',
-            boxShadow: 'inset 0 0 0 8px rgba(255,255,255,0.25)',
-            transform: `rotate(${rotation}deg)`,
-            transition: spinning ? 'transform 3.2s cubic-bezier(0.12, 0.75, 0.12, 1)' : 'none',
+            borderColor: spinning ? '#F59E0B' : 'divider',
+            boxShadow: spinning
+              ? '0 0 0 8px rgba(245,158,11,0.2), inset 0 0 0 8px rgba(255,255,255,0.25), 0 16px 40px rgba(0,0,0,0.2)'
+              : 'inset 0 0 0 8px rgba(255,255,255,0.25), 0 12px 28px rgba(0,0,0,0.12)',
             position: 'relative',
           }}
         >
@@ -161,7 +186,7 @@ export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
           >
             SPIN
           </Box>
-        </Box>
+        </MotionBox>
 
         <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
           {spinning ? 'Spinning...' : current?.label || 'Spin the wheel'}
@@ -170,26 +195,42 @@ export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
           variant="contained"
           onClick={spin}
           disabled={spinning || Boolean(current) || feedback?.open || answered >= totalRounds}
+          sx={{ fontWeight: 800, minWidth: 120 }}
         >
           {spinning ? 'Spinning...' : 'Spin'}
         </Button>
       </Paper>
 
-      {current ? (
-        <Stack spacing={1}>
-          <Typography fontWeight={700}>{current.question}</Typography>
-          {(current.choices || []).map((choice, choiceIndex) => (
-            <Button
-              key={`${choice}-${choiceIndex}`}
-              variant="outlined"
-              disabled={feedback?.open}
-              onClick={() => answer(choiceIndex)}
-            >
-              {choice}
-            </Button>
-          ))}
-        </Stack>
-      ) : null}
+      <AnimatePresence mode="wait">
+        {current ? (
+          <MotionStack
+            key={`spin-q-${index}`}
+            spacing={1}
+            initial={{ opacity: 0, y: 20, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          >
+            <Typography fontWeight={800}>{current.question}</Typography>
+            {(current.choices || []).map((choice, choiceIndex) => (
+              <MotionButton
+                key={`${choice}-${choiceIndex}`}
+                variant="outlined"
+                disabled={feedback?.open}
+                onClick={() => answer(choiceIndex)}
+                whileHover={{ x: 4, scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: choiceIndex * 0.06 }}
+                sx={{ justifyContent: 'flex-start', fontWeight: 700 }}
+              >
+                {choice}
+              </MotionButton>
+            ))}
+          </MotionStack>
+        ) : null}
+      </AnimatePresence>
 
       <AnswerFeedback
         open={feedback?.open}

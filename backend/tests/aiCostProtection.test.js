@@ -109,15 +109,14 @@ describe('AI usage quotas and idempotency', () => {
     }
   });
 
-  it('TEST 12: duplicate AI request blocked within window', async () => {
+  it('TEST 12: in-flight duplicate AI request blocked', async () => {
     const teacher = await createTeacher();
     const key = buildIdempotencyKey(['dup', Date.now(), Math.random()]);
-    const event = await AiUsageService.beginOperation({
+    await AiUsageService.beginOperation({
       userId: teacher.id,
       operationType: 'test_dup',
       idempotencyKey: key,
     });
-    await AiUsageService.completeOperation(event.id);
 
     await assert.rejects(
       () => AiUsageService.beginOperation({
@@ -127,10 +126,28 @@ describe('AI usage quotas and idempotency', () => {
       }),
       (error) => {
         assert.equal(error.statusCode, 409);
-        assert.match(error.message, /duplicate/i);
+        assert.match(error.message, /in progress/i);
         return true;
       }
     );
+  });
+
+  it('TEST 12b: completed request does not block a new generate', async () => {
+    const teacher = await createTeacher();
+    const key = buildIdempotencyKey(['dup-after', Date.now(), Math.random()]);
+    const event = await AiUsageService.beginOperation({
+      userId: teacher.id,
+      operationType: 'test_dup_after',
+      idempotencyKey: key,
+    });
+    await AiUsageService.completeOperation(event.id);
+    const next = await AiUsageService.beginOperation({
+      userId: teacher.id,
+      operationType: 'test_dup_after',
+      idempotencyKey: key,
+    });
+    assert.ok(next?.id);
+    await AiUsageService.completeOperation(next.id);
   });
 
   it('TEST 13: intentional regenerate uses distinct operation key', () => {

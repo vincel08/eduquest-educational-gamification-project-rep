@@ -19,6 +19,7 @@ import LoadingScreen from "../../components/common/LoadingScreen";
 import gameService from "../../services/gameService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
+import { formatGameTypeLabel } from "../../utils/gameTypes";
 
 export default function TeacherGamesPage() {
   const { toQueryParams, gradeLevel } = useTeacherFilters();
@@ -103,7 +104,7 @@ export default function TeacherGamesPage() {
                       `Subject #${game.course_id}`}
                   </TableCell>
                   <TableCell sx={{ textTransform: "capitalize" }}>
-                    {String(game.game_type || "").replace(/_/g, " ")}
+                    {formatGameTypeLabel(game.game_type)}
                   </TableCell>
                   <TableCell>
                     <Chip
