@@ -315,10 +315,11 @@ const GameService = {
       throw new AppError("Access denied", 403);
     }
 
-    if (data.gameType) {
+    if (data.gameType || data.gameData) {
       data.gameType = validateGamePayload({
         ...data,
         title: data.title || game.title,
+        gameType: data.gameType || game.game_type,
         gameData: data.gameData || game.game_data,
       });
     }

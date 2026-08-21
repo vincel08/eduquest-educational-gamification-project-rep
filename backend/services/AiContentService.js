@@ -146,6 +146,7 @@ const AiContentService = {
         questionCount,
         payload.gameType || '',
         textFingerprint,
+        payload.requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       ]);
 
     let usageEvent = null;

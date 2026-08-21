@@ -1,5 +1,7 @@
+import { firstNonEmptyList } from './gameDataLists.js';
+
 function getItems(gameData) {
-  return gameData?.items || gameData?.pairs || [];
+  return firstNonEmptyList(gameData?.items, gameData?.pairs, gameData?.clues, gameData?.rounds);
 }
 
 function getRounds(gameData) {
@@ -70,7 +72,9 @@ export function buildGameAnswerReviewItems(gameType, gameData, answers) {
       });
 
     case 'mission_adventure':
-      return buildChoiceItems(gameData?.missions || [], answers);
+      return buildChoiceItems(gameData?.missions || [], answers, {
+        allowPartial: true,
+      });
 
     case 'spin_wheel': {
       const items = getItems(gameData);
@@ -194,17 +198,20 @@ export function buildGameAnswerReviewItems(gameType, gameData, answers) {
 
     case 'word_search':
     case 'word_scramble': {
-      const words = Array.isArray(gameData?.words)
-        ? gameData.words.map((word) =>
-            typeof word === 'string' ? word : word?.word || word?.text || '',
-          )
-        : [];
+      const rawWords = firstNonEmptyList(
+        gameData?.words,
+        getItems(gameData).map((item) => item.term || item.word || item.answer).filter(Boolean),
+      );
+      const words = rawWords
+        .map((word) =>
+          typeof word === 'string' ? word : word?.word || word?.text || word?.term || '',
+        )
+        .filter(Boolean);
       const found = Array.isArray(answers.foundWords) ? answers.foundWords : [];
       const foundSet = new Set(
         found.map((word) => String(word || '').trim().toLowerCase()),
       );
       return words
-        .filter(Boolean)
         .map((word, index) => {
           const hit = foundSet.has(String(word).trim().toLowerCase());
           return {
@@ -218,7 +225,7 @@ export function buildGameAnswerReviewItems(gameType, gameData, answers) {
     }
 
     case 'crossword': {
-      const clues = gameData?.clues || [];
+      const clues = firstNonEmptyList(gameData?.items, gameData?.clues);
       const responses =
         answers.answers && typeof answers.answers === 'object'
           ? answers.answers
@@ -226,7 +233,7 @@ export function buildGameAnswerReviewItems(gameType, gameData, answers) {
       return clues.map((clue, index) => {
         const student =
           responses[index] ?? responses[String(index)] ?? responses[clue.id];
-        const expected = clue?.answer || '';
+        const expected = clue?.answer || clue?.word || '';
         const answered = student != null && student !== '';
         const isCorrect =
           answered &&

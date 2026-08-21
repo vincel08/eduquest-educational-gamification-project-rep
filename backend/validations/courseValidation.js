@@ -49,6 +49,10 @@ export const updateCourseValidation = [
   schoolYearRule,
   body('endsAt').optional({ values: 'falsy' }).isISO8601().withMessage('Invalid end date'),
   body('isPublished').optional().isBoolean(),
+  body('teacherId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Please select a valid teacher'),
 ];
 
 export const gradebookQuizScoreValidation = [

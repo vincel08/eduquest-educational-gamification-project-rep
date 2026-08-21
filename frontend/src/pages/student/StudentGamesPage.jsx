@@ -9,6 +9,7 @@ import ContentTimestampToolbar from "../../components/common/ContentTimestampToo
 import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
+import { formatGameTypeLabel } from "../../utils/gameTypes";
 
 export default function StudentGamesPage() {
   const [games, setGames] = useState([]);
@@ -95,7 +96,7 @@ export default function StudentGamesPage() {
               statusColor = "success";
             }
             const metaParts = [
-              String(game.game_type || "").replace(/_/g, " "),
+              formatGameTypeLabel(game.game_type),
               game.bestScore != null
                 ? `Best ${Number(game.bestScore).toFixed(0)}%`
                 : null,
@@ -111,7 +112,9 @@ export default function StudentGamesPage() {
                   description={game.courseTitle || game.description}
                   icon={<SportsEsportsIcon />}
                   accent="orange"
-                  difficulty={game.difficulty || game.game_type}
+                  difficulty={
+                    game.difficulty || formatGameTypeLabel(game.game_type)
+                  }
                   xpReward={game.xp_reward}
                   estimatedTime={game.estimated_time}
                   status={status}

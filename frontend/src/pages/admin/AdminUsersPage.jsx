@@ -24,9 +24,11 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 import userService from '../../services/userService';
 import classSectionService from '../../services/classSectionService';
 import { getErrorMessage } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 import { useAdminFilters } from '../../contexts/AdminFiltersContext';
 import { useClassSectionsRevision } from '../../utils/classSectionsEvents';
 import { GRADE_LEVELS } from '../../utils/gradeLevels';
@@ -50,11 +52,14 @@ const emptyForm = {
 };
 
 export default function AdminUsersPage() {
+  const { user: currentUser } = useAuth();
   const { toQueryParams, schoolYear, gradeLevel, section } = useAdminFilters();
   const sectionsRevision = useClassSectionsRevision();
   const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deletingUserId, setDeletingUserId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [sectionOptions, setSectionOptions] = useState([]);
   const [error, setError] = useState('');
@@ -194,6 +199,30 @@ export default function AdminUsersPage() {
     }
   }
 
+  function canDeleteUser(user) {
+    if (!user) return false;
+    if (user.role === 'administrator') return false;
+    if (currentUser?.id != null && Number(user.id) === Number(currentUser.id)) return false;
+    return true;
+  }
+
+  async function handleDeleteUser() {
+    if (!userToDelete) return;
+    setError('');
+    setMessage('');
+    setDeletingUserId(userToDelete.id);
+    try {
+      await userService.remove(userToDelete.id);
+      setUserToDelete(null);
+      setMessage('User deleted');
+      await reloadUsers();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setDeletingUserId(null);
+    }
+  }
+
   const isStudentRole = form.role === 'student';
   const userGroups = useMemo(() => {
     const groups = [
@@ -262,7 +291,7 @@ export default function AdminUsersPage() {
                 <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Section</TableCell>
                 <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>School Year</TableCell>
                 <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>Actions</TableCell>
+                <TableCell sx={{ fontWeight: 700, minWidth: 180 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -328,6 +357,16 @@ export default function AdminUsersPage() {
                               sx={{ px: 0.5, justifyContent: 'flex-start' }}
                             >
                               Set password
+                            </Button>
+                          ) : null}
+                          {canDeleteUser(user) ? (
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => setUserToDelete(user)}
+                              sx={{ px: 0.5, justifyContent: 'flex-start' }}
+                            >
+                              Delete
                             </Button>
                           ) : null}
                         </Stack>
@@ -460,6 +499,34 @@ export default function AdminUsersPage() {
           <Button variant="contained" onClick={handleCreate}>Create</Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(userToDelete)}
+        title="Delete user?"
+        description={
+          <>
+            You’re about to permanently delete{' '}
+            <strong>
+              {userToDelete
+                ? `${userToDelete.firstName} ${userToDelete.lastName}`
+                : 'this user'}
+            </strong>
+            .
+          </>
+        }
+        details={
+          userToDelete?.role === 'student'
+            ? 'Their progress, enrollments, quiz attempts, and XP history for this account will also be removed. This can’t be undone.'
+            : 'This can’t be undone. If they still own subjects, quizzes, games, or materials, delete or reassign those first.'
+        }
+        cancelLabel="Keep user"
+        confirmLabel="Delete user"
+        confirmColor="error"
+        loading={Boolean(deletingUserId)}
+        loadingLabel="Deleting…"
+        onClose={() => setUserToDelete(null)}
+        onConfirm={handleDeleteUser}
+      />
 
       <Dialog
         open={Boolean(passwordTarget)}

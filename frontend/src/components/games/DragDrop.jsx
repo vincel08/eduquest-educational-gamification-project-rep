@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Box, Button, Paper, Stack, Typography } from '@mui/material';
+import { Button, Paper, Stack, Typography } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
+import { firstNonEmptyList } from '../../utils/gameDataLists';
+import {
+  MotionBox,
+  choiceListProps,
+  gridItemVariants,
+} from './GameMotion';
 
 function shuffle(list) {
   const next = [...list];
@@ -13,7 +19,10 @@ function shuffle(list) {
 }
 
 export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
-  const items = useMemo(() => gameData?.items || gameData?.pairs || [], [gameData]);
+  const items = useMemo(
+    () => firstNonEmptyList(gameData?.items, gameData?.pairs),
+    [gameData]
+  );
   const targets = useMemo(
     () => shuffle(items.map((item, index) => ({
       id: `target-${index}`,
@@ -26,6 +35,7 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
   const [matches, setMatches] = useState({});
   const [draggingIndex, setDraggingIndex] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
+  const [justFilled, setJustFilled] = useState(null);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
 
   if (!items.length) {
@@ -41,6 +51,8 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
     setMatches((prev) => ({ ...prev, [termIndex]: definition }));
     setDraggingIndex(null);
     setSelectedIndex(null);
+    setJustFilled(definition);
+    window.setTimeout(() => setJustFilled(null), 450);
   }
 
   function clearMatch(termIndex) {
@@ -87,14 +99,23 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
         <Paper sx={{ p: 2, flex: 1 }}>
           <Typography fontWeight={800} sx={{ mb: 1 }}>Terms</Typography>
-          <Stack spacing={1}>
-            {unmatched.map(({ item, index }) => (
-              <Box
+          <MotionBox component={Stack} spacing={1} {...choiceListProps}>
+            {unmatched.map(({ item, index }, listIndex) => (
+              <MotionBox
                 key={`term-${index}`}
+                custom={listIndex}
+                variants={gridItemVariants}
                 draggable
                 onDragStart={() => setDraggingIndex(index)}
                 onDragEnd={() => setDraggingIndex(null)}
                 onClick={() => setSelectedIndex(index)}
+                whileHover={{ y: -3, scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                animate={
+                  selectedIndex === index || draggingIndex === index
+                    ? { scale: 1.04, y: -4 }
+                    : { scale: 1, y: 0 }
+                }
                 sx={{
                   px: 1.5,
                   py: 1.25,
@@ -108,12 +129,12 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
                 }}
               >
                 {item.term || item.front || item.left}
-              </Box>
+              </MotionBox>
             ))}
             {!unmatched.length ? (
               <Typography variant="body2" color="text.secondary">All terms placed.</Typography>
             ) : null}
-          </Stack>
+          </MotionBox>
         </Paper>
 
         <Paper sx={{ p: 2, flex: 1.2 }}>
@@ -123,7 +144,7 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
               const filledIndex = Object.entries(matches).find(([, value]) => value === target.definition)?.[0];
               const filledItem = filledIndex != null ? items[Number(filledIndex)] : null;
               return (
-                <Box
+                <MotionBox
                   key={target.id}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => {
@@ -137,6 +158,21 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
                     }
                     assignMatch(selectedIndex, target.definition);
                   }}
+                  animate={
+                    filledItem
+                      ? {
+                          scale: justFilled === target.definition ? [1, 1.08, 1] : 1,
+                          y: justFilled === target.definition ? [0, -4, 0] : 0,
+                        }
+                      : draggingIndex != null || selectedIndex != null
+                        ? { scale: [1, 1.02, 1], borderColor: ['#94a3b8', '#0d9488', '#94a3b8'] }
+                        : { scale: 1 }
+                  }
+                  transition={{
+                    duration: filledItem ? 0.4 : 1.4,
+                    repeat: filledItem ? 0 : (draggingIndex != null || selectedIndex != null ? Infinity : 0),
+                  }}
+                  layout
                   sx={{
                     minHeight: 64,
                     px: 1.5,
@@ -145,6 +181,7 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
                     border: '2px dashed',
                     borderColor: filledItem ? 'success.main' : 'divider',
                     bgcolor: filledItem ? 'success.light' : 'action.hover',
+                    boxShadow: filledItem ? '0 8px 18px rgba(13,148,136,0.2)' : 'none',
                   }}
                 >
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -155,7 +192,7 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
                       ? (filledItem.term || filledItem.front || filledItem.left)
                       : 'Drop term here'}
                   </Typography>
-                </Box>
+                </MotionBox>
               );
             })}
           </Stack>

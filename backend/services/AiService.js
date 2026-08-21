@@ -88,14 +88,61 @@ function extractJson(text) {
   throw new AppError('AI returned invalid content. Please try generating again.', 502);
 }
 
+/** Prefer non-thought parts when thinking models mix reasoning + JSON. */
+function extractGeminiText(response) {
+  if (!response) return '';
+
+  try {
+    const direct = response.text?.();
+    if (direct && String(direct).trim()) return String(direct);
+  } catch {
+    // Fall through to candidate parts (common with thought / mixed parts).
+  }
+
+  const parts = response.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts) || !parts.length) return '';
+
+  return parts
+    .filter((part) => part && part.text && !part.thought)
+    .map((part) => part.text)
+    .join('')
+    .trim();
+}
+
+function shouldRetryGeminiModel(error) {
+  const message = String(error?.message || error || '');
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('429')
+    || lower.includes('404')
+    || lower.includes('not found')
+    || lower.includes('invalid json')
+    || lower.includes('json')
+    || lower.includes('quota')
+    || lower.includes('no longer available')
+    || lower.includes('expected')
+    || lower.includes('fetch failed')
+    || lower.includes('empty')
+    || lower.includes('invalid content')
+    || lower.includes('unavailable')
+    || lower.includes('overloaded')
+    || lower.includes('resource_exhausted')
+    || lower.includes('503')
+    || lower.includes('502')
+    || lower.includes('safety')
+    || lower.includes('blocked')
+  );
+}
+
 async function chatJsonWithGemini(systemPrompt, userPrompt) {
   const client = new GoogleGenerativeAI(env.gemini.apiKey);
   const modelsToTry = [
     env.gemini.model,
-    'gemini-3.5-flash',
+    'gemini-2.5-flash',
     'gemini-flash-latest',
-    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash-lite',
     'gemini-flash-lite-latest',
+    'gemini-3.5-flash',
     'gemini-3-flash-preview',
   ].filter((model, index, list) => model && list.indexOf(model) === index);
 
@@ -120,7 +167,7 @@ CRITICAL: Respond with valid JSON only.
       });
 
       const result = await withTimeout(model.generateContent(userPrompt));
-      const content = result.response?.text?.() || '';
+      const content = extractGeminiText(result.response);
       if (!content) {
         throw new AppError('AI returned invalid content. Please try generating again.', 502);
       }
@@ -132,19 +179,9 @@ CRITICAL: Respond with valid JSON only.
       if (error?.code === 'AI_TIMEOUT' || error?.statusCode === 504) {
         throw error;
       }
-      const message = String(error?.message || error);
-      const shouldTryNext = (
-        message.includes('429')
-        || message.includes('404')
-        || message.includes('invalid JSON')
-        || message.includes('JSON')
-        || message.toLowerCase().includes('quota')
-        || message.toLowerCase().includes('no longer available')
-        || message.toLowerCase().includes('expected')
-      );
-      console.error(`Gemini model "${modelName}" failed:`, message);
+      console.error(`Gemini model "${modelName}" failed:`, String(error?.message || error));
 
-      if (!shouldTryNext) {
+      if (!shouldRetryGeminiModel(error)) {
         const safe = sanitizeAiError(error);
         throw new AppError(safe.message, safe.statusCode);
       }
@@ -263,10 +300,21 @@ function normalizeGeneratedQuestions(rawQuestions, selectedType) {
   if (!Array.isArray(rawQuestions)) return [];
 
   return rawQuestions
-    .filter((question) => question && (question.questionText || question.question_text || question.text))
+    .filter((question) => question && (
+      question.questionText
+      || question.question_text
+      || question.question
+      || question.text
+      || question.prompt
+    ))
     .map((question, index) => {
       const type = question.questionType || question.question_type || selectedType;
-      const questionText = question.questionText || question.question_text || question.text || `Question ${index + 1}`;
+      const questionText = question.questionText
+        || question.question_text
+        || question.question
+        || question.text
+        || question.prompt
+        || `Question ${index + 1}`;
       const explanation = question.explanation ?? null;
       const points = Number(question.points) || 1;
 
@@ -337,11 +385,41 @@ function normalizeGeneratedQuestions(rawQuestions, selectedType) {
           points,
           explanation,
           imageUrl: question.imageUrl || question.image_url || null,
-          options: (question.options || []).map((option, optionIndex) => ({
+          options: (question.options || question.choices || []).map((option, optionIndex) => ({
             optionText: pickOptionText(option, `Option ${optionIndex + 1}`),
-            isCorrect: Boolean(option.isCorrect ?? option.is_correct),
+            isCorrect: Boolean(
+              typeof option === 'object'
+                ? (option.isCorrect ?? option.is_correct)
+                : false,
+            ),
           })),
         };
+      }
+
+      const rawOptions = question.options || question.choices || [];
+      let options = rawOptions.map((option, optionIndex) => ({
+        optionText: pickOptionText(option, `Option ${optionIndex + 1}`),
+        isCorrect: Boolean(
+          typeof option === 'object'
+            ? (option.isCorrect ?? option.is_correct)
+            : false,
+        ),
+      }));
+
+      // Content-quiz shape: choices[] + answer string
+      if (
+        options.length
+        && !options.some((option) => option.isCorrect)
+        && (question.answer || question.correctAnswer)
+      ) {
+        const answer = String(question.answer || question.correctAnswer).trim().toLowerCase();
+        options = options.map((option) => ({
+          ...option,
+          isCorrect: option.optionText.trim().toLowerCase() === answer,
+        }));
+        if (!options.some((option) => option.isCorrect) && options.length) {
+          options[0].isCorrect = true;
+        }
       }
 
       return {
@@ -349,10 +427,7 @@ function normalizeGeneratedQuestions(rawQuestions, selectedType) {
         questionType: type === 'true_false' ? 'true_false' : 'multiple_choice',
         points,
         explanation,
-        options: (question.options || []).map((option, optionIndex) => ({
-          optionText: pickOptionText(option, `Option ${optionIndex + 1}`),
-          isCorrect: Boolean(option.isCorrect ?? option.is_correct),
-        })),
+        options,
       };
     })
     .filter((question) => Array.isArray(question.options) && question.options.length > 0);
@@ -375,10 +450,13 @@ function normalizeGeneratedGame(raw, requestedType) {
     || 'flashcards';
 
   let gameData = raw.gameData || raw.game_data || {};
-  const items = raw.items || gameData.items || gameData.pairs || null;
+  const items = raw.items || gameData.items || gameData.pairs || gameData.clues || null;
 
   if (items && !gameData.items) {
     gameData = { ...gameData, items };
+  }
+  if (Array.isArray(gameData.clues) && (!Array.isArray(gameData.items) || !gameData.items.length)) {
+    gameData = { ...gameData, items: gameData.clues };
   }
   if (items && resolvedType === 'memory_match' && !gameData.pairs) {
     gameData = { ...gameData, pairs: items };
@@ -571,13 +649,13 @@ ${contentSnippet}`
       throw new AppError('Unsupported game type', 400);
     }
 
-    const resolvedFallbackType = requestedType === 'auto' ? 'flashcards' : (normalizeGameType(requestedType) || 'flashcards');
     const contentSnippet = String(lessonContent || topic || '').slice(0, env.aiLimits.maxPromptCharacters);
     assertAiConfigured();
 
     try {
       const typeInstruction = requestedType === 'auto'
-        ? 'Choose the single best gameType for this lesson from: flashcards, memory_match, crossword, word_search, quiz_show, jeopardy, drag_drop, spin_wheel, millionaire, escape_room, mission_adventure, puzzle_challenge.'
+        ? `Choose the single best gameType for this lesson from: ${GAME_TYPES.join(', ')}.
+Set "gameType" to that value and fill gameData using ONLY that type's schema below.`
         : `Use gameType exactly: "${requestedType}". Fill gameData using ONLY the schema for "${requestedType}" below. Do not return another game type's fields.`;
 
       const { data, source } = await chatJson(
@@ -594,18 +672,17 @@ Return ONLY valid JSON with this shape:
   "difficulty": "Easy|Medium|Hard",
   "estimatedTime": 10,
   "xpReward": 150,
-  "items": [{ "term": "string", "definition": "string" }],
   "gameData": {}
 }
 
 gameData requirements by gameType:
-- flashcards / memory_match / drag_drop: items [{term, definition}] (at least 4)
-- crossword: gameData.items [{clue, answer, direction, row, col}] (at least 4 short answers)
-- word_search: gameData.words string[] and gameData.gridSize number (8-12); optional gameData.grid 2D letter array and placements
-- quiz_show: gameData.items [{question, choices[4], correctIndex}] (at least 4)
+- flashcards / memory_match / drag_drop: gameData.items [{term, definition}] (at least 4)
+- crossword: gameData.items or gameData.clues [{clue, answer, direction, row, col}] (at least 4 short answers)
+- word_search: gameData.words string[] and gameData.gridSize number (8-12)
+- quiz_show: gameData.items or gameData.rounds [{question, choices[4], correctIndex}] (at least 4)
 - jeopardy: gameData.categories [{name, clues:[{points, clue, answer}]}] (1-3 categories)
 - spin_wheel: gameData.items [{label, question, choices[4], correctIndex}] (at least 4)
-- millionaire: gameData.items [{question, choices[4], correctIndex, difficulty}] (at least 5 ladder questions)
+- millionaire: gameData.items [{question, choices[4], correctIndex, difficulty}] (at least 5)
 - escape_room: gameData.stages [{name, clue, answer, hint}] (at least 3 stages)
 - mission_adventure: gameData.missions [{title, prompt, choices[3], correctIndex, xp}] (at least 3)
 - puzzle_challenge: gameData.items [{prompt, answer, hint}] (at least 4 short answers)
@@ -613,11 +690,13 @@ gameData requirements by gameType:
 Do not include markdown. Do not explain anything.`,
         `Grade level: ${gradeLevel}
 Topic: ${topic || 'Lesson topic'}
+Requested game type: ${requestedType}
 Lesson content:
 ${contentSnippet}`
       );
 
-      const normalized = normalizeGeneratedGame(data, resolvedFallbackType);
+      // Pass 'auto' through so the model-chosen gameType is kept; only concrete picks are forced.
+      const normalized = normalizeGeneratedGame(data, requestedType);
       if (!normalized.title || !normalized.gameData) {
         throw new AppError('AI returned invalid content. Please try generating again.', 502);
       }

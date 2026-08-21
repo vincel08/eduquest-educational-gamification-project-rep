@@ -106,14 +106,33 @@ export function sanitizeAiError(error) {
 
   if (
     lower.includes('api key')
+    || lower.includes('api_key')
     || lower.includes('unauthorized')
     || lower.includes('authentication')
+    || lower.includes('permission_denied')
     || lower.includes('permission')
   ) {
     return {
       statusCode: 503,
       message: 'AI service is temporarily unavailable. Please try again later.',
       errorCode: 'AI_PROVIDER_AUTH',
+    };
+  }
+
+  if (
+    lower.includes('fetch failed')
+    || lower.includes('network')
+    || lower.includes('econnreset')
+    || lower.includes('enotfound')
+    || lower.includes('socket')
+    || lower.includes('unavailable')
+    || lower.includes('503')
+    || lower.includes('502')
+  ) {
+    return {
+      statusCode: 502,
+      message: 'Could not reach the AI provider. Please try again in a moment.',
+      errorCode: 'AI_NETWORK',
     };
   }
 
@@ -125,6 +144,8 @@ export function sanitizeAiError(error) {
     || lower.includes('malformed')
     || lower.includes('no questions')
     || lower.includes('invalid content')
+    || lower.includes('blocked')
+    || lower.includes('safety')
   ) {
     return {
       statusCode: 502,

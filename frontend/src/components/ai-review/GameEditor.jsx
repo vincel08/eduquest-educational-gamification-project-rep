@@ -1,4 +1,5 @@
 import {
+  Box,
   Button,
   Card,
   CardContent,
@@ -12,6 +13,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import AddIcon from '@mui/icons-material/Add';
+import { formatGameTypeLabel } from '../../utils/gameTypes';
+import { normalizeAnswer, resolveCrosswordClues, syncCrosswordGameData } from '../../utils/crosswordGrid';
 
 function newId(prefix) {
   return `${prefix}_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
@@ -98,11 +101,63 @@ export default function GameEditor({
   }
 
   function updateGameData(patch) {
+    const next = {
+      ...gameData,
+      ...patch,
+    };
+    if (
+      ['crossword', 'puzzle_challenge'].includes(gameType)
+      && Array.isArray(patch.items)
+    ) {
+      next.clues = patch.items;
+    }
+    if (
+      ['crossword', 'puzzle_challenge'].includes(gameType)
+      && Array.isArray(patch.clues)
+      && !Array.isArray(patch.items)
+    ) {
+      next.items = patch.clues;
+    }
+    if (
+      ['flashcards', 'memory_match', 'drag_drop'].includes(gameType)
+      && Array.isArray(patch.items)
+    ) {
+      next.pairs = patch.items;
+    }
+    if (
+      ['flashcards', 'memory_match', 'drag_drop'].includes(gameType)
+      && Array.isArray(patch.pairs)
+    ) {
+      next.items = patch.pairs;
+    }
+    if (
+      ['quiz_show', 'quiz_rush', 'spin_wheel', 'millionaire'].includes(gameType)
+      && Array.isArray(patch.items)
+    ) {
+      next.rounds = patch.items;
+    }
+    if (
+      ['quiz_show', 'quiz_rush', 'spin_wheel', 'millionaire'].includes(gameType)
+      && Array.isArray(patch.rounds)
+      && !Array.isArray(patch.items)
+    ) {
+      next.items = patch.rounds;
+    }
+    if (
+      ['word_search', 'word_scramble'].includes(gameType)
+      && Array.isArray(patch.words)
+    ) {
+      next.items = patch.words.map((word, index) => ({
+        id: `w_${index}`,
+        term: typeof word === 'string' ? word : (word?.word || word?.term || ''),
+        answer: typeof word === 'string' ? word : (word?.word || word?.term || ''),
+        word: typeof word === 'string' ? word : (word?.word || word?.term || ''),
+      }));
+      next.grid = undefined;
+      next.placements = undefined;
+    }
     updateGame({
-      gameData: {
-        ...gameData,
-        ...patch,
-      },
+      gameData: next,
     });
   }
 
@@ -262,7 +317,9 @@ export default function GameEditor({
       case 'drag_drop':
         return renderPairEditor('items');
       case 'memory_match':
-        return renderPairEditor(Array.isArray(gameData.pairs) ? 'pairs' : 'items');
+        return renderPairEditor(
+          Array.isArray(gameData.pairs) && gameData.pairs.length ? 'pairs' : 'items'
+        );
       case 'quiz_show':
       case 'quiz_rush':
         return renderChoiceItems(Array.isArray(gameData.rounds) && gameData.rounds.length ? 'rounds' : 'items');
@@ -465,7 +522,25 @@ export default function GameEditor({
       }
       case 'crossword':
       case 'puzzle_challenge': {
-        const items = Array.isArray(gameData.items) ? gameData.items : [];
+        const items = gameType === 'crossword'
+          ? resolveCrosswordClues(gameData)
+          : (() => {
+          const list = Array.isArray(gameData.items) ? gameData.items : [];
+          const clues = Array.isArray(gameData.clues) ? gameData.clues : [];
+          if (list.some((item) => String(item?.answer || '').trim())) return list;
+          if (clues.length) return clues;
+          return list;
+        })();
+
+        function commitClueItems(nextItems) {
+          if (gameType === 'crossword') {
+            const synced = syncCrosswordGameData({ items: nextItems, clues: nextItems });
+            updateGameData({ items: synced.items, clues: synced.clues });
+            return;
+          }
+          updateGameData({ items: nextItems, clues: nextItems });
+        }
+
         return (
           <Stack spacing={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -473,31 +548,29 @@ export default function GameEditor({
               <Button
                 startIcon={<AddIcon />}
                 variant="outlined"
-                onClick={() => updateGameData({
-                  items: [...items, {
-                    id: newId('g'),
-                    clue: '',
-                    prompt: '',
-                    answer: '',
-                    hint: '',
-                    direction: 'across',
-                    row: items.length,
-                    col: 0,
-                  }],
-                })}
+                onClick={() => commitClueItems([...items, {
+                  id: newId('g'),
+                  clue: '',
+                  prompt: '',
+                  answer: '',
+                  hint: '',
+                  direction: 'across',
+                }])}
               >
                 Add
               </Button>
             </Stack>
-            {items.map((item, index) => (
+            {items.map((item, index) => {
+              const playAnswer = normalizeAnswer(item.answer || item.word);
+              return (
               <Card key={item.id || index} variant="outlined">
                 <CardContent>
                   <Stack spacing={1.5}>
                     <ItemToolbar
                       label={`${gameType === 'crossword' ? 'Clue' : 'Puzzle'} ${index + 1}`}
                       index={index}
-                      onMove={(dir) => updateGameData({ items: moveInArray(items, index, dir) })}
-                      onDelete={() => updateGameData({ items: items.filter((_, i) => i !== index) })}
+                      onMove={(dir) => commitClueItems(moveInArray(items, index, dir))}
+                      onDelete={() => commitClueItems(items.filter((_, i) => i !== index))}
                     />
                     <TextField
                       label={gameType === 'crossword' ? 'Clue' : 'Prompt'}
@@ -506,56 +579,76 @@ export default function GameEditor({
                       onChange={(e) => {
                         const next = [...items];
                         next[index] = { ...item, clue: e.target.value, prompt: e.target.value };
-                        updateGameData({ items: next });
+                        commitClueItems(next);
                       }}
                     />
                     <TextField
                       label="Answer"
                       fullWidth
-                      value={item.answer || ''}
+                      value={item.answer || item.word || ''}
+                      helperText={
+                        gameType === 'crossword'
+                          ? (playAnswer
+                            ? `Play uses ${playAnswer.length} boxes: ${playAnswer.split('').join(' ')}`
+                            : 'Type the answer students must fit in the grid')
+                          : undefined
+                      }
                       onChange={(e) => {
                         const next = [...items];
-                        next[index] = { ...item, answer: e.target.value };
-                        updateGameData({ items: next });
+                        const answer = e.target.value;
+                        next[index] = {
+                          ...item,
+                          answer,
+                          word: answer,
+                          row: undefined,
+                          col: undefined,
+                        };
+                        commitClueItems(next);
                       }}
                     />
-                    {gameType === 'crossword' ? (
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                        <TextField
-                          select
-                          label="Direction"
-                          value={item.direction || 'across'}
-                          onChange={(e) => {
-                            const next = [...items];
-                            next[index] = { ...item, direction: e.target.value };
-                            updateGameData({ items: next });
-                          }}
-                          sx={{ minWidth: 140 }}
-                        >
-                          <MenuItem value="across">Across</MenuItem>
-                          <MenuItem value="down">Down</MenuItem>
-                        </TextField>
-                        <TextField
-                          label="Row"
-                          type="number"
-                          value={item.row ?? index}
-                          onChange={(e) => {
-                            const next = [...items];
-                            next[index] = { ...item, row: Number(e.target.value) || 0 };
-                            updateGameData({ items: next });
-                          }}
-                        />
-                        <TextField
-                          label="Col"
-                          type="number"
-                          value={item.col ?? 0}
-                          onChange={(e) => {
-                            const next = [...items];
-                            next[index] = { ...item, col: Number(e.target.value) || 0 };
-                            updateGameData({ items: next });
-                          }}
-                        />
+                    {gameType === 'crossword' && playAnswer ? (
+                      <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+                        {playAnswer.split('').map((letter, letterIndex) => (
+                          <Box
+                            key={`${item.id || index}-${letterIndex}`}
+                            sx={{
+                              width: 28,
+                              height: 28,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              display: 'grid',
+                              placeItems: 'center',
+                              fontWeight: 800,
+                              fontSize: 13,
+                              bgcolor: 'background.paper',
+                            }}
+                          >
+                            {letter}
+                          </Box>
+                        ))}
                       </Stack>
+                    ) : null}
+                    {gameType === 'crossword' ? (
+                      <TextField
+                        select
+                        label="Direction"
+                        value={item.direction || 'across'}
+                        helperText="Preferred direction for this clue. Clue numbers stay matched to Edit Content."
+                        onChange={(e) => {
+                          const next = [...items];
+                          next[index] = {
+                            ...item,
+                            direction: e.target.value,
+                            row: undefined,
+                            col: undefined,
+                          };
+                          commitClueItems(next);
+                        }}
+                        sx={{ maxWidth: 280 }}
+                      >
+                        <MenuItem value="across">Across</MenuItem>
+                        <MenuItem value="down">Down</MenuItem>
+                      </TextField>
                     ) : (
                       <TextField
                         label="Hint"
@@ -564,14 +657,15 @@ export default function GameEditor({
                         onChange={(e) => {
                           const next = [...items];
                           next[index] = { ...item, hint: e.target.value };
-                          updateGameData({ items: next });
+                          commitClueItems(next);
                         }}
                       />
                     )}
                   </Stack>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </Stack>
         );
       }
@@ -618,7 +712,7 @@ export default function GameEditor({
       <Stack direction="row" spacing={2}>
         <TextField
           label="Game type"
-          value={gameType}
+          value={formatGameTypeLabel(gameType)}
           InputProps={{ readOnly: true }}
           helperText="Locked to preserve scoring and renderer compatibility"
         />

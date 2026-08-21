@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -12,35 +12,100 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material';
-import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
-import StyleIcon from '@mui/icons-material/Style';
-import ExtensionIcon from '@mui/icons-material/Extension';
-import CasinoIcon from '@mui/icons-material/Casino';
-import QuizIcon from '@mui/icons-material/Quiz';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import { useNavigate } from 'react-router-dom';
-import PageHeader from '../../components/common/PageHeader';
-import PageContainer from '../../components/common/PageContainer';
-import AiGeneratedReviewPanel from '../../components/ai-review/AiGeneratedReviewPanel';
-import courseService from '../../services/courseService';
-import aiReviewService from '../../services/aiReviewService';
-import { getErrorMessage } from '../../services/api';
+} from "@mui/material";
+import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
+import StyleIcon from "@mui/icons-material/Style";
+import ExtensionIcon from "@mui/icons-material/Extension";
+import CasinoIcon from "@mui/icons-material/Casino";
+import QuizIcon from "@mui/icons-material/Quiz";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import { useNavigate } from "react-router-dom";
+import PageHeader from "../../components/common/PageHeader";
+import PageContainer from "../../components/common/PageContainer";
+import AiGeneratedReviewPanel from "../../components/ai-review/AiGeneratedReviewPanel";
+import courseService from "../../services/courseService";
+import aiReviewService from "../../services/aiReviewService";
+import { getErrorMessage } from "../../services/api";
 
 const GAME_TYPE_OPTIONS = [
-  { value: 'auto', label: 'Auto Select', icon: <AutoAwesomeIcon />, color: '#6366F1' },
-  { value: 'flashcards', label: 'Flashcards', icon: <StyleIcon />, color: '#3B82F6' },
-  { value: 'memory_match', label: 'Memory Match', icon: <ExtensionIcon />, color: '#8B5CF6' },
-  { value: 'crossword', label: 'Crossword', icon: <QuizIcon />, color: '#10B981' },
-  { value: 'word_search', label: 'Word Search', icon: <QuizIcon />, color: '#F59E0B' },
-  { value: 'quiz_show', label: 'Quiz Show', icon: <SportsEsportsIcon />, color: '#EF4444' },
-  { value: 'jeopardy', label: 'Jeopardy', icon: <SportsEsportsIcon />, color: '#7C3AED' },
-  { value: 'drag_drop', label: 'Drag and Drop', icon: <ExtensionIcon />, color: '#0EA5E9' },
-  { value: 'spin_wheel', label: 'Spin Wheel', icon: <CasinoIcon />, color: '#F97316' },
-  { value: 'millionaire', label: 'Millionaire', icon: <SportsEsportsIcon />, color: '#FACC15' },
-  { value: 'escape_room', label: 'Escape Room', icon: <ExtensionIcon />, color: '#64748B' },
-  { value: 'mission_adventure', label: 'Mission Adventure', icon: <SportsEsportsIcon />, color: '#22C55E' },
-  { value: 'puzzle_challenge', label: 'Puzzle Challenge', icon: <ExtensionIcon />, color: '#EC4899' },
+  {
+    value: "auto",
+    label: "Auto Select",
+    icon: <AutoAwesomeIcon />,
+    color: "#6366F1",
+  },
+  {
+    value: "flashcards",
+    label: "Flashcards",
+    icon: <StyleIcon />,
+    color: "#3B82F6",
+  },
+  {
+    value: "memory_match",
+    label: "Memory Match",
+    icon: <ExtensionIcon />,
+    color: "#8B5CF6",
+  },
+  {
+    value: "crossword",
+    label: "Crossword",
+    icon: <QuizIcon />,
+    color: "#10B981",
+  },
+  {
+    value: "word_search",
+    label: "Word Search",
+    icon: <QuizIcon />,
+    color: "#F59E0B",
+  },
+  {
+    value: "quiz_show",
+    label: "Quiz Show",
+    icon: <SportsEsportsIcon />,
+    color: "#EF4444",
+  },
+  {
+    value: "jeopardy",
+    label: "Jeopardy",
+    icon: <SportsEsportsIcon />,
+    color: "#7C3AED",
+  },
+  {
+    value: "drag_drop",
+    label: "Drag and Drop",
+    icon: <ExtensionIcon />,
+    color: "#0EA5E9",
+  },
+  {
+    value: "spin_wheel",
+    label: "Spin Wheel",
+    icon: <CasinoIcon />,
+    color: "#F97316",
+  },
+  {
+    value: "millionaire",
+    label: "Millionaire",
+    icon: <SportsEsportsIcon />,
+    color: "#FACC15",
+  },
+  {
+    value: "escape_room",
+    label: "Escape Room",
+    icon: <ExtensionIcon />,
+    color: "#64748B",
+  },
+  {
+    value: "mission_adventure",
+    label: "Mission Adventure",
+    icon: <SportsEsportsIcon />,
+    color: "#22C55E",
+  },
+  {
+    value: "puzzle_challenge",
+    label: "Puzzle Challenge",
+    icon: <ExtensionIcon />,
+    color: "#EC4899",
+  },
 ];
 
 export default function TeacherAiGamePage() {
@@ -48,19 +113,21 @@ export default function TeacherAiGamePage() {
   const [courses, setCourses] = useState([]);
   const [lessons, setLessons] = useState([]);
   const [form, setForm] = useState({
-    courseId: '',
-    lessonId: '',
-    topic: '',
-    lessonContent: '',
-    gameType: 'auto',
+    courseId: "",
+    lessonId: "",
+    topic: "",
+    lessonContent: "",
+    gameType: "auto",
   });
   const [draft, setDraft] = useState(null);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const generateInFlight = useRef(false);
 
   useEffect(() => {
-    courseService.list({ limit: 50 })
+    courseService
+      .list({ limit: 50 })
       .then((response) => {
         const list = response.data.data.courses || [];
         setCourses(list);
@@ -77,13 +144,14 @@ export default function TeacherAiGamePage() {
       return;
     }
 
-    courseService.lessons(form.courseId)
+    courseService
+      .lessons(form.courseId)
       .then((response) => {
         const list = response.data.data || [];
         setLessons(list);
         setForm((prev) => ({
           ...prev,
-          lessonId: '',
+          lessonId: "",
         }));
       })
       .catch((err) => setError(getErrorMessage(err)));
@@ -91,9 +159,11 @@ export default function TeacherAiGamePage() {
 
   async function handleGenerate(event) {
     event.preventDefault();
+    if (generateInFlight.current) return;
+    generateInFlight.current = true;
     setLoading(true);
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     setDraft(null);
 
     try {
@@ -101,36 +171,47 @@ export default function TeacherAiGamePage() {
         courseId: Number(form.courseId),
         lessonId: form.lessonId ? Number(form.lessonId) : null,
         topic: form.topic.trim() || undefined,
-        lessonContent: form.lessonContent.trim() || form.topic.trim() || undefined,
+        lessonContent:
+          form.lessonContent.trim() || form.topic.trim() || undefined,
         gameType: form.gameType,
+        requestId:
+          typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       });
       const data = response.data.data;
-      if (data.source === 'fallback') {
+      if (data.source === "fallback") {
         setDraft(null);
-        setError(data.warning || 'AI generation failed. Please configure GEMINI_API_KEY and try again.');
+        setError(
+          data.warning ||
+            "AI generation failed. Please configure GEMINI_API_KEY and try again.",
+        );
         return;
       }
       if (!data.draft?.game) {
         setDraft(null);
-        setError('AI did not return a playable game. Try again or pick a different game type.');
+        setError(
+          "AI did not return a playable game. Try again or pick a different game type.",
+        );
         return;
       }
       setDraft(data.draft);
-      setMessage(data.warning || 'Game generated. Review and edit below before publishing.');
+      setMessage(
+        data.warning ||
+          "Game generated. Review and edit below before publishing.",
+      );
     } catch (err) {
       setDraft(null);
       setError(getErrorMessage(err));
     } finally {
+      generateInFlight.current = false;
       setLoading(false);
     }
   }
 
   const freeText = `${form.topic} ${form.lessonContent}`.trim();
-  const canGenerate = Boolean(form.courseId)
-    && (
-      Boolean(form.lessonId)
-      || freeText.length >= 3
-    );
+  const canGenerate =
+    Boolean(form.courseId) && (Boolean(form.lessonId) || freeText.length >= 3);
 
   return (
     <PageContainer>
@@ -138,8 +219,16 @@ export default function TeacherAiGamePage() {
         title="AI Game Generator"
         subtitle="Choose a game template, paste lesson text or link a lesson, then review and publish as a game (not a quiz)."
       />
-      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-      {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
+      {message ? (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {message}
+        </Alert>
+      ) : null}
 
       <Typography variant="h6" fontWeight={800} sx={{ mb: 1.5 }}>
         Game templates
@@ -152,28 +241,33 @@ export default function TeacherAiGamePage() {
               <Card
                 variant="outlined"
                 sx={{
-                  height: '100%',
-                  borderColor: selected ? 'secondary.main' : 'divider',
+                  height: "100%",
+                  borderColor: selected ? "secondary.main" : "divider",
                   borderWidth: selected ? 2 : 1,
-                  bgcolor: selected ? 'rgba(139,92,246,0.06)' : 'background.paper',
+                  bgcolor: selected
+                    ? "rgba(139,92,246,0.06)"
+                    : "background.paper",
                 }}
               >
                 <CardActionArea
-                  onClick={() => setForm((prev) => ({ ...prev, gameType: option.value }))}
-                  sx={{ height: '100%' }}
+                  onClick={() =>
+                    setForm((prev) => ({ ...prev, gameType: option.value }))
+                  }
+                  sx={{ height: "100%" }}
                 >
-                  <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                  <CardContent sx={{ textAlign: "center", py: 2 }}>
                     <Box
                       sx={{
                         width: 44,
                         height: 44,
-                        mx: 'auto',
+                        mx: "auto",
                         mb: 1,
                         borderRadius: 2.5,
-                        display: 'grid',
-                        placeItems: 'center',
+                        display: "grid",
+                        placeItems: "center",
                         bgcolor: option.color,
-                        color: option.value === 'millionaire' ? '#1E293B' : '#fff',
+                        color:
+                          option.value === "millionaire" ? "#1E293B" : "#fff",
                       }}
                     >
                       {option.icon}
@@ -195,15 +289,19 @@ export default function TeacherAiGamePage() {
             select
             label="Subject"
             value={form.courseId}
-            onChange={(e) => setForm((p) => ({ ...p, courseId: e.target.value, lessonId: '' }))}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, courseId: e.target.value, lessonId: "" }))
+            }
           >
             {courses.map((course) => (
-              <MenuItem key={course.id} value={String(course.id)}>{course.subject || course.title}</MenuItem>
+              <MenuItem key={course.id} value={String(course.id)}>
+                {course.subject || course.title}
+              </MenuItem>
             ))}
           </TextField>
 
           <TextField
-            label="Topic (optional)"
+            label="Topic"
             value={form.topic}
             onChange={(e) => setForm((p) => ({ ...p, topic: e.target.value }))}
             placeholder="e.g. Fractions"
@@ -211,9 +309,11 @@ export default function TeacherAiGamePage() {
           />
 
           <TextField
-            label="Lesson text (optional)"
+            label="Lesson text"
             value={form.lessonContent}
-            onChange={(e) => setForm((p) => ({ ...p, lessonContent: e.target.value }))}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, lessonContent: e.target.value }))
+            }
             multiline
             minRows={6}
             maxRows={14}
@@ -223,18 +323,22 @@ export default function TeacherAiGamePage() {
 
           <TextField
             select
-            label="Link to lesson (optional)"
+            label="Link to lesson"
             value={form.lessonId}
-            onChange={(e) => setForm((p) => ({ ...p, lessonId: e.target.value }))}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, lessonId: e.target.value }))
+            }
             helperText={
               !lessons.length
-                ? 'No lessons in this subject yet — use topic or lesson text above.'
-                : 'Optional. Links generation to an existing lesson.'
+                ? "No lessons in this subject yet — use topic or lesson text above."
+                : "Optional. Links generation to an existing lesson."
             }
           >
             <MenuItem value="">None</MenuItem>
             {lessons.map((lesson) => (
-              <MenuItem key={lesson.id} value={String(lesson.id)}>{lesson.title}</MenuItem>
+              <MenuItem key={lesson.id} value={String(lesson.id)}>
+                {lesson.title}
+              </MenuItem>
             ))}
           </TextField>
 
@@ -244,11 +348,12 @@ export default function TeacherAiGamePage() {
             size="large"
             disabled={loading || !canGenerate}
           >
-            {loading ? 'Generating...' : 'Generate Game'}
+            {loading ? "Generating..." : "Generate Game"}
           </Button>
           {!canGenerate ? (
             <Typography variant="caption" color="text.secondary">
-              Enter a topic or lesson text, or link a lesson, to enable Generate.
+              Enter a topic or lesson text, or link a lesson, to enable
+              Generate.
             </Typography>
           ) : null}
         </Stack>
@@ -261,7 +366,7 @@ export default function TeacherAiGamePage() {
           mode="game"
           onCleared={() => {
             setDraft(null);
-            setMessage('');
+            setMessage("");
           }}
           onPublished={(payload) => {
             setDraft(null);
@@ -269,7 +374,9 @@ export default function TeacherAiGamePage() {
             if (id) {
               navigate(`/teacher/games/${id}/edit`);
             } else {
-              setMessage('Published. Open Games from the sidebar to revisit it.');
+              setMessage(
+                "Published. Open Games from the sidebar to revisit it.",
+              );
             }
           }}
         />

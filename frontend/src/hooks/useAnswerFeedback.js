@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { celebrate } from '../utils/confetti';
 import { pickFeedbackMessage } from '../utils/feedbackMessages';
+import { playSound, SOUND_KEYS } from '../utils/soundEffects';
 
 const DEFAULT_AUTO_MS = 2500;
 
@@ -29,8 +30,13 @@ export default function useAnswerFeedback({ autoAdvanceMs = DEFAULT_AUTO_MS } = 
 
     setFeedback(next);
 
-    if (isCorrect) {
+    if (payload.silent) {
+      // Caller plays a custom cue instead.
+    } else if (isCorrect) {
+      playSound(payload.soundKey || SOUND_KEYS.correct);
       celebrate();
+    } else {
+      playSound(payload.soundKey || SOUND_KEYS.wrong);
     }
   }, [autoAdvanceMs]);
 

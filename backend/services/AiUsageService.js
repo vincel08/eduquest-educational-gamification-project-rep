@@ -11,6 +11,13 @@ function sinceDaysAgo(days) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
+function eventAgeMs(createdAt) {
+  const parsed = new Date(createdAt).getTime();
+  if (!Number.isFinite(parsed)) return Number.POSITIVE_INFINITY;
+  // Clamp: future timestamps (timezone skew) must not keep a forever-lock.
+  return Math.max(0, Date.now() - parsed);
+}
+
 const AiUsageService = {
   buildIdempotencyKey,
 
@@ -42,26 +49,20 @@ const AiUsageService = {
     const existing = await AiUsageModel.findByIdempotencyKey(userId, idempotencyKey);
     if (!existing) return null;
 
-    const ageMs = Date.now() - new Date(existing.created_at).getTime();
+    // Only in-flight requests block. Completed/failed never lock out a new generate.
+    if (existing.status !== 'pending') {
+      return null;
+    }
+
+    const ageMs = eventAgeMs(existing.created_at);
     if (ageMs > env.aiLimits.idempotencyWindowMs) {
       return null;
     }
 
-    if (existing.status === 'pending') {
-      throw new AppError(
-        'AI generation already in progress. Please wait.',
-        409
-      );
-    }
-
-    if (existing.status === 'completed') {
-      throw new AppError(
-        'Duplicate AI request detected. Please wait a moment before generating again, or use Regenerate after reviewing.',
-        409
-      );
-    }
-
-    return null;
+    throw new AppError(
+      'AI generation already in progress. Please wait for it to finish.',
+      409
+    );
   },
 
   async beginOperation({
@@ -88,12 +89,27 @@ const AiUsageService = {
     });
 
     if (!event && idempotencyKey) {
-      // Race: another request inserted first.
+      // Race: another request inserted first — re-check; may allow if that one finished.
       await this.assertNotDuplicate(userId, idempotencyKey);
-      throw new AppError(
-        'Duplicate AI request detected. Please wait a moment before generating again.',
-        409
-      );
+      const existing = await AiUsageModel.findByIdempotencyKey(userId, idempotencyKey);
+      if (existing?.status === 'pending') {
+        throw new AppError(
+          'AI generation already in progress. Please wait for it to finish.',
+          409
+        );
+      }
+      // Completed/failed race with unique constraint: start a fresh row without key collision
+      // by appending a suffix (schema index is non-unique, but handle ER_DUP_ENTRY safely).
+      return AiUsageModel.create({
+        teacherId: userId,
+        operationType,
+        status: 'pending',
+        inputChars,
+        requestedQuantity,
+        provider,
+        model,
+        idempotencyKey: `${idempotencyKey}:${Date.now()}`,
+      });
     }
 
     return event;

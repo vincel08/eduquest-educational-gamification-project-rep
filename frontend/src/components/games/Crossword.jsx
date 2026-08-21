@@ -1,39 +1,70 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Box, Button, Stack, TextField, Typography } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
-import { buildCrosswordBoard, normalizeAnswer } from '../../utils/crosswordGrid';
+import { buildCrosswordBoard, normalizeAnswer, syncCrosswordGameData } from '../../utils/crosswordGrid';
+import { MotionBox } from './GameMotion';
 
 export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
-  const clues = useMemo(() => gameData?.items || gameData?.clues || [], [gameData]);
-  const board = useMemo(() => buildCrosswordBoard(clues), [clues]);
+  const synced = useMemo(() => syncCrosswordGameData(gameData), [gameData]);
+  const clues = synced.items || [];
+  const boardKey = useMemo(
+    () => clues.map((clue) => `${normalizeAnswer(clue.answer)}:${clue.direction || ''}`).join('|'),
+    [clues],
+  );
+  const board = useMemo(() => buildCrosswordBoard(clues), [clues, boardKey]);
   const [letters, setLetters] = useState({});
   const [activeEntry, setActiveEntry] = useState(board.entries[0]?.index ?? 0);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+
+  useEffect(() => {
+    setLetters({});
+    setActiveEntry(board.entries[0]?.index ?? 0);
+  }, [boardKey]);
 
   if (!board.entries.length) {
     return <Typography color="text.secondary">No crossword clues available.</Typography>;
   }
 
   const active = board.entries.find((entry) => entry.index === activeEntry) || board.entries[0];
+  const activeBoxCount = (() => {
+    let count = 0;
+    for (const row of board.cells) {
+      for (const cell of row) {
+        if (cell?.entries?.some((ref) => ref.entryIndex === active.index)) count += 1;
+      }
+    }
+    return count;
+  })();
 
   function cellKey(row, col) {
     return `${row}:${col}`;
   }
 
   function setCellLetter(row, col, value) {
-    const letter = String(value || '').replace(/[^a-zA-Z]/g, '').slice(-1).toUpperCase();
+    const letter = String(value || '').replace(/[^a-zA-Z0-9]/g, '').slice(-1).toUpperCase();
     setLetters((prev) => ({ ...prev, [cellKey(row, col)]: letter }));
   }
 
-  function readEntryAnswer(entry) {
-    let value = '';
+  function getEntryLetters(entry) {
+    const chars = [];
     for (let i = 0; i < entry.answer.length; i += 1) {
       const r = entry.direction === 'down' ? entry.row + i : entry.row;
       const c = entry.direction === 'across' ? entry.col + i : entry.col;
-      value += letters[cellKey(r, c)] || '';
+      chars.push(letters[cellKey(r, c)] || '');
     }
-    return value;
+    return chars;
+  }
+
+  function readEntryAnswer(entry) {
+    return getEntryLetters(entry).join('');
+  }
+
+  function isEntryCorrect(entry) {
+    const chars = getEntryLetters(entry);
+    return chars.length === entry.answer.length
+      && chars.every(Boolean)
+      && chars.join('') === entry.answer;
   }
 
   function focusEntry(entryIndex) {
@@ -47,15 +78,15 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
     board.entries.forEach((entry) => {
       const given = normalizeAnswer(readEntryAnswer(entry));
       answers[entry.index] = given;
-      if (given && given === entry.answer) correct += 1;
+      if (isEntryCorrect(entry)) correct += 1;
     });
     const score = Math.round((correct / board.entries.length) * 100);
+    const missed = board.entries.filter((entry) => !isEntryCorrect(entry));
     showFeedback({
       isCorrect: correct === board.entries.length,
       userAnswer: `${correct}/${board.entries.length} correct`,
       correctAnswer: correct === board.entries.length ? 'All clues solved' : 'Review missed clues',
-      explanation: board.entries
-        .filter((entry) => normalizeAnswer(readEntryAnswer(entry)) !== entry.answer)
+      explanation: missed
         .map((entry) => `${entry.number}. ${entry.answer}`)
         .join(' · ') || null,
       xpEarned: Math.round((correct / board.entries.length) * Number(xpReward)),
@@ -71,13 +102,20 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
         Fill the grid using Across and Down clues. Tap a clue to highlight its word.
       </Typography>
 
-      <Box
+      <MotionBox
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
         sx={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${board.cols}, minmax(26px, 34px))`,
-          gap: '2px',
+          gridTemplateColumns: `repeat(${board.cols}, 32px)`,
+          gridAutoRows: '32px',
+          gap: 0,
           width: 'fit-content',
           maxWidth: '100%',
+          overflow: 'auto',
+          border: '2px solid',
+          borderColor: 'text.primary',
+          bgcolor: '#0b1220',
         }}
       >
         {board.cells.flatMap((row, rowIndex) => row.map((cell, colIndex) => {
@@ -85,27 +123,51 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
             return (
               <Box
                 key={`block-${rowIndex}-${colIndex}`}
-                sx={{ width: 30, height: 30, bgcolor: 'grey.900', borderRadius: 0.5 }}
+                sx={{ width: 32, height: 32, bgcolor: '#0b1220' }}
               />
             );
           }
           const inActive = cell.entries.some((ref) => ref.entryIndex === active.index);
+          const filled = Boolean(letters[cellKey(rowIndex, colIndex)]);
           return (
-            <Box
+            <MotionBox
               key={`cell-${rowIndex}-${colIndex}`}
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{
+                opacity: 1,
+                scale: inActive ? 1.04 : 1,
+              }}
+              transition={{
+                delay: Math.min((rowIndex * board.cols + colIndex) * 0.008, 0.25),
+                duration: 0.2,
+              }}
               sx={{
-                width: 30,
-                height: 30,
+                width: 32,
+                height: 32,
                 position: 'relative',
                 border: '1px solid',
-                borderColor: inActive ? 'secondary.main' : 'divider',
-                bgcolor: inActive ? 'secondary.light' : 'background.paper',
+                borderColor: inActive ? '#0d9488' : 'rgba(15,23,42,0.35)',
+                bgcolor: inActive
+                  ? 'rgba(13,148,136,0.28)'
+                  : filled
+                    ? 'rgba(248,250,252,0.96)'
+                    : '#f8fafc',
+                boxSizing: 'border-box',
               }}
             >
               {cell.number ? (
                 <Typography
                   variant="caption"
-                  sx={{ position: 'absolute', top: 0, left: 2, fontSize: 9, fontWeight: 800 }}
+                  sx={{
+                    position: 'absolute',
+                    top: 1,
+                    left: 2,
+                    fontSize: 8,
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    color: '#0f172a',
+                    pointerEvents: 'none',
+                  }}
                 >
                   {cell.number}
                 </Typography>
@@ -128,14 +190,17 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
                   outline: 'none',
                   textAlign: 'center',
                   fontWeight: 800,
+                  fontSize: 15,
+                  color: '#0f172a',
                   background: 'transparent',
                   textTransform: 'uppercase',
+                  paddingTop: 4,
                 }}
               />
-            </Box>
+            </MotionBox>
           );
         }))}
-      </Box>
+      </MotionBox>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
         <Stack spacing={1} sx={{ flex: 1 }}>
@@ -149,6 +214,9 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
               sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
             >
               {entry.number}. {entry.clue || entry.prompt}
+              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                ({entry.answer.length})
+              </Typography>
             </Button>
           ))}
         </Stack>
@@ -163,15 +231,23 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
               sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
             >
               {entry.number}. {entry.clue || entry.prompt}
+              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                ({entry.answer.length})
+              </Typography>
             </Button>
           ))}
         </Stack>
       </Stack>
 
       <TextField
-        label={`Active clue ${active.number} (${active.direction})`}
+        label={`Clue ${active.number} · ${active.direction} · ${activeBoxCount} boxes`}
         value={readEntryAnswer(active)}
-        helperText={active.clue || active.prompt}
+        helperText={
+          activeBoxCount === active.answer.length
+            ? `${active.clue || active.prompt || ''} · Fill all ${active.answer.length} boxes`
+            : `${active.clue || active.prompt || ''} · Answer is ${active.answer.length} letters but grid has ${activeBoxCount} boxes`
+        }
+        error={activeBoxCount !== active.answer.length}
         disabled={feedback?.open}
         onChange={(event) => {
           const chars = normalizeAnswer(event.target.value).slice(0, active.answer.length).split('');

@@ -26,7 +26,8 @@ import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
 import { celebrateAchievement } from "../../utils/confetti";
 import { pickMotivationalMessage } from "../../utils/feedbackMessages";
-import { playSound, SOUND_KEYS } from "../../utils/soundEffects";
+import { playSound, SOUND_KEYS, unlockAudio } from "../../utils/soundEffects";
+import SoundToggle from "../../components/games/SoundToggle";
 import { useAuth } from "../../contexts/AuthContext";
 import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 import { useRewards } from "../../contexts/RewardsContext";
@@ -107,6 +108,8 @@ export default function StudentQuizPage() {
   }, [currentIndex, questions.length]);
 
   function setOptionAnswer(questionId, optionId) {
+    unlockAudio();
+    playSound(SOUND_KEYS.click);
     setAnswers((prev) => ({
       ...prev,
       [questionId]: { selectedOptionId: Number(optionId) },
@@ -351,6 +354,9 @@ export default function StudentQuizPage() {
   return (
     <>
       <PageHeader title={quiz.title} subtitle={quiz.description} />
+      <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+        <SoundToggle gameType="quiz_show" />
+      </Stack>
       <ContentTimestamp
         item={quiz}
         variant="date"

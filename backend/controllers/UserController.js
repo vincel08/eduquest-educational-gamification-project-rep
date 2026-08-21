@@ -52,7 +52,7 @@ const UserController = {
 
   async remove(req, res, next) {
     try {
-      await UserService.deleteUser(Number(req.params.id));
+      await UserService.deleteUser(Number(req.params.id), req.user);
       return successResponse(res, 'User deleted', {});
     } catch (error) {
       return next(error);

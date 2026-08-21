@@ -4,15 +4,39 @@ function normalizeWord(raw) {
     .replace(/[^A-Z]/g, '');
 }
 
+/** 8 directions: horizontal, vertical, both diagonals, and each reversed. */
+export const WORD_SEARCH_DIRECTIONS = [
+  { id: 'across', dr: 0, dc: 1 },
+  { id: 'down', dr: 1, dc: 0 },
+  { id: 'diagonal', dr: 1, dc: 1 },
+  { id: 'diagonal_up', dr: -1, dc: 1 },
+  { id: 'reverse', dr: 0, dc: -1 },
+  { id: 'up', dr: -1, dc: 0 },
+  { id: 'diagonal_up_left', dr: -1, dc: -1 },
+  { id: 'diagonal_down_left', dr: 1, dc: -1 },
+];
+
 function emptyGrid(size) {
   return Array.from({ length: size }, () => Array.from({ length: size }, () => ''));
 }
 
-function canPlace(grid, word, row, col, direction) {
+function directionBounds(size, wordLength, dr, dc) {
+  let minRow = 0;
+  let maxRow = size - 1;
+  let minCol = 0;
+  let maxCol = size - 1;
+  if (dr > 0) maxRow = size - wordLength;
+  if (dr < 0) minRow = wordLength - 1;
+  if (dc > 0) maxCol = size - wordLength;
+  if (dc < 0) minCol = wordLength - 1;
+  return { minRow, maxRow, minCol, maxCol };
+}
+
+function canPlace(grid, word, row, col, dr, dc) {
   const size = grid.length;
   for (let i = 0; i < word.length; i += 1) {
-    const r = direction === 'down' ? row + i : row;
-    const c = direction === 'across' ? col + i : col;
+    const r = row + dr * i;
+    const c = col + dc * i;
     if (r < 0 || c < 0 || r >= size || c >= size) return false;
     const cell = grid[r][c];
     if (cell && cell !== word[i]) return false;
@@ -20,11 +44,9 @@ function canPlace(grid, word, row, col, direction) {
   return true;
 }
 
-function placeWord(grid, word, row, col, direction) {
+function placeWord(grid, word, row, col, dr, dc) {
   for (let i = 0; i < word.length; i += 1) {
-    const r = direction === 'down' ? row + i : row;
-    const c = direction === 'across' ? col + i : col;
-    grid[r][c] = word[i];
+    grid[row + dr * i][col + dc * i] = word[i];
   }
 }
 
@@ -41,16 +63,27 @@ export function buildWordSearchGrid(rawWords, gridSize = 10) {
 
   words.forEach((word) => {
     let placed = false;
-    for (let attempt = 0; attempt < 80 && !placed; attempt += 1) {
-      const direction = attempt % 2 === 0 ? 'across' : 'down';
-      const maxRow = direction === 'down' ? size - word.length : size - 1;
-      const maxCol = direction === 'across' ? size - word.length : size - 1;
-      if (maxRow < 0 || maxCol < 0) break;
-      const row = Math.floor(Math.random() * (maxRow + 1));
-      const col = Math.floor(Math.random() * (maxCol + 1));
-      if (!canPlace(grid, word, row, col, direction)) continue;
-      placeWord(grid, word, row, col, direction);
-      placements.push({ word, row, col, direction });
+    for (let attempt = 0; attempt < 120 && !placed; attempt += 1) {
+      const direction = WORD_SEARCH_DIRECTIONS[attempt % WORD_SEARCH_DIRECTIONS.length];
+      const { minRow, maxRow, minCol, maxCol } = directionBounds(
+        size,
+        word.length,
+        direction.dr,
+        direction.dc,
+      );
+      if (maxRow < minRow || maxCol < minCol) continue;
+      const row = minRow + Math.floor(Math.random() * (maxRow - minRow + 1));
+      const col = minCol + Math.floor(Math.random() * (maxCol - minCol + 1));
+      if (!canPlace(grid, word, row, col, direction.dr, direction.dc)) continue;
+      placeWord(grid, word, row, col, direction.dr, direction.dc);
+      placements.push({
+        word,
+        row,
+        col,
+        direction: direction.id,
+        dr: direction.dr,
+        dc: direction.dc,
+      });
       placed = true;
     }
   });
@@ -71,18 +104,38 @@ export function buildWordSearchGrid(rawWords, gridSize = 10) {
 }
 
 export function resolveWordSearchPuzzle(gameData = {}) {
-  if (Array.isArray(gameData.grid) && gameData.grid.length && Array.isArray(gameData.words)) {
-    return {
-      words: gameData.words.map((word) => (typeof word === 'string' ? normalizeWord(word) : normalizeWord(word?.word))).filter(Boolean),
-      grid: gameData.grid,
-      gridSize: gameData.grid.length,
-      placements: gameData.placements || [],
-    };
+  const wordsFromItems = (Array.isArray(gameData.items) ? gameData.items : [])
+    .map((item) => item.term || item.answer || item.word)
+    .filter(Boolean);
+  const words = (Array.isArray(gameData.words) && gameData.words.length
+    ? gameData.words
+    : wordsFromItems
+  )
+    .map((word) => (typeof word === 'string' ? normalizeWord(word) : normalizeWord(word?.word || word?.term)))
+    .filter(Boolean);
+
+  const existingGrid = Array.isArray(gameData.grid) && gameData.grid.length
+    ? gameData.grid
+    : null;
+
+  if (!existingGrid || !words.length) {
+    return buildWordSearchGrid(words, gameData.gridSize || 10);
   }
 
-  const words = Array.isArray(gameData.words) && gameData.words.length
-    ? gameData.words
-    : (gameData.items || []).map((item) => item.term || item.answer || item.word).filter(Boolean);
+  // Teacher editor clears grid/placements when words change. If placements exist,
+  // require them to match the current word list; otherwise rebuild.
+  if (Array.isArray(gameData.placements) && gameData.placements.length) {
+    const placed = gameData.placements.map((p) => normalizeWord(p?.word)).filter(Boolean).sort().join('|');
+    const nextWords = [...words].sort().join('|');
+    if (placed !== nextWords) {
+      return buildWordSearchGrid(words, gameData.gridSize || 10);
+    }
+  }
 
-  return buildWordSearchGrid(words, gameData.gridSize || 10);
+  return {
+    words,
+    grid: existingGrid,
+    gridSize: existingGrid.length,
+    placements: gameData.placements || [],
+  };
 }

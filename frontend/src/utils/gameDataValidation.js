@@ -3,6 +3,8 @@
  * Backend remains authoritative.
  */
 
+import { firstNonEmptyList } from './gameDataLists';
+
 function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -23,6 +25,13 @@ function hasChoiceQuestion(item) {
   );
 }
 
+function hasClueAnswer(item) {
+  return Boolean(
+    String(item?.prompt || item?.clue || item?.question || '').trim()
+    && String(item?.answer || item?.word || '').trim()
+  );
+}
+
 export function validateGameDataClient(gameType, gameData) {
   const type = String(gameType || '');
   if (!gameData || typeof gameData !== 'object') {
@@ -33,7 +42,7 @@ export function validateGameDataClient(gameType, gameData) {
     case 'flashcards':
     case 'memory_match':
     case 'drag_drop': {
-      const list = asArray(gameData.items).length ? asArray(gameData.items) : asArray(gameData.pairs);
+      const list = firstNonEmptyList(gameData.items, gameData.pairs);
       if (list.filter(hasTermDefinition).length < (type === 'memory_match' ? 2 : 1)) {
         return 'Some game content is incomplete or invalid. Please review the highlighted fields.';
       }
@@ -43,7 +52,7 @@ export function validateGameDataClient(gameType, gameData) {
     case 'quiz_rush':
     case 'spin_wheel':
     case 'millionaire': {
-      const list = asArray(gameData.rounds).length ? asArray(gameData.rounds) : asArray(gameData.items);
+      const list = firstNonEmptyList(gameData.items, gameData.rounds);
       if (!list.filter(hasChoiceQuestion).length) {
         return 'Some game content is incomplete or invalid. Please review the highlighted fields.';
       }
@@ -69,18 +78,19 @@ export function validateGameDataClient(gameType, gameData) {
     }
     case 'puzzle_challenge':
     case 'crossword': {
-      const list = asArray(gameData.items);
-      const ok = list.some(
-        (item) => String(item?.prompt || item?.clue || item?.question || '').trim()
-          && String(item?.answer || '').trim()
-      );
-      return ok ? '' : 'Some game content is incomplete or invalid. Please review the highlighted fields.';
+      const list = firstNonEmptyList(gameData.items, gameData.clues);
+      if (!list.filter(hasClueAnswer).length) {
+        return 'Some game content is incomplete or invalid. Please review the highlighted fields.';
+      }
+      return '';
     }
     case 'word_search':
     case 'word_scramble': {
-      const words = asArray(gameData.words);
-      const itemWords = asArray(gameData.items).map((item) => item?.term || item?.answer || item?.word).filter(Boolean);
-      return (words.length || itemWords.length)
+      const words = firstNonEmptyList(
+        gameData.words,
+        asArray(gameData.items).map((item) => item?.term || item?.answer || item?.word).filter(Boolean),
+      );
+      return words.length
         ? ''
         : 'Some game content is incomplete or invalid. Please review the highlighted fields.';
     }

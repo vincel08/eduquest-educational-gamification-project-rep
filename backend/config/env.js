@@ -114,7 +114,8 @@ const env = {
   },
   gemini: {
     apiKey: (process.env.GEMINI_API_KEY || "").trim(),
-    model: process.env.GEMINI_MODEL || "gemini-3.5-flash",
+    // Prefer a stable Flash model; override with GEMINI_MODEL if needed.
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
   },
   clientUrl: isProduction
     ? assertValidClientUrl(process.env.CLIENT_URL)
@@ -157,9 +158,11 @@ const env = {
         process.env.AI_MAX_FILE_SIZE_MB || process.env.UPLOAD_MAX_SIZE_MB,
       ) || 10,
     maxPromptCharacters: Number(process.env.AI_MAX_PROMPT_CHARACTERS) || 6000,
-    maxOutputTokens: Number(process.env.AI_MAX_OUTPUT_TOKENS) || 4096,
-    requestTimeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS) || 60000,
-    idempotencyWindowMs: Number(process.env.AI_IDEMPOTENCY_WINDOW_MS) || 15000,
+    // Thinking models count reasoning toward output tokens; keep headroom for JSON.
+    maxOutputTokens: Number(process.env.AI_MAX_OUTPUT_TOKENS) || 8192,
+    requestTimeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS) || 90000,
+    // Blocks concurrent / in-flight retries with the same key.
+    idempotencyWindowMs: Number(process.env.AI_IDEMPOTENCY_WINDOW_MS) || 90000,
   },
 };
 
