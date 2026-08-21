@@ -341,6 +341,7 @@ export default function TeacherGameEditorPage() {
                 gameType={editorGame?.gameType || game.game_type}
                 gameData={previewGameData}
                 xpReward={Number(form.xpReward) || 30}
+                timeLimitMinutes={Number(form.estimatedTime) || null}
                 onComplete={(payload) => {
                   const score =
                     typeof payload === "number"

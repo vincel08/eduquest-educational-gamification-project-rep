@@ -295,6 +295,7 @@ export default function StudentGamePage() {
             gameType={game.game_type}
             gameData={game.game_data}
             xpReward={game.xp_reward}
+            timeLimitMinutes={Number(game.estimated_time) || null}
             onComplete={finishGame}
           />
         ) : result ? (

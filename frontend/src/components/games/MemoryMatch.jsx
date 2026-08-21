@@ -4,6 +4,7 @@ import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
 import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
   MotionBox,
   choiceListProps,
@@ -40,6 +41,15 @@ export default function MemoryMatch({ gameData, onComplete, xpReward = 50 }) {
   const [lock, setLock] = useState(false);
   const [shakeIds, setShakeIds] = useState([]);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback({ autoAdvanceMs: 1800 });
+  useRegisterTimeoutSubmit(() => {
+    const totalPairs = pairs.length || Math.floor(cards.length / 2);
+    const matchedPairs = matched.length / 2;
+    const score = totalPairs ? Math.round((matchedPairs / totalPairs) * 100) : 0;
+    return {
+      score,
+      answers: { moves, matchedPairs },
+    };
+  });
 
   const totalPairs = pairs.length || Math.floor(cards.length / 2);
   const perPairXp = Math.max(5, Math.round(Number(xpReward) / Math.max(totalPairs, 1)));

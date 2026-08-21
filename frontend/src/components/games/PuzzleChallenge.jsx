@@ -3,6 +3,7 @@ import { Button, Stack, TextField, Typography, useTheme } from '@mui/material';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
 import {
   AnimatePresence,
@@ -35,6 +36,10 @@ export default function PuzzleChallenge({ gameData, onComplete, xpReward = 50 })
   const [score, setScore] = useState(0);
   const [responses, setResponses] = useState([]);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+  useRegisterTimeoutSubmit(() => ({
+    score,
+    answers: { responses },
+  }));
 
   const current = items[index];
   const hintLetters = useMemo(

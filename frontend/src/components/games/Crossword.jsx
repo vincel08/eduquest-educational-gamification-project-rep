@@ -3,6 +3,7 @@ import { Box, Button, Stack, TextField, Typography } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { buildCrosswordBoard, normalizeAnswer, syncCrosswordGameData } from '../../utils/crosswordGrid';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import { MotionBox } from './GameMotion';
 
 export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
@@ -16,6 +17,23 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
   const [letters, setLetters] = useState({});
   const [activeEntry, setActiveEntry] = useState(board.entries[0]?.index ?? 0);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+  useRegisterTimeoutSubmit(() => {
+    const answers = {};
+    let correct = 0;
+    board.entries.forEach((entry) => {
+      const chars = [];
+      for (let i = 0; i < entry.answer.length; i += 1) {
+        const r = entry.direction === 'down' ? entry.row + i : entry.row;
+        const c = entry.direction === 'across' ? entry.col + i : entry.col;
+        chars.push(letters[`${r}:${c}`] || '');
+      }
+      const given = normalizeAnswer(chars.join(''));
+      answers[entry.index] = given;
+      if (given && given === entry.answer) correct += 1;
+    });
+    const score = board.entries.length ? Math.round((correct / board.entries.length) * 100) : 0;
+    return { score, answers: { answers } };
+  });
 
   useEffect(() => {
     setLetters({});

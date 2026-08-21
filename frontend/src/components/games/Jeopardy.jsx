@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Stack, TextField, Typography, useTheme } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
+import { playSound, SOUND_KEYS, syncJeopardyMusic } from '../../utils/soundEffects';
 import {
   AnimatePresence,
   MotionBox,
@@ -21,7 +23,13 @@ export default function Jeopardy({ gameData, onComplete, xpReward = 50 }) {
   const [responses, setResponses] = useState([]);
   const [score, setScore] = useState(0);
   const [draft, setDraft] = useState('');
+  const thinkingTimersRef = useRef([]);
+  const boardIntroPlayedRef = useRef(false);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+  useRegisterTimeoutSubmit(() => {
+    const percent = maxPoints ? Math.round((score / maxPoints) * 100) : 0;
+    return { score: percent, answers: { responses } };
+  });
 
   const totalClues = categories.reduce((sum, category) => sum + (category.clues?.length || 0), 0);
   const maxPoints = categories.reduce(
@@ -30,6 +38,43 @@ export default function Jeopardy({ gameData, onComplete, xpReward = 50 }) {
   );
   const perClueXp = Math.max(5, Math.round(Number(xpReward) / Math.max(totalClues, 1)));
 
+  function clearThinkingTimers() {
+    thinkingTimersRef.current.forEach((id) => window.clearTimeout(id));
+    thinkingTimersRef.current = [];
+  }
+
+  useEffect(() => {
+    if (!categories.length) return undefined;
+
+    if (!selected) {
+      clearThinkingTimers();
+      syncJeopardyMusic('board');
+      if (!boardIntroPlayedRef.current) {
+        boardIntroPlayedRef.current = true;
+        playSound(SOUND_KEYS.jeopardyIntro);
+      }
+      return () => clearThinkingTimers();
+    }
+
+    // Hold current bed while feedback is open (SFX carry the moment)
+    if (feedback?.open) {
+      clearThinkingTimers();
+      return undefined;
+    }
+
+    // Question active → subtle bed, then rising thinking tension
+    syncJeopardyMusic('question');
+    clearThinkingTimers();
+    thinkingTimersRef.current.push(
+      window.setTimeout(() => syncJeopardyMusic('thinking'), 6000),
+      window.setTimeout(() => syncJeopardyMusic('thinkingHot'), 14000),
+    );
+
+    return () => clearThinkingTimers();
+  }, [categories.length, selected, feedback?.open]);
+
+  useEffect(() => () => clearThinkingTimers(), []);
+
   if (!categories.length) {
     return <Typography color="text.secondary">No Jeopardy categories available.</Typography>;
   }
@@ -37,6 +82,7 @@ export default function Jeopardy({ gameData, onComplete, xpReward = 50 }) {
   function openClue(categoryIndex, clueIndex) {
     const key = `${categoryIndex}-${clueIndex}`;
     if (answered[key] || feedback?.open) return;
+    playSound(SOUND_KEYS.jeopardyClue);
     setSelected({ categoryIndex, clueIndex, key });
     setDraft('');
   }
@@ -52,6 +98,7 @@ export default function Jeopardy({ gameData, onComplete, xpReward = 50 }) {
     const nextAnswered = { ...answered, [selected.key]: isCorrect ? 'correct' : 'missed' };
     const percent = maxPoints ? Math.round((nextScore / maxPoints) * 100) : 0;
     const progress = Object.keys(nextAnswered).length / totalClues;
+    const isLastClue = Object.keys(nextAnswered).length >= totalClues;
 
     showFeedback({
       isCorrect,
@@ -61,6 +108,7 @@ export default function Jeopardy({ gameData, onComplete, xpReward = 50 }) {
       xpEarned: isCorrect ? perClueXp : 0,
       score: percent,
       progress,
+      soundKey: isCorrect ? SOUND_KEYS.jeopardyCorrect : SOUND_KEYS.jeopardyWrong,
       onNext: () => {
         const nextResponses = [
           ...responses,
@@ -75,8 +123,11 @@ export default function Jeopardy({ gameData, onComplete, xpReward = 50 }) {
         setAnswered(nextAnswered);
         setSelected(null);
         setDraft('');
-        if (Object.keys(nextAnswered).length >= totalClues) {
+        if (isLastClue) {
+          playSound(SOUND_KEYS.jeopardyComplete);
           onComplete?.({ score: percent, answers: { responses: nextResponses } });
+        } else {
+          playSound(SOUND_KEYS.jeopardyIntro);
         }
       },
     });

@@ -5,6 +5,7 @@ import LockOpenRoundedIcon from '@mui/icons-material/LockOpenRounded';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { SOUND_KEYS } from '../../utils/soundEffects';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
   AnimatePresence,
   MotionBox,
@@ -20,6 +21,10 @@ export default function EscapeRoom({ gameData, onComplete, xpReward = 50 }) {
   const [doorOpen, setDoorOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+  useRegisterTimeoutSubmit(() => ({
+    score,
+    answers: { responses },
+  }));
 
   if (!stages.length) {
     return <Typography color="text.secondary">No escape room stages available.</Typography>;

@@ -717,10 +717,16 @@ export default function GameEditor({
           helperText="Locked to preserve scoring and renderer compatibility"
         />
         <TextField
-          label="Estimated time (min)"
+          label="Time limit (min)"
           type="number"
           value={game.estimatedTime || 10}
           onChange={(e) => updateGame({ estimatedTime: Number(e.target.value) })}
+          helperText={
+            gameType === 'millionaire'
+              ? 'Countdown for the whole Millionaire run. Results auto-submit when time runs out.'
+              : 'Shown as the play countdown for students. Results auto-submit when time runs out.'
+          }
+          inputProps={{ min: 1, max: 180 }}
         />
         <TextField
           label="XP reward"

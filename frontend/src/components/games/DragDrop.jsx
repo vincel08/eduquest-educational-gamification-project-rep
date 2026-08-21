@@ -3,6 +3,8 @@ import { Button, Paper, Stack, Typography } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
+import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
+import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
   MotionBox,
   choiceListProps,
@@ -18,6 +20,10 @@ function shuffle(list) {
   return next;
 }
 
+function itemDefinition(item) {
+  return item.definition || item.back || item.right || '';
+}
+
 export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
   const items = useMemo(
     () => firstNonEmptyList(gameData?.items, gameData?.pairs),
@@ -26,7 +32,7 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
   const targets = useMemo(
     () => shuffle(items.map((item, index) => ({
       id: `target-${index}`,
-      definition: item.definition || item.back || item.right || '',
+      definition: itemDefinition(item),
       sourceIndex: index,
     }))),
     [items]
@@ -37,6 +43,14 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [justFilled, setJustFilled] = useState(null);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
+  useRegisterTimeoutSubmit(() => {
+    let correct = 0;
+    items.forEach((item, index) => {
+      if (matches[index] === itemDefinition(item)) correct += 1;
+    });
+    const score = items.length ? Math.round((correct / items.length) * 100) : 0;
+    return { score, answers: { matches: { ...matches } } };
+  });
 
   if (!items.length) {
     return <Typography color="text.secondary">No drag-and-drop pairs available.</Typography>;
@@ -46,17 +60,43 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
     .map((item, index) => ({ item, index }))
     .filter(({ index }) => matches[index] == null);
 
+  function pickUp(termIndex) {
+    if (feedback?.open) return;
+    playSound(SOUND_KEYS.dragPickup);
+    setDraggingIndex(termIndex);
+    setSelectedIndex(termIndex);
+  }
+
   function assignMatch(termIndex, definition) {
     if (feedback?.open || termIndex == null || !definition) return;
-    setMatches((prev) => ({ ...prev, [termIndex]: definition }));
+
+    const expected = itemDefinition(items[termIndex]);
+    const isCorrect = expected === definition;
+
+    if (!isCorrect) {
+      playSound(SOUND_KEYS.dragMiss);
+      setDraggingIndex(null);
+      return;
+    }
+
+    const nextMatches = { ...matches, [termIndex]: definition };
+    setMatches(nextMatches);
     setDraggingIndex(null);
     setSelectedIndex(null);
     setJustFilled(definition);
     window.setTimeout(() => setJustFilled(null), 450);
+
+    playSound(SOUND_KEYS.dragMatch);
+
+    const allPlaced = Object.keys(nextMatches).length >= items.length;
+    if (allPlaced) {
+      window.setTimeout(() => playSound(SOUND_KEYS.dragComplete), 180);
+    }
   }
 
   function clearMatch(termIndex) {
     if (feedback?.open) return;
+    playSound(SOUND_KEYS.dragPickup);
     setMatches((prev) => {
       const next = { ...prev };
       delete next[termIndex];
@@ -68,32 +108,39 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
     if (feedback?.open) return;
     let correct = 0;
     items.forEach((item, index) => {
-      if (matches[index] === (item.definition || item.back || item.right)) correct += 1;
+      if (matches[index] === itemDefinition(item)) correct += 1;
     });
     const score = Math.round((correct / items.length) * 100);
+    const allCorrect = correct === items.length;
+    const xpEarned = Math.round((correct / items.length) * Number(xpReward));
+
     showFeedback({
-      isCorrect: correct === items.length,
+      isCorrect: allCorrect,
+      soundKey: allCorrect ? SOUND_KEYS.dragComplete : SOUND_KEYS.dragMiss,
       userAnswer: `${correct}/${items.length} matched`,
-      correctAnswer: correct === items.length ? 'All pairs matched' : 'Review mismatched pairs',
+      correctAnswer: allCorrect ? 'All pairs matched' : 'Review mismatched pairs',
       explanation: items
         .map((item, index) => (
-          matches[index] === (item.definition || item.back || item.right)
+          matches[index] === itemDefinition(item)
             ? null
-            : `${item.term} → ${item.definition || item.back || item.right}`
+            : `${item.term} → ${itemDefinition(item)}`
         ))
         .filter(Boolean)
         .join(' · ') || null,
-      xpEarned: Math.round((correct / items.length) * Number(xpReward)),
+      xpEarned,
       score,
       progress: 1,
-      onNext: () => onComplete?.({ score, answers: { matches: { ...matches } } }),
+      onNext: () => {
+        if (xpEarned > 0) playSound(SOUND_KEYS.xpGain);
+        onComplete?.({ score, answers: { matches: { ...matches } } });
+      },
     });
   }
 
   return (
     <Stack spacing={2}>
       <Typography variant="body2" color="text.secondary">
-        Drag each term onto the matching definition. On touch devices, tap a term then tap a target.
+        Drag each term onto the matching definition. Wrong drops bounce back. On touch, tap a term then tap a target.
       </Typography>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
@@ -106,9 +153,9 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
                 custom={listIndex}
                 variants={gridItemVariants}
                 draggable
-                onDragStart={() => setDraggingIndex(index)}
+                onDragStart={() => pickUp(index)}
                 onDragEnd={() => setDraggingIndex(null)}
-                onClick={() => setSelectedIndex(index)}
+                onClick={() => pickUp(index)}
                 whileHover={{ y: -3, scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
                 animate={
