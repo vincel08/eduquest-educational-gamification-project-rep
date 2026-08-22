@@ -13,12 +13,19 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
-import StyleIcon from "@mui/icons-material/Style";
-import ExtensionIcon from "@mui/icons-material/Extension";
-import CasinoIcon from "@mui/icons-material/Casino";
-import QuizIcon from "@mui/icons-material/Quiz";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import StyleIcon from "@mui/icons-material/Style";
+import GridViewIcon from "@mui/icons-material/GridView";
+import GridOnIcon from "@mui/icons-material/GridOn";
+import ManageSearchIcon from "@mui/icons-material/ManageSearch";
+import LiveTvIcon from "@mui/icons-material/LiveTv";
+import ViewColumnIcon from "@mui/icons-material/ViewColumn";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import DonutLargeIcon from "@mui/icons-material/DonutLarge";
+import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
+import LockIcon from "@mui/icons-material/Lock";
+import ExploreIcon from "@mui/icons-material/Explore";
+import ExtensionIcon from "@mui/icons-material/Extension";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
@@ -43,61 +50,61 @@ const GAME_TYPE_OPTIONS = [
   {
     value: "memory_match",
     label: "Memory Match",
-    icon: <ExtensionIcon />,
+    icon: <GridViewIcon />,
     color: "#8B5CF6",
   },
   {
     value: "crossword",
     label: "Crossword",
-    icon: <QuizIcon />,
+    icon: <GridOnIcon />,
     color: "#10B981",
   },
   {
     value: "word_search",
     label: "Word Search",
-    icon: <QuizIcon />,
+    icon: <ManageSearchIcon />,
     color: "#F59E0B",
   },
   {
     value: "quiz_show",
     label: "Quiz Show",
-    icon: <SportsEsportsIcon />,
+    icon: <LiveTvIcon />,
     color: "#EF4444",
   },
   {
     value: "jeopardy",
     label: "Jeopardy",
-    icon: <SportsEsportsIcon />,
+    icon: <ViewColumnIcon />,
     color: "#7C3AED",
   },
   {
     value: "drag_drop",
     label: "Drag and Drop",
-    icon: <ExtensionIcon />,
+    icon: <DragIndicatorIcon />,
     color: "#0EA5E9",
   },
   {
     value: "spin_wheel",
     label: "Spin Wheel",
-    icon: <CasinoIcon />,
+    icon: <DonutLargeIcon />,
     color: "#F97316",
   },
   {
     value: "millionaire",
     label: "Millionaire",
-    icon: <SportsEsportsIcon />,
+    icon: <MonetizationOnIcon />,
     color: "#FACC15",
   },
   {
     value: "escape_room",
     label: "Escape Room",
-    icon: <ExtensionIcon />,
+    icon: <LockIcon />,
     color: "#64748B",
   },
   {
     value: "mission_adventure",
     label: "Mission Adventure",
-    icon: <SportsEsportsIcon />,
+    icon: <ExploreIcon />,
     color: "#22C55E",
   },
   {

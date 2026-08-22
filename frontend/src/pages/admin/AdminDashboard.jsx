@@ -57,7 +57,9 @@ export default function AdminDashboard() {
   const roleCounts = useMemo(() => {
     const map = { student: 0, teacher: 0, administrator: 0 };
     (data?.usersByRole || []).forEach((item) => {
-      map[item.role] = Number(item.count) || 0;
+      const role = String(item.role || '');
+      if (!(role in map)) return;
+      map[role] = Number(item.count) || 0;
     });
     return map;
   }, [data]);

@@ -6,26 +6,29 @@ import LeaderboardCard from "../../components/gamification/LeaderboardCard";
 import gamificationService from "../../services/gamificationService";
 import { getErrorMessage } from "../../services/api";
 import {
-  defaultSchoolYearValue,
   listSchoolYearOptions,
 } from "../../utils/schoolYears";
 
 export default function StudentLeaderboardPage() {
   const schoolYearOptions = useMemo(
-    () => listSchoolYearOptions({ count: 1 }),
+    () => listSchoolYearOptions({ count: 1, pastCount: 3, includeAll: true }),
     [],
   );
   const [entries, setEntries] = useState([]);
   const [period, setPeriod] = useState("overall");
-  const [schoolYear, setSchoolYear] = useState(() => defaultSchoolYearValue());
+  const [schoolYear, setSchoolYear] = useState("all");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     setError("");
+    const params = { limit: 20, period };
+    if (schoolYear && schoolYear !== "all") {
+      params.schoolYear = schoolYear;
+    }
     gamificationService
-      .leaderboard({ limit: 20, period, schoolYear })
+      .leaderboard(params)
       .then((response) => setEntries(response.data.data || []))
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));

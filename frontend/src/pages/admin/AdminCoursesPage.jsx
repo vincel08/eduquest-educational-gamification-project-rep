@@ -29,7 +29,7 @@ import { applyTimestampControls } from '../../utils/contentTimestamps';
 import { useAdminFilters } from '../../contexts/AdminFiltersContext';
 
 export default function AdminCoursesPage() {
-  const { toQueryParams, gradeLevel } = useAdminFilters();
+  const { toQueryParams, schoolYear, gradeLevel } = useAdminFilters();
   const [courses, setCourses] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [error, setError] = useState('');
@@ -53,6 +53,9 @@ export default function AdminCoursesPage() {
       if (filterParams.gradeLevel) {
         params.gradeLevel = filterParams.gradeLevel;
       }
+      if (filterParams.schoolYear) {
+        params.schoolYear = filterParams.schoolYear;
+      }
       const [coursesRes, teachersRes] = await Promise.all([
         courseService.list(params),
         userService.list({ role: 'teacher', limit: 100 }),
@@ -71,7 +74,7 @@ export default function AdminCoursesPage() {
 
   useEffect(() => {
     load();
-  }, [gradeLevel]);
+  }, [schoolYear, gradeLevel]);
 
   const visibleCourses = useMemo(
     () => applyTimestampControls(courses, { sort, filters }),

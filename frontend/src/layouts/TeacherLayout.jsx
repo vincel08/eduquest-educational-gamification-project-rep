@@ -1,5 +1,6 @@
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
+import GroupsIcon from "@mui/icons-material/Groups";
 import QuizIcon from "@mui/icons-material/Quiz";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
@@ -12,6 +13,7 @@ import TeacherSidebarFilters from "../components/teacher/TeacherSidebarFilters";
 
 const navItems = [
   { label: "Dashboard", path: "/teacher/dashboard", icon: <DashboardIcon /> },
+  { label: "My Students", path: "/teacher/students", icon: <GroupsIcon /> },
   { label: "My Subjects", path: "/teacher/courses", icon: <MenuBookIcon /> },
   { label: "My Quizzes", path: "/teacher/quizzes", icon: <QuizIcon /> },
   { label: "My Games", path: "/teacher/games", icon: <SportsEsportsIcon /> },

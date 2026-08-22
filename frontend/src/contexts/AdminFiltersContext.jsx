@@ -7,10 +7,7 @@ import {
   useState,
 } from "react";
 import { GRADE_LEVELS } from "../utils/gradeLevels";
-import {
-  defaultSchoolYearValue,
-  listSchoolYearOptions,
-} from "../utils/schoolYears";
+import { listSchoolYearOptions } from "../utils/schoolYears";
 
 const STORAGE_KEY = "eduwow_admin_filters";
 
@@ -22,16 +19,14 @@ function readStoredFilters() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
-    const current = defaultSchoolYearValue();
-    const schoolYear = parsed.schoolYear || current;
-    const allowed = new Set([
-      "all",
-      ...listSchoolYearOptions({ count: 1, includeAll: false }).map(
+    const schoolYear = parsed.schoolYear || "all";
+    const allowed = new Set(
+      listSchoolYearOptions({ count: 1, pastCount: 3, includeAll: true }).map(
         (option) => option.value,
       ),
-    ]);
+    );
     return {
-      schoolYear: allowed.has(schoolYear) ? schoolYear : current,
+      schoolYear: allowed.has(schoolYear) ? schoolYear : "all",
       gradeLevel: parsed.gradeLevel || "all",
       section: parsed.section || "all",
     };
@@ -44,7 +39,7 @@ export function AdminFiltersProvider({ children }) {
   const [filters, setFilters] = useState(
     () =>
       readStoredFilters() || {
-        schoolYear: defaultSchoolYearValue(),
+        schoolYear: "all",
         gradeLevel: "all",
         section: "all",
       },
@@ -87,7 +82,7 @@ export function AdminFiltersProvider({ children }) {
   }, [filters]);
 
   const schoolYearOptions = useMemo(
-    () => listSchoolYearOptions({ count: 1, includeAll: true }),
+    () => listSchoolYearOptions({ count: 1, pastCount: 3, includeAll: true }),
     [],
   );
 

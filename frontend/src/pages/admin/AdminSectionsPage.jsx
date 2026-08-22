@@ -34,7 +34,7 @@ const emptyForm = {
 
 export default function AdminSectionsPage() {
   const schoolYearOptions = useMemo(
-    () => listSchoolYearOptions({ includeAll: false }),
+    () => listSchoolYearOptions({ includeAll: false, pastCount: 3 }),
     [],
   );
   const [sections, setSections] = useState([]);

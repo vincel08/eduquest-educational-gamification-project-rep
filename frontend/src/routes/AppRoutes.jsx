@@ -31,6 +31,7 @@ import TeacherQuizEditorPage from "../pages/teacher/TeacherQuizEditorPage";
 import TeacherGamesPage from "../pages/teacher/TeacherGamesPage";
 import TeacherGameEditorPage from "../pages/teacher/TeacherGameEditorPage";
 import TeacherProfilePage from "../pages/teacher/TeacherProfilePage";
+import TeacherStudentsPage from "../pages/teacher/TeacherStudentsPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminCoursesPage from "../pages/admin/AdminCoursesPage";
@@ -85,6 +86,7 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoute roles={["teacher"]} />}>
         <Route path="/teacher" element={<TeacherLayout />}>
           <Route path="dashboard" element={<TeacherDashboard />} />
+          <Route path="students" element={<TeacherStudentsPage />} />
           <Route path="courses" element={<TeacherCoursesPage />} />
           <Route
             path="courses/:courseId"

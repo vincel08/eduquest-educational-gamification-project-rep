@@ -19,6 +19,7 @@ import { motion } from 'framer-motion';
 import authService from '../../services/authService';
 import { getErrorMessage } from '../../services/api';
 import { getPasswordError, MIN_PASSWORD_LENGTH } from '../../utils/authValidation';
+import BrandLogo from '../../components/common/BrandLogo';
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -90,10 +91,13 @@ export default function ResetPasswordPage() {
       >
         <Card sx={{ width: '100%' }}>
           <CardContent sx={{ p: 4 }}>
-            <Typography variant="h4" color="primary" gutterBottom>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+              <BrandLogo size="auth" to="/" />
+            </Box>
+            <Typography variant="h5" fontWeight={800} gutterBottom sx={{ textAlign: 'center' }}>
               Reset Password
             </Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>
+            <Typography color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
               Choose a new password for your EduWow account.
             </Typography>
 
