@@ -18,12 +18,12 @@ import MenuIcon from "@mui/icons-material/Menu";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import LogoutIcon from "@mui/icons-material/Logout";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useThemeMode } from "../contexts/ThemeModeContext";
 import NotificationBell from "../components/common/NotificationBell";
 import PageTransition from "../components/common/PageTransition";
+import BrandLogo from "../components/common/BrandLogo";
 import { buildAuthenticatedFileUrl } from "../utils/fileUrls";
 
 const drawerWidth = 260;
@@ -45,43 +45,15 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <Box sx={{ p: 2.5, pb: 2 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 0.5 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 2.5,
-              display: "grid",
-              placeItems: "center",
-              background: "linear-gradient(135deg, #3B82F6, #8B5CF6)",
-              color: "#fff",
-              boxShadow: "0 8px 18px rgba(99,102,241,0.35)",
-            }}
-          >
-            <AutoAwesomeIcon fontSize="small" />
-          </Box>
-          <Box>
-            <Typography
-              variant="h6"
-              fontWeight={800}
-              sx={{
-                background: "linear-gradient(90deg, #3B82F6, #8B5CF6)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                lineHeight: 1.2,
-              }}
-            >
-              EduWow
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              fontWeight={700}
-            >
-              {title}
-            </Typography>
-          </Box>
-        </Box>
+        <BrandLogo size="sidebar" />
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          fontWeight={700}
+          sx={{ display: "block", mt: 1, px: 0.25 }}
+        >
+          {title}
+        </Typography>
       </Box>
       <Divider />
       <List sx={{ px: 1.5, py: 1.5, flex: 1, overflowY: "auto" }}>
@@ -194,6 +166,9 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
             >
               <MenuIcon />
             </IconButton>
+          ) : null}
+          {isMobile ? (
+            <BrandLogo size="compact" sx={{ mr: 1 }} />
           ) : null}
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
             <Typography variant="h6" fontWeight={800} noWrap>

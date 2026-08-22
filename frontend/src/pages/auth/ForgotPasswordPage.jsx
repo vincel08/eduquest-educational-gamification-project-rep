@@ -14,6 +14,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import authService from '../../services/authService';
 import { getErrorMessage } from '../../services/api';
+import BrandLogo from '../../components/common/BrandLogo';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -70,10 +71,13 @@ export default function ForgotPasswordPage() {
       >
         <Card sx={{ width: '100%' }}>
           <CardContent sx={{ p: 4 }}>
-            <Typography variant="h4" color="primary" gutterBottom>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+              <BrandLogo size="auth" to="/" />
+            </Box>
+            <Typography variant="h5" fontWeight={800} gutterBottom sx={{ textAlign: 'center' }}>
               Staff password reset
             </Typography>
-            <Typography color="text.secondary" sx={{ mb: 2 }}>
+            <Typography color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
               Teachers and administrators can reset via email.
             </Typography>
             <Alert severity="info" sx={{ mb: 3 }}>

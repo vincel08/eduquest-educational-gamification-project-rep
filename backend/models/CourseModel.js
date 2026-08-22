@@ -49,6 +49,7 @@ const CourseModel = {
     publishedOnly,
     search,
     gradeLevel,
+    schoolYear,
     page = 1,
     limit = 20,
   } = {}) {
@@ -68,6 +69,11 @@ const CourseModel = {
     if (gradeLevel) {
       filters.push("c.grade_level = :gradeLevel");
       params.gradeLevel = gradeLevel;
+    }
+
+    if (schoolYear && schoolYear !== "all") {
+      filters.push("c.school_year = :schoolYear");
+      params.schoolYear = schoolYear;
     }
 
     if (search) {

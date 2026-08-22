@@ -18,6 +18,7 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import { getErrorMessage } from "../../services/api";
+import BrandLogo from "../../components/common/BrandLogo";
 
 const roleHome = {
   student: "/student/dashboard",
@@ -65,10 +66,10 @@ export default function LoginPage() {
       >
         <Card sx={{ width: "100%" }}>
           <CardContent sx={{ p: 4 }}>
-            <Typography variant="h4" color="primary" gutterBottom>
-              EduWow
-            </Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>
+            <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+              <BrandLogo size="auth" to="/" />
+            </Box>
+            <Typography color="text.secondary" sx={{ mb: 3, textAlign: "center" }}>
               Login to continue your learning adventure.
             </Typography>
 

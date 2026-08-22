@@ -13,7 +13,6 @@ import {
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import GroupsIcon from "@mui/icons-material/Groups";
 import QuizIcon from "@mui/icons-material/Quiz";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import {
@@ -110,6 +109,7 @@ export default function TeacherDashboard() {
             label="Subjects"
             value={data.totalCourses}
             icon={<MenuBookIcon />}
+            to="/teacher/courses"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -118,6 +118,7 @@ export default function TeacherDashboard() {
             value={data.totalStudents}
             icon={<GroupsIcon />}
             color="#8B5CF6"
+            to="/teacher/students"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -126,14 +127,16 @@ export default function TeacherDashboard() {
             value={data.quizStats.length}
             icon={<QuizIcon />}
             color="#F97316"
+            to="/teacher/quizzes"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
-            label="Avg Progress"
-            value={`${Math.round(Number(data.averageProgress) || 0)}%`}
-            icon={<TrendingUpIcon />}
+            label="Games"
+            value={data.totalGames || 0}
+            icon={<SportsEsportsIcon />}
             color="#22C55E"
+            to="/teacher/games"
           />
         </Grid>
       </Grid>

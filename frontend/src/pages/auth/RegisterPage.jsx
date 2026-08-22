@@ -19,6 +19,7 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import { getErrorMessage } from "../../services/api";
+import BrandLogo from "../../components/common/BrandLogo";
 import classSectionService from "../../services/classSectionService";
 import {
   getPasswordError,
@@ -156,10 +157,13 @@ export default function RegisterPage() {
       >
         <Card sx={{ width: "100%" }}>
           <CardContent sx={{ p: 4 }}>
-            <Typography variant="h4" color="primary" gutterBottom>
+            <Box sx={{ display: "flex", justifyContent: "center", mb: 1.5 }}>
+              <BrandLogo size="auth" to="/" />
+            </Box>
+            <Typography variant="h5" fontWeight={800} gutterBottom sx={{ textAlign: "center" }}>
               Join EduWow
             </Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>
+            <Typography color="text.secondary" sx={{ mb: 3, textAlign: "center" }}>
               Create your learner account with a username or email. If you
               forget your password later, ask a school administrator.
             </Typography>

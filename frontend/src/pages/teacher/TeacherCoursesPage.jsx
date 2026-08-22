@@ -41,8 +41,11 @@ const emptyForm = {
 };
 
 export default function TeacherCoursesPage() {
-  const { toQueryParams, gradeLevel } = useTeacherFilters();
-  const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
+  const { toQueryParams, schoolYear, gradeLevel } = useTeacherFilters();
+  const schoolYearOptions = listSchoolYearOptions({
+    includeAll: false,
+    pastCount: 3,
+  });
   const [courses, setCourses] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(false);
@@ -60,6 +63,9 @@ export default function TeacherCoursesPage() {
       if (filterParams.gradeLevel) {
         params.gradeLevel = filterParams.gradeLevel;
       }
+      if (filterParams.schoolYear) {
+        params.schoolYear = filterParams.schoolYear;
+      }
       const response = await courseService.list(params);
       setCourses(response.data.data.courses || []);
     } catch (err) {
@@ -71,7 +77,7 @@ export default function TeacherCoursesPage() {
 
   useEffect(() => {
     load();
-  }, [gradeLevel]);
+  }, [schoolYear, gradeLevel]);
 
   async function handleCreate() {
     setSaving(true);

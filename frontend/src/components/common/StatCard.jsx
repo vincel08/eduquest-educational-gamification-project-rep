@@ -1,11 +1,13 @@
 import { Box, Card, CardContent, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
+import { Link as RouterLink } from 'react-router-dom';
 
-export default function StatCard({ label, value, icon, color, subtitle }) {
+export default function StatCard({ label, value, icon, color, subtitle, to }) {
   const iconBg = color || 'linear-gradient(135deg, #3B82F6, #8B5CF6)';
   const isYellow = typeof color === 'string' && /#(FACC15|FDE047|F59E0B|FFB300)/i.test(color);
+  const clickable = Boolean(to);
 
-  return (
+  const card = (
     <Card
       component={motion.div}
       whileHover={{ y: -4 }}
@@ -13,6 +15,18 @@ export default function StatCard({ label, value, icon, color, subtitle }) {
       sx={{
         height: '100%',
         overflow: 'hidden',
+        ...(clickable
+          ? {
+              transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+              '&:hover': {
+                boxShadow: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? '0 10px 28px rgba(0,0,0,0.45)'
+                    : '0 10px 28px rgba(15,23,42,0.12)',
+                borderColor: 'primary.main',
+              },
+            }
+          : null),
         '@media (prefers-reduced-motion: reduce)': {
           transform: 'none !important',
         },
@@ -55,5 +69,30 @@ export default function StatCard({ label, value, icon, color, subtitle }) {
         </Box>
       </CardContent>
     </Card>
+  );
+
+  if (!clickable) return card;
+
+  return (
+    <Box
+      component={RouterLink}
+      to={to}
+      aria-label={`Open ${label}`}
+      sx={{
+        display: 'block',
+        height: '100%',
+        textDecoration: 'none',
+        color: 'inherit',
+        borderRadius: 1,
+        cursor: 'pointer',
+        '&:focus-visible': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: 2,
+        },
+      }}
+    >
+      {card}
+    </Box>
   );
 }

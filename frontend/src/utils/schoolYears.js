@@ -32,14 +32,16 @@ export function parseSchoolYearLabel(label) {
 
 export function listSchoolYearOptions({
   count = 1,
+  pastCount = 0,
   includeAll = true,
   now = new Date(),
 } = {}) {
   const currentStart = currentSchoolYearStartYear(now);
   const years = [];
-  // Current SY and optional future years only — never past school years.
+  // Current SY and optional future years; pastCount adds prior years (admin filters).
   const safeCount = Math.max(1, Number(count) || 1);
-  for (let i = 0; i < safeCount; i += 1) {
+  const safePast = Math.max(0, Number(pastCount) || 0);
+  for (let i = -safePast; i < safeCount; i += 1) {
     const startYear = currentStart + i;
     years.push({
       value: formatSchoolYearLabel(startYear),

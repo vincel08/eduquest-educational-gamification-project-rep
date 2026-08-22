@@ -55,7 +55,7 @@ export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
   const { toQueryParams, schoolYear, gradeLevel, section } = useAdminFilters();
   const sectionsRevision = useClassSectionsRevision();
-  const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
+  const schoolYearOptions = listSchoolYearOptions({ includeAll: false, pastCount: 3 });
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);

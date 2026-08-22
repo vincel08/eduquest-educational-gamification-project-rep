@@ -49,7 +49,7 @@ export default function StudentProfilePage() {
   const { user, updateProfile } = useAuth();
   const fileInputRef = useRef(null);
   const sectionsRevision = useClassSectionsRevision();
-  const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
+  const schoolYearOptions = listSchoolYearOptions({ includeAll: false, pastCount: 3 });
   const [data, setData] = useState(null);
   const [courses, setCourses] = useState([]);
   const [form, setForm] = useState({

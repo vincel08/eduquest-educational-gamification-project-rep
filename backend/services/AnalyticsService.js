@@ -54,6 +54,7 @@ const AnalyticsService = {
   async getAdminOverview(filters = {}) {
     const rosterActive = hasRosterFilters(filters);
     const gradeLevel = normalizeRosterFilterValue(filters.gradeLevel);
+    const schoolYear = normalizeRosterFilterValue(filters.schoolYear);
 
     const studentFilters = ["u.role = 'student'"];
     const studentParams = {};
@@ -69,21 +70,89 @@ const AnalyticsService = {
       courseFilters.push("grade_level = :courseGradeLevel");
       courseParams.courseGradeLevel = gradeLevel;
     }
+    if (schoolYear) {
+      courseFilters.push("school_year = :courseSchoolYear");
+      courseParams.courseSchoolYear = schoolYear;
+    }
     const courseWhere = courseFilters.length
       ? `WHERE ${courseFilters.join(" AND ")}`
       : "";
 
+    const courseJoinWhere = (() => {
+      const parts = [];
+      if (gradeLevel) parts.push("c.grade_level = :courseGradeLevel");
+      if (schoolYear) parts.push("c.school_year = :courseSchoolYear");
+      return parts.length ? `WHERE ${parts.join(" AND ")}` : "";
+    })();
+
     const [users, courses, quizzes, attempts, avgXp] = await Promise.all([
-      rosterActive
-        ? query(
-            `SELECT u.role, COUNT(*) AS count
+      (async () => {
+        // Roster filters scope students only. Teachers/admins stay visible
+        // (matching Admin Users list behavior) so Total Users is never empty
+        // when staff exist but no students match the selected SY/grade/section.
+        if (!rosterActive) {
+          return query(
+            `SELECT role, COUNT(*) AS count FROM users GROUP BY role`,
+          );
+        }
+
+        const studentClauses = ["u.role = 'student'"];
+        const studentCountParams = {};
+        appendStudentRosterFilters(
+          studentClauses,
+          studentCountParams,
+          filters,
+          "sp",
+        );
+
+        const section = normalizeRosterFilterValue(filters.section);
+        const teacherParams = {};
+        let teacherSql = `
+          SELECT 'teacher' AS role, COUNT(*) AS count
+          FROM users u
+          WHERE u.role = 'teacher'`;
+        if (section) {
+          const adviserFilters = [
+            "cs.adviser_id = u.id",
+            "cs.name = :dashAdviserSection",
+          ];
+          teacherParams.dashAdviserSection = section;
+          if (normalizeRosterFilterValue(filters.schoolYear)) {
+            adviserFilters.push("cs.school_year = :dashAdviserSchoolYear");
+            teacherParams.dashAdviserSchoolYear = normalizeRosterFilterValue(
+              filters.schoolYear,
+            );
+          }
+          if (normalizeRosterFilterValue(filters.gradeLevel)) {
+            adviserFilters.push("cs.grade_level = :dashAdviserGradeLevel");
+            teacherParams.dashAdviserGradeLevel = normalizeRosterFilterValue(
+              filters.gradeLevel,
+            );
+          }
+          teacherSql += ` AND EXISTS (
+            SELECT 1 FROM class_sections cs
+            WHERE ${adviserFilters.join(" AND ")}
+          )`;
+        }
+
+        const [studentRows, teacherRows, adminRows] = await Promise.all([
+          query(
+            `SELECT 'student' AS role, COUNT(*) AS count
              FROM users u
-             ${studentJoin}
-             ${studentWhere}
-             GROUP BY u.role`,
-            studentParams,
-          )
-        : query(`SELECT role, COUNT(*) AS count FROM users GROUP BY role`),
+             INNER JOIN student_profiles sp ON sp.user_id = u.id
+             WHERE ${studentClauses.join(" AND ")}`,
+            studentCountParams,
+          ),
+          query(teacherSql, teacherParams),
+          query(
+            `SELECT 'administrator' AS role, COUNT(*) AS count
+             FROM users u
+             WHERE u.role = 'administrator'`,
+          ),
+        ]);
+
+        return [...studentRows, ...teacherRows, ...adminRows];
+      })(),
       query(
         `SELECT COUNT(*) AS total FROM courses ${courseWhere}`,
         courseParams,
@@ -92,7 +161,7 @@ const AnalyticsService = {
         `SELECT COUNT(*) AS total
          FROM quizzes q
          INNER JOIN courses c ON c.id = q.course_id
-         ${gradeLevel ? "WHERE c.grade_level = :courseGradeLevel" : ""}`,
+         ${courseJoinWhere}`,
         courseParams,
       ),
       query(
@@ -165,7 +234,7 @@ const AnalyticsService = {
                 c.title AS course_title
            FROM quizzes q
            INNER JOIN courses c ON c.id = q.course_id
-           ${gradeLevel ? "WHERE c.grade_level = :courseGradeLevel" : ""}
+           ${courseJoinWhere}
            ORDER BY q.updated_at DESC
            LIMIT 8`,
           courseParams,
@@ -175,7 +244,7 @@ const AnalyticsService = {
                 c.title AS course_title
            FROM educational_games g
            INNER JOIN courses c ON c.id = g.course_id
-           ${gradeLevel ? "WHERE c.grade_level = :courseGradeLevel" : ""}
+           ${courseJoinWhere}
            ORDER BY g.updated_at DESC
            LIMIT 8`,
           courseParams,
@@ -184,7 +253,7 @@ const AnalyticsService = {
           `SELECT COUNT(*) AS total
            FROM educational_games g
            INNER JOIN courses c ON c.id = g.course_id
-           ${gradeLevel ? "WHERE c.grade_level = :courseGradeLevel" : ""}`,
+           ${courseJoinWhere}`,
           courseParams,
         ),
       ]);
@@ -216,6 +285,9 @@ const AnalyticsService = {
     if (rosterFilters.gradeLevel && rosterFilters.gradeLevel !== "all") {
       courseFilters.gradeLevel = rosterFilters.gradeLevel;
     }
+    if (rosterFilters.schoolYear && rosterFilters.schoolYear !== "all") {
+      courseFilters.schoolYear = rosterFilters.schoolYear;
+    }
 
     const courses = await CourseModel.findAll(courseFilters);
     const courseIds = courses.courses.map((course) => course.id);
@@ -224,6 +296,7 @@ const AnalyticsService = {
       return {
         totalCourses: 0,
         totalStudents: 0,
+        totalGames: 0,
         averageProgress: 0,
         quizStats: [],
         courses: [],
@@ -293,7 +366,7 @@ const AnalyticsService = {
       );
     }
 
-    const [studentStats, quizStats, activeStudents, difficultQuestions] =
+    const [studentStats, quizStats, activeStudents, difficultQuestions, gamesCount] =
       await Promise.all([
         query(
           `SELECT COUNT(DISTINCT ce.student_id) AS total_students,
@@ -355,11 +428,18 @@ const AnalyticsService = {
            LIMIT 8`,
           difficultParams,
         ),
+        query(
+          `SELECT COUNT(*) AS total
+           FROM educational_games g
+           WHERE g.course_id IN (${placeholders})`,
+          params,
+        ),
       ]);
 
     return {
       totalCourses: courses.total,
       totalStudents: studentStats[0].total_students,
+      totalGames: Number(gamesCount[0].total) || 0,
       averageProgress: Number(
         Number(studentStats[0].average_progress || 0).toFixed(2),
       ),

@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import BrandLogo from '../components/common/BrandLogo';
 
 export default function LandingPage() {
   return (
@@ -18,7 +19,7 @@ export default function LandingPage() {
         position: 'relative',
         overflow: 'hidden',
         background:
-          'linear-gradient(135deg, rgba(37,99,235,0.92), rgba(124,58,237,0.88)), url("https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1800&q=80") center/cover',
+          'linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,58,138,0.88)), url("https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1800&q=80") center/cover',
         color: '#fff',
       }}
     >
@@ -68,16 +69,21 @@ export default function LandingPage() {
             boxShadow: '0 24px 60px rgba(30,27,75,0.28)',
           }}
         >
-          <Typography
-            component={motion.h1}
+          <Box
+            component={motion.div}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 }}
-            variant="h1"
-            sx={{ fontSize: { xs: '3rem', md: '5rem' }, lineHeight: 1, fontWeight: 900 }}
+            sx={{
+              alignSelf: 'flex-start',
+              p: 1.5,
+              borderRadius: 3,
+              bgcolor: 'rgba(255,255,255,0.95)',
+              boxShadow: '0 12px 32px rgba(15,23,42,0.25)',
+            }}
           >
-            EduWow
-          </Typography>
+            <BrandLogo size="hero" />
+          </Box>
           <Typography variant="h4" sx={{ fontWeight: 700, maxWidth: 560 }}>
             Level up learning with AI-powered quests for junior high students
             (Grades 7–10).
