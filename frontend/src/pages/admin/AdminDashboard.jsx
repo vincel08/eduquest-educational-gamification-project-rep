@@ -38,6 +38,19 @@ import analyticsService from '../../services/analyticsService';
 import { getErrorMessage } from '../../services/api';
 import { useAdminFilters } from '../../contexts/AdminFiltersContext';
 
+function formatChartDay(value) {
+  const raw = String(value || '').trim();
+  const isoDay = raw.slice(0, 10);
+  const match = isoDay.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return raw || '—';
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (Number.isNaN(date.getTime())) return isoDay;
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
 
 export default function AdminDashboard() {
@@ -69,7 +82,7 @@ export default function AdminDashboard() {
 
   const totalUsers = Object.values(roleCounts).reduce((sum, n) => sum + n, 0);
   const chartData = {
-    labels: (data.engagement || []).map((item) => item.day),
+    labels: (data.engagement || []).map((item) => formatChartDay(item.day)),
     datasets: [
       {
         label: 'Student activity',
