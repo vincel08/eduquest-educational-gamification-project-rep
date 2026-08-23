@@ -9,16 +9,27 @@ import {
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 
 export default function QuizPreviewDialog({ open, onClose, quiz }) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+
   if (!quiz) return null;
 
   const questions = quiz.questions || [];
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+      fullScreen={fullScreen}
+    >
       <DialogTitle>
         Preview · {quiz.title}
         <Typography variant="body2" color="text.secondary">

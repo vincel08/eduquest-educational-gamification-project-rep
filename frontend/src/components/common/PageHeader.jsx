@@ -48,7 +48,17 @@ export default function PageHeader({ title, subtitle, action }) {
       }}
     >
       <Box sx={{ position: 'relative', zIndex: 1, minWidth: 0, flex: '1 1 16rem' }}>
-        <Typography variant="h4" gutterBottom sx={{ color: '#fff', fontWeight: 900 }}>
+        <Typography
+          variant="h4"
+          gutterBottom
+          sx={{
+            color: '#fff',
+            fontWeight: 900,
+            fontSize: { xs: '1.35rem', sm: '1.55rem', md: '1.85rem' },
+            lineHeight: 1.2,
+            wordBreak: 'break-word',
+          }}
+        >
           {title}
         </Typography>
         {subtitle ? (

@@ -4,10 +4,27 @@ import logoFull from '../../assets/eduwow-logo.png';
 import logoMark from '../../assets/eduwow-mark.svg';
 
 const SIZE_MAP = {
-  compact: { height: 40, maxWidth: 40, src: logoMark, square: true },
-  sidebar: { height: 88, maxWidth: 200, src: logoFull },
-  auth: { height: 148, maxWidth: 280, src: logoFull },
-  hero: { height: 200, maxWidth: 360, src: logoFull },
+  compact: {
+    height: { xs: 32, sm: 36 },
+    maxWidth: { xs: 32, sm: 36 },
+    src: logoMark,
+    square: true,
+  },
+  sidebar: {
+    height: { xs: 64, sm: 80 },
+    maxWidth: { xs: 148, sm: 180 },
+    src: logoFull,
+  },
+  auth: {
+    height: { xs: 96, sm: 132 },
+    maxWidth: { xs: 200, sm: 260 },
+    src: logoFull,
+  },
+  hero: {
+    height: { xs: 112, sm: 160, md: 180 },
+    maxWidth: { xs: 200, sm: 300, md: 360 },
+    src: logoFull,
+  },
 };
 
 /**

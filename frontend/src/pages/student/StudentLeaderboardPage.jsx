@@ -6,17 +6,18 @@ import LeaderboardCard from "../../components/gamification/LeaderboardCard";
 import gamificationService from "../../services/gamificationService";
 import { getErrorMessage } from "../../services/api";
 import {
+  defaultSchoolYearValue,
   listSchoolYearOptions,
 } from "../../utils/schoolYears";
 
 export default function StudentLeaderboardPage() {
   const schoolYearOptions = useMemo(
-    () => listSchoolYearOptions({ count: 1, pastCount: 3, includeAll: true }),
+    () => listSchoolYearOptions({ includeAll: false }),
     [],
   );
   const [entries, setEntries] = useState([]);
   const [period, setPeriod] = useState("overall");
-  const [schoolYear, setSchoolYear] = useState("all");
+  const [schoolYear, setSchoolYear] = useState(() => defaultSchoolYearValue());
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -60,7 +61,8 @@ export default function StudentLeaderboardPage() {
           label="School year"
           value={schoolYear}
           onChange={(e) => setSchoolYear(e.target.value)}
-          sx={{ minWidth: 200 }}
+          fullWidth
+          sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 200 } }}
         >
           {schoolYearOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
@@ -73,7 +75,8 @@ export default function StudentLeaderboardPage() {
           label="Period"
           value={period}
           onChange={(e) => setPeriod(e.target.value)}
-          sx={{ minWidth: 180 }}
+          fullWidth
+          sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 180 } }}
         >
           <MenuItem value="weekly">Weekly</MenuItem>
           <MenuItem value="monthly">Monthly</MenuItem>

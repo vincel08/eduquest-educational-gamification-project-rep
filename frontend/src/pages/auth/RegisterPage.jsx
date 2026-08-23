@@ -156,7 +156,7 @@ export default function RegisterPage() {
         style={{ width: "100%", maxWidth: 560 }}
       >
         <Card sx={{ width: "100%" }}>
-          <CardContent sx={{ p: 4 }}>
+          <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
             <Box sx={{ display: "flex", justifyContent: "center", mb: 1.5 }}>
               <BrandLogo size="auth" to="/" />
             </Box>

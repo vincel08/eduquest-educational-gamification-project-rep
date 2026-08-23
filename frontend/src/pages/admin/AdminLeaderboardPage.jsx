@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
+import ResponsiveTableContainer from "../../components/common/ResponsiveTableContainer";
 import gamificationService from "../../services/gamificationService";
 import { getErrorMessage } from "../../services/api";
 import { useAdminFilters } from "../../contexts/AdminFiltersContext";
@@ -64,7 +65,8 @@ export default function AdminLeaderboardPage() {
           label="School year"
           value={schoolYear}
           onChange={(event) => setSchoolYear(event.target.value)}
-          sx={{ minWidth: 200 }}
+          fullWidth
+          sx={{ width: { xs: "100%", sm: "auto" }, minWidth: { sm: 200 } }}
         >
           {schoolYearOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
@@ -78,7 +80,8 @@ export default function AdminLeaderboardPage() {
           label="Period"
           value={period}
           onChange={(event) => setPeriod(event.target.value)}
-          sx={{ minWidth: 160 }}
+          fullWidth
+          sx={{ width: { xs: "100%", sm: "auto" }, minWidth: { sm: 160 } }}
         >
           <MenuItem value="overall">Overall</MenuItem>
           <MenuItem value="monthly">Monthly</MenuItem>
@@ -86,32 +89,34 @@ export default function AdminLeaderboardPage() {
         </TextField>
       </Stack>
 
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         {!rows.length ? (
           <Typography color="text.secondary">No rankings for this filter set.</Typography>
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Rank</TableCell>
-                <TableCell>Student</TableCell>
-                <TableCell align="right">XP</TableCell>
-                <TableCell align="right">Level</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.userId}>
-                  <TableCell>{row.rank}</TableCell>
-                  <TableCell>
-                    {row.firstName} {row.lastName}
-                  </TableCell>
-                  <TableCell align="right">{row.xp}</TableCell>
-                  <TableCell align="right">{row.level}</TableCell>
+          <ResponsiveTableContainer>
+            <Table size="small" sx={{ minWidth: 420 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Rank</TableCell>
+                  <TableCell>Student</TableCell>
+                  <TableCell align="right">XP</TableCell>
+                  <TableCell align="right">Level</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.userId}>
+                    <TableCell>{row.rank}</TableCell>
+                    <TableCell>
+                      {row.firstName} {row.lastName}
+                    </TableCell>
+                    <TableCell align="right">{row.xp}</TableCell>
+                    <TableCell align="right">{row.level}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveTableContainer>
         )}
       </Paper>
     </>

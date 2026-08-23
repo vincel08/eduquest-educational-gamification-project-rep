@@ -12,6 +12,8 @@ import {
   Divider,
   Stack,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -32,6 +34,8 @@ export default function TeacherQuizAttemptReviewDialog({
   quizId,
   attemptId,
 }) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [review, setReview] = useState(null);
@@ -73,7 +77,13 @@ export default function TeacherQuizAttemptReviewDialog({
   const answerItems = (review?.items || []).filter((item) => item.answerStored);
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+      fullScreen={fullScreen}
+    >
       <DialogTitle>
         {review ? `${review.quiz.title} · ${studentName}` : 'Student answers'}
       </DialogTitle>

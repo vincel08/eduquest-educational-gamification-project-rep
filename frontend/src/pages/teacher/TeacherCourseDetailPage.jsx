@@ -243,37 +243,18 @@ export default function TeacherCourseDetailPage() {
               >
                 <ListItem
                   alignItems="flex-start"
-                  sx={{ px: 0 }}
-                  secondaryAction={
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Button component="label" size="small" variant="outlined">
-                        Upload Material
-                        <input
-                          hidden
-                          type="file"
-                          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.rtf,.md,.png,.jpg,.jpeg,.webp,.gif,.zip,application/pdf,image/*"
-                          onChange={(event) => handleUpload(lesson.id, event)}
-                        />
-                      </Button>
-                      <Button
-                        size="small"
-                        color="error"
-                        variant="outlined"
-                        disabled={deletingLessonId === lesson.id}
-                        onClick={() => setLessonToDelete(lesson)}
-                      >
-                        {deletingLessonId === lesson.id ? "…" : "Delete"}
-                      </Button>
-                    </Stack>
-                  }
+                  sx={{
+                    px: 0,
+                    flexDirection: { xs: "column", sm: "row" },
+                    alignItems: { xs: "stretch", sm: "flex-start" },
+                    gap: 1.25,
+                  }}
                 >
                   <ListItemText
+                    sx={{ flex: 1, minWidth: 0 }}
                     primary={`${lesson.order_index}. ${lesson.title}`}
                     secondary={
-                      <Stack
-                        spacing={0.5}
-                        sx={{ mt: 0.5, pr: { xs: 0, sm: 28 } }}
-                      >
+                      <Stack spacing={0.5} sx={{ mt: 0.5 }}>
                         {lesson.competency ? (
                           <Typography variant="body2" color="text.secondary">
                             Competency: {lesson.competency}
@@ -288,6 +269,39 @@ export default function TeacherCourseDetailPage() {
                     }
                     secondaryTypographyProps={{ component: "div" }}
                   />
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    flexWrap="wrap"
+                    useFlexGap
+                    sx={{
+                      flexShrink: 0,
+                      alignSelf: { xs: "stretch", sm: "flex-start" },
+                      "& .MuiButton-root": {
+                        flex: { xs: "1 1 auto", sm: "0 0 auto" },
+                      },
+                    }}
+                  >
+                    <Button component="label" size="small" variant="outlined">
+                      Upload Material
+                      <input
+                        hidden
+                        type="file"
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.rtf,.md,.png,.jpg,.jpeg,.webp,.gif,.zip,application/pdf,image/*"
+                        onChange={(event) => handleUpload(lesson.id, event)}
+                      />
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      disabled={deletingLessonId === lesson.id}
+                      onClick={() => setLessonToDelete(lesson)}
+                    >
+                      {deletingLessonId === lesson.id ? "…" : "Delete"}
+                    </Button>
+                  </Stack>
                 </ListItem>
 
                 <Box sx={{ mt: 1, pl: { xs: 0, sm: 1 } }}>

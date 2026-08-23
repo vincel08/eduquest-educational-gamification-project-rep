@@ -5,6 +5,8 @@ import {
   DialogContent,
   DialogTitle,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 
 /**
@@ -23,6 +25,9 @@ export default function ConfirmDialog({
   onClose,
   onConfirm,
 }) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+
   return (
     <Dialog
       open={Boolean(open)}
@@ -32,6 +37,7 @@ export default function ConfirmDialog({
       }}
       fullWidth
       maxWidth="xs"
+      fullScreen={fullScreen}
     >
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
@@ -50,8 +56,16 @@ export default function ConfirmDialog({
           )
         ) : null}
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={loading}>
+      <DialogActions
+        sx={{
+          px: 3,
+          pb: 2,
+          flexDirection: { xs: 'column-reverse', sm: 'row' },
+          alignItems: { xs: 'stretch', sm: 'center' },
+          gap: 1,
+        }}
+      >
+        <Button onClick={onClose} disabled={loading} fullWidth={fullScreen}>
           {cancelLabel}
         </Button>
         <Button
@@ -59,6 +73,7 @@ export default function ConfirmDialog({
           variant="contained"
           disabled={loading}
           onClick={onConfirm}
+          fullWidth={fullScreen}
         >
           {loading ? (loadingLabel || 'Working…') : confirmLabel}
         </Button>

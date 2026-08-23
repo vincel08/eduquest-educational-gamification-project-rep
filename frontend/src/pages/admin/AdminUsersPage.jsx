@@ -37,6 +37,7 @@ import {
   listSchoolYearOptions,
 } from '../../utils/schoolYears';
 import { SECTION_PLACEHOLDER } from '../../utils/classSections';
+import { useSearchParams } from 'react-router-dom';
 
 const emptyForm = {
   firstName: '',
@@ -51,11 +52,19 @@ const emptyForm = {
   schoolYear: defaultSchoolYearValue(),
 };
 
+const ROLE_FILTERS = new Set(['all', 'administrator', 'teacher', 'student']);
+
+function roleFromSearchParams(searchParams) {
+  const role = String(searchParams.get('role') || 'all').trim().toLowerCase();
+  return ROLE_FILTERS.has(role) ? role : 'all';
+}
+
 export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
   const { toQueryParams, schoolYear, gradeLevel, section } = useAdminFilters();
+  const [searchParams, setSearchParams] = useSearchParams();
   const sectionsRevision = useClassSectionsRevision();
-  const schoolYearOptions = listSchoolYearOptions({ includeAll: false, pastCount: 3 });
+  const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
@@ -69,9 +78,27 @@ export default function AdminUsersPage() {
   const [newPassword, setNewPassword] = useState('');
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [showSetPassword, setShowSetPassword] = useState(false);
-  const [roleFilter, setRoleFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState(() => roleFromSearchParams(searchParams));
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    setRoleFilter(roleFromSearchParams(searchParams));
+  }, [searchParams]);
+
+  function handleRoleFilterChange(event) {
+    const next = event.target.value;
+    setRoleFilter(next);
+    setSearchParams(
+      (prev) => {
+        const nextParams = new URLSearchParams(prev);
+        if (next === 'all') nextParams.delete('role');
+        else nextParams.set('role', next);
+        return nextParams;
+      },
+      { replace: true },
+    );
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -268,7 +295,7 @@ export default function AdminUsersPage() {
           size="small"
           label="Role"
           value={roleFilter}
-          onChange={(event) => setRoleFilter(event.target.value)}
+          onChange={handleRoleFilterChange}
           sx={{ minWidth: { sm: 180 } }}
         >
           <MenuItem value="all">All roles</MenuItem>

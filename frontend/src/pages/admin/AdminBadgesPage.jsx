@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import ResponsiveTableContainer from '../../components/common/ResponsiveTableContainer';
 import gamificationService from '../../services/gamificationService';
 import { getErrorMessage } from '../../services/api';
 
@@ -126,7 +127,7 @@ export default function AdminBadgesPage() {
               label="Criteria"
               value={form.criteriaType}
               onChange={(e) => setForm((p) => ({ ...p, criteriaType: e.target.value }))}
-              sx={{ minWidth: 200 }}
+              sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 200 } }}
             >
               {CRITERIA.map((item) => (
                 <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>
@@ -168,33 +169,35 @@ export default function AdminBadgesPage() {
         </Stack>
       </Paper>
 
-      <Paper sx={{ p: 2 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Criteria</TableCell>
-              <TableCell>Value</TableCell>
-              <TableCell>XP Bonus</TableCell>
-              <TableCell>Active</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {badges.map((badge) => (
-              <TableRow key={badge.id}>
-                <TableCell>{badge.name}</TableCell>
-                <TableCell>{CRITERIA_LABELS[badge.criteria_type] || badge.criteria_type}</TableCell>
-                <TableCell>{badge.criteria_value}</TableCell>
-                <TableCell>{badge.xp_bonus}</TableCell>
-                <TableCell>{badge.is_active ? 'Yes' : 'No'}</TableCell>
-                <TableCell>
-                  <Button size="small" onClick={() => startEdit(badge)}>Edit</Button>
-                </TableCell>
+      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+        <ResponsiveTableContainer>
+          <Table sx={{ minWidth: 560 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>Criteria</TableCell>
+                <TableCell>Value</TableCell>
+                <TableCell>XP Bonus</TableCell>
+                <TableCell>Active</TableCell>
+                <TableCell />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {badges.map((badge) => (
+                <TableRow key={badge.id}>
+                  <TableCell>{badge.name}</TableCell>
+                  <TableCell>{CRITERIA_LABELS[badge.criteria_type] || badge.criteria_type}</TableCell>
+                  <TableCell>{badge.criteria_value}</TableCell>
+                  <TableCell>{badge.xp_bonus}</TableCell>
+                  <TableCell>{badge.is_active ? 'Yes' : 'No'}</TableCell>
+                  <TableCell>
+                    <Button size="small" onClick={() => startEdit(badge)}>Edit</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </ResponsiveTableContainer>
       </Paper>
     </>
   );

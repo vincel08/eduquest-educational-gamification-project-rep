@@ -13,6 +13,7 @@ import {
   Toolbar,
   Typography,
   useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
@@ -29,22 +30,22 @@ import { buildAuthenticatedFileUrl } from "../utils/fileUrls";
 const drawerWidth = 260;
 
 export default function DashboardLayout({ title, navItems, sidebarFilters = null }) {
+  const theme = useTheme();
   const { user, logout, profile } = useAuth();
   const { mode, toggleMode } = useThemeMode();
   const navigate = useNavigate();
   const location = useLocation();
-  const isMobile = useMediaQuery("(max-width:900px)");
+  // Keep in sync with MUI `md` (900px): permanent drawer only from md and up.
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Prefer auth user.avatarUrl (authenticated /api/files/avatars/:id).
-  // profile.avatar_url can be a raw uploads path that the browser cannot load.
   const avatarSrc = buildAuthenticatedFileUrl(
     user?.avatarUrl || profile?.avatar_url,
   );
 
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Box sx={{ p: 2.5, pb: 2 }}>
+      <Box sx={{ p: { xs: 2, sm: 2.5 }, pb: 2 }}>
         <BrandLogo size="sidebar" />
         <Typography
           variant="caption"
@@ -56,7 +57,7 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
         </Typography>
       </Box>
       <Divider />
-      <List sx={{ px: 1.5, py: 1.5, flex: 1, overflowY: "auto" }}>
+      <List sx={{ px: 1.5, py: 1.5, flex: 1, overflowY: "auto", minHeight: 0 }}>
         {navItems.map((item) => {
           const selected =
             location.pathname === item.path ||
@@ -85,9 +86,13 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
           );
         })}
       </List>
-      {sidebarFilters}
+      {sidebarFilters ? (
+        <Box sx={{ flexShrink: 0, overflowY: "auto", maxHeight: { xs: "40vh", md: "none" } }}>
+          {sidebarFilters}
+        </Box>
+      ) : null}
       <Divider />
-      <Box sx={{ p: 1.5 }}>
+      <Box sx={{ p: 1.5, flexShrink: 0 }}>
         <Box
           sx={{
             display: "flex",
@@ -107,6 +112,7 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
               height: 40,
               bgcolor: "secondary.main",
               fontWeight: 800,
+              flexShrink: 0,
             }}
           >
             {(user?.firstName || "U").charAt(0)}
@@ -145,19 +151,25 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
   );
 
   return (
-    <Box className="app-shell" sx={{ display: "flex" }}>
+    <Box className="app-shell" sx={{ display: "flex", width: "100%", overflowX: "hidden" }}>
       <AppBar
         position="fixed"
         color="inherit"
         elevation={0}
         sx={{
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          ml: { md: `${drawerWidth}px` },
+          width: isMobile ? "100%" : `calc(100% - ${drawerWidth}px)`,
+          ml: isMobile ? 0 : `${drawerWidth}px`,
           borderBottom: "1px solid",
           borderColor: "divider",
         }}
       >
-        <Toolbar sx={{ gap: 1, minHeight: { xs: 64, md: 68 } }}>
+        <Toolbar
+          sx={{
+            gap: { xs: 0.5, sm: 1 },
+            minHeight: { xs: 56, sm: 64, md: 68 },
+            px: { xs: 1, sm: 2 },
+          }}
+        >
           {isMobile ? (
             <IconButton
               edge="start"
@@ -167,22 +179,30 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
               <MenuIcon />
             </IconButton>
           ) : null}
-          {isMobile ? (
-            <BrandLogo size="compact" sx={{ mr: 1 }} />
-          ) : null}
+          {isMobile ? <BrandLogo size="compact" sx={{ mr: 0.5 }} /> : null}
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography variant="h6" fontWeight={800} noWrap>
+            <Typography
+              variant="h6"
+              fontWeight={800}
+              noWrap
+              sx={{ fontSize: { xs: "1rem", sm: "1.15rem" } }}
+            >
               Hey, {user?.firstName}!
             </Typography>
             <Typography
               variant="caption"
               color="secondary.main"
-              sx={{ textTransform: "capitalize", fontWeight: 700 }}
+              noWrap
+              sx={{
+                textTransform: "capitalize",
+                fontWeight: 700,
+                display: { xs: "none", sm: "block" },
+              }}
             >
               {user?.role === "student" ? "Learner Quest" : title}
             </Typography>
           </Box>
-          <IconButton onClick={toggleMode} aria-label="Toggle theme">
+          <IconButton onClick={toggleMode} aria-label="Toggle theme" size="small">
             {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
           </IconButton>
           <NotificationBell />
@@ -191,7 +211,10 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
 
       <Box
         component="nav"
-        sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
+        sx={{
+          width: isMobile ? 0 : drawerWidth,
+          flexShrink: 0,
+        }}
         aria-label="Main navigation"
       >
         <Drawer
@@ -202,6 +225,7 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
           sx={{
             "& .MuiDrawer-paper": {
               width: drawerWidth,
+              maxWidth: "100vw",
               boxSizing: "border-box",
               borderRight: "1px solid",
               borderColor: "divider",
@@ -217,10 +241,12 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 1.5, sm: 2, md: 3 },
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          mt: { xs: 8, md: 8.5 },
+          p: { xs: 1.25, sm: 2, md: 3 },
+          width: isMobile ? "100%" : `calc(100% - ${drawerWidth}px)`,
+          mt: { xs: 7, sm: 8, md: 8.5 },
           minWidth: 0,
+          maxWidth: "100%",
+          overflowX: "hidden",
         }}
       >
         <PageTransition>
