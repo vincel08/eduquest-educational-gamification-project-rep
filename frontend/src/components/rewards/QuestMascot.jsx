@@ -74,7 +74,7 @@ export default function QuestMascot() {
         position: 'fixed',
         right: { xs: 12, md: 20 },
         bottom: { xs: 16, md: 24 },
-        zIndex: 1300,
+        zIndex: 1100,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-end',

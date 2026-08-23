@@ -7,11 +7,18 @@ import {
   useState,
 } from "react";
 import { GRADE_LEVELS } from "../utils/gradeLevels";
-import { listSchoolYearOptions } from "../utils/schoolYears";
+import {
+  defaultSchoolYearValue,
+  listSchoolYearOptions,
+} from "../utils/schoolYears";
 
 const STORAGE_KEY = "eduwow_teacher_filters";
 
 const TeacherFiltersContext = createContext(null);
+
+function schoolYearChoices() {
+  return listSchoolYearOptions({ includeAll: false });
+}
 
 function readStoredFilters() {
   try {
@@ -19,14 +26,13 @@ function readStoredFilters() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
-    const schoolYear = parsed.schoolYear || "all";
-    const allowed = new Set(
-      listSchoolYearOptions({ count: 1, pastCount: 3, includeAll: true }).map(
-        (option) => option.value,
-      ),
-    );
+    const current = defaultSchoolYearValue();
+    const allowed = new Set(schoolYearChoices().map((option) => option.value));
+    const schoolYear = allowed.has(parsed.schoolYear)
+      ? parsed.schoolYear
+      : current;
     return {
-      schoolYear: allowed.has(schoolYear) ? schoolYear : "all",
+      schoolYear,
       gradeLevel: parsed.gradeLevel || "all",
       section: parsed.section || "all",
     };
@@ -39,7 +45,7 @@ export function TeacherFiltersProvider({ children }) {
   const [filters, setFilters] = useState(
     () =>
       readStoredFilters() || {
-        schoolYear: "all",
+        schoolYear: defaultSchoolYearValue(),
         gradeLevel: "all",
         section: "all",
       },
@@ -82,10 +88,7 @@ export function TeacherFiltersProvider({ children }) {
     return params;
   }, [filters]);
 
-  const schoolYearOptions = useMemo(
-    () => listSchoolYearOptions({ count: 1, pastCount: 3, includeAll: true }),
-    [],
-  );
+  const schoolYearOptions = useMemo(() => schoolYearChoices(), []);
 
   const value = useMemo(
     () => ({

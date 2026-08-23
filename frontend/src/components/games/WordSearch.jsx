@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, Chip, Stack, Typography } from '@mui/material';
+import { Box, Button, Chip, Stack, Typography } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { resolveWordSearchPuzzle } from '../../utils/wordSearchGrid';
@@ -132,15 +132,24 @@ export default function WordSearch({ gameData, onComplete, xpReward = 50 }) {
         Drag any direction (including diagonals & reverse):{' '}
         {words.filter((w) => !found.includes(w)).join(', ') || 'All found!'}
       </Typography>
+      <Box
+        sx={{
+          width: '100%',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          pb: 0.5,
+        }}
+      >
       <MotionBox
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         sx={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${size}, minmax(24px, 32px))`,
+          gridTemplateColumns: `repeat(${size}, minmax(22px, 32px))`,
           gap: '2px',
           width: 'fit-content',
           maxWidth: '100%',
+          mx: 'auto',
           userSelect: 'none',
           touchAction: 'none',
           p: 1,
@@ -215,6 +224,7 @@ export default function WordSearch({ gameData, onComplete, xpReward = 50 }) {
           );
         }))}
       </MotionBox>
+      </Box>
 
       <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ alignItems: 'center' }}>
         <Chip label={`Found ${found.length}/${words.length}`} />

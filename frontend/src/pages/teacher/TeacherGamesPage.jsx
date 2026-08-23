@@ -16,6 +16,7 @@ import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import { Link as RouterLink } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
+import ResponsiveTableContainer from "../../components/common/ResponsiveTableContainer";
 import gameService from "../../services/gameService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
@@ -78,66 +79,68 @@ export default function TeacherGamesPage() {
             </Button>
           </Stack>
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Title</TableCell>
-                <TableCell>Subject</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Source</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {games.map((game) => (
-                <TableRow key={game.id} hover>
-                  <TableCell>
-                    <Typography fontWeight={700}>{game.title}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {game.xp_reward} XP
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {game.course_title ||
-                      game.subject ||
-                      `Subject #${game.course_id}`}
-                  </TableCell>
-                  <TableCell sx={{ textTransform: "capitalize" }}>
-                    {formatGameTypeLabel(game.game_type)}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      color={game.is_published ? "success" : "default"}
-                      label={game.is_published ? "Published" : "Draft"}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {game.is_ai_generated ? (
+          <ResponsiveTableContainer>
+            <Table size="small" sx={{ minWidth: 720 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Title</TableCell>
+                  <TableCell>Subject</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Source</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {games.map((game) => (
+                  <TableRow key={game.id} hover>
+                    <TableCell>
+                      <Typography fontWeight={700}>{game.title}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {game.xp_reward} XP
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {game.course_title ||
+                        game.subject ||
+                        `Subject #${game.course_id}`}
+                    </TableCell>
+                    <TableCell sx={{ textTransform: "capitalize" }}>
+                      {formatGameTypeLabel(game.game_type)}
+                    </TableCell>
+                    <TableCell>
                       <Chip
                         size="small"
-                        color="secondary"
-                        variant="outlined"
-                        label="AI"
+                        color={game.is_published ? "success" : "default"}
+                        label={game.is_published ? "Published" : "Draft"}
                       />
-                    ) : (
-                      <Chip size="small" variant="outlined" label="Manual" />
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button
-                      component={RouterLink}
-                      to={`/teacher/games/${game.id}/edit`}
-                      size="small"
-                    >
-                      Open
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </TableCell>
+                    <TableCell>
+                      {game.is_ai_generated ? (
+                        <Chip
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                          label="AI"
+                        />
+                      ) : (
+                        <Chip size="small" variant="outlined" label="Manual" />
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button
+                        component={RouterLink}
+                        to={`/teacher/games/${game.id}/edit`}
+                        size="small"
+                      >
+                        Open
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveTableContainer>
         )}
       </Paper>
     </Stack>

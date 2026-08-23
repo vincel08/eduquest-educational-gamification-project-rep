@@ -74,16 +74,23 @@ export default function LeaderboardCard({ entries = [], title = 'Leaderboard' })
                 </Avatar>
               </ListItemAvatar>
               <ListItemText
+                sx={{ minWidth: 0, pr: 1 }}
                 primary={`${entry.firstName || entry.first_name} ${entry.lastName || entry.last_name}`}
                 secondary={
                   index < 3
                     ? `${style.label} · ${entry.badgeCount ?? entry.badge_count ?? 0} badges`
                     : `${entry.badgeCount ?? entry.badge_count ?? 0} badges`
                 }
-                primaryTypographyProps={{ fontWeight: 800 }}
+                primaryTypographyProps={{
+                  fontWeight: 800,
+                  noWrap: true,
+                  title: `${entry.firstName || entry.first_name} ${entry.lastName || entry.last_name}`,
+                }}
               />
-              <Stack sx={{ alignItems: 'flex-end' }}>
-                <Typography fontWeight={900} color="secondary.main">{entry.xp} XP</Typography>
+              <Stack sx={{ alignItems: 'flex-end', flexShrink: 0 }}>
+                <Typography fontWeight={900} color="secondary.main" noWrap>
+                  {entry.xp} XP
+                </Typography>
               </Stack>
             </ListItem>
           );

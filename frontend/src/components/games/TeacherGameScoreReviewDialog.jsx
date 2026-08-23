@@ -12,6 +12,8 @@ import {
   Divider,
   Stack,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
@@ -31,6 +33,8 @@ export default function TeacherGameScoreReviewDialog({
   gameId,
   scoreId,
 }) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [review, setReview] = useState(null);
@@ -73,7 +77,13 @@ export default function TeacherGameScoreReviewDialog({
   const passed = Number(review?.score?.score) >= 70;
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+      fullScreen={fullScreen}
+    >
       <DialogTitle>
         {review ? `${review.game.title} · ${studentName}` : "Student answers"}
       </DialogTitle>

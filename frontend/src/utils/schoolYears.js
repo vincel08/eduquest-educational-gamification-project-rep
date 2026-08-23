@@ -1,8 +1,14 @@
 /**
  * Philippine academic school years (June 1 – April 30).
  * Keep aligned with backend/utils/schoolYears.js.
- * Labels look like "2025-2026" (starts June, ends April).
+ * Labels look like "2026-2027" (starts June, ends April).
+ *
+ * EduWow launched in SY 2026-2027. A new SY option is added only after the
+ * current year ends (June 1 rollover) — never ahead of time.
  */
+
+/** First school-year start year shipped with EduWow. */
+export const FIRST_SCHOOL_YEAR_START = 2026;
 
 export function currentSchoolYearStartYear(now = new Date()) {
   const year = now.getFullYear();
@@ -30,24 +36,30 @@ export function parseSchoolYearLabel(label) {
   return startYear;
 }
 
+/**
+ * List selectable school years from launch through the current SY only.
+ * Future years are not listed until the current SY is done (June rollover).
+ */
 export function listSchoolYearOptions({
-  count = 1,
-  pastCount = 0,
   includeAll = true,
   now = new Date(),
+  firstStartYear = FIRST_SCHOOL_YEAR_START,
 } = {}) {
   const currentStart = currentSchoolYearStartYear(now);
+  const launch = Number.isInteger(Number(firstStartYear))
+    ? Number(firstStartYear)
+    : FIRST_SCHOOL_YEAR_START;
+  const from = Math.min(launch, currentStart);
+  const to = currentStart;
+
   const years = [];
-  // Current SY and optional future years; pastCount adds prior years (admin filters).
-  const safeCount = Math.max(1, Number(count) || 1);
-  const safePast = Math.max(0, Number(pastCount) || 0);
-  for (let i = -safePast; i < safeCount; i += 1) {
-    const startYear = currentStart + i;
+  for (let startYear = from; startYear <= to; startYear += 1) {
     years.push({
       value: formatSchoolYearLabel(startYear),
       label: `SY ${formatSchoolYearLabel(startYear)}`,
     });
   }
+
   if (includeAll) {
     return [{ value: "all", label: "All school years" }, ...years];
   }

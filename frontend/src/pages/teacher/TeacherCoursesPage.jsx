@@ -42,10 +42,7 @@ const emptyForm = {
 
 export default function TeacherCoursesPage() {
   const { toQueryParams, schoolYear, gradeLevel } = useTeacherFilters();
-  const schoolYearOptions = listSchoolYearOptions({
-    includeAll: false,
-    pastCount: 3,
-  });
+  const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [courses, setCourses] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(false);

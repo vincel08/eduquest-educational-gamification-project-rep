@@ -236,38 +236,52 @@ export default function StudentLessonPage() {
                   return (
                     <ListItem
                       key={material.id}
-                      sx={{ px: 0, alignItems: "flex-start" }}
-                      secondaryAction={
-                        material.download_url ? (
-                          <Stack direction="row" spacing={0.5}>
-                            {isViewableMaterial(material.file_type) && href ? (
-                              <Button
-                                component="a"
-                                href={href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                size="small"
-                              >
-                                View
-                              </Button>
-                            ) : null}
-                            <Button
-                              size="small"
-                              startIcon={<DownloadIcon />}
-                              disabled={busy}
-                              onClick={() => handleDownloadMaterial(material)}
-                            >
-                              {busy ? "…" : "Download"}
-                            </Button>
-                          </Stack>
-                        ) : null
-                      }
+                      sx={{
+                        px: 0,
+                        flexDirection: { xs: "column", sm: "row" },
+                        alignItems: { xs: "stretch", sm: "flex-start" },
+                        gap: 1,
+                      }}
                     >
                       <ListItemText
+                        sx={{ flex: 1, minWidth: 0 }}
                         primary={material.original_name}
                         secondary={`${formatMaterialType(material.file_type, material.original_name)}${sizeLabel ? ` · ${sizeLabel}` : ""}${uploaded ? ` · ${uploaded}` : ""}`}
-                        sx={{ pr: 16 }}
+                        primaryTypographyProps={{
+                          noWrap: true,
+                          title: material.original_name,
+                        }}
                       />
+                      {material.download_url ? (
+                        <Stack
+                          direction="row"
+                          spacing={0.5}
+                          sx={{
+                            flexShrink: 0,
+                            alignSelf: { xs: "flex-end", sm: "center" },
+                          }}
+                        >
+                          {isViewableMaterial(material.file_type) && href ? (
+                            <Button
+                              component="a"
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              size="small"
+                            >
+                              View
+                            </Button>
+                          ) : null}
+                          <Button
+                            size="small"
+                            startIcon={<DownloadIcon />}
+                            disabled={busy}
+                            onClick={() => handleDownloadMaterial(material)}
+                          >
+                            {busy ? "…" : "Download"}
+                          </Button>
+                        </Stack>
+                      ) : null}
                     </ListItem>
                   );
                 })}

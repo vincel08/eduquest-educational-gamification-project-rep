@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Box,
   Button,
   Chip,
   LinearProgress,
@@ -244,26 +245,18 @@ export default function StudentCourseDetailPage() {
               <ListItem
                 key={lesson.id}
                 alignItems="flex-start"
-                secondaryAction={
-                  enrolled ? (
-                    <Button
-                      component={RouterLink}
-                      to={`/student/lessons/${lesson.id}`}
-                    >
-                      Open
-                    </Button>
-                  ) : (
-                    <Chip size="small" label="Enroll to open" />
-                  )
-                }
+                sx={{
+                  flexDirection: { xs: "column", sm: "row" },
+                  alignItems: { xs: "stretch", sm: "flex-start" },
+                  gap: 1,
+                  pr: { xs: 0, sm: 2 },
+                }}
               >
                 <ListItemText
+                  sx={{ flex: 1, minWidth: 0 }}
                   primary={lesson.title}
                   secondary={
-                    <Stack
-                      spacing={0.5}
-                      sx={{ mt: 0.5, pr: { xs: 0, sm: 12 } }}
-                    >
+                    <Stack spacing={0.5} sx={{ mt: 0.5 }}>
                       {lesson.competency ? (
                         <Typography variant="body2" color="text.secondary">
                           Competency: {lesson.competency}
@@ -282,16 +275,37 @@ export default function StudentCourseDetailPage() {
                   }
                   secondaryTypographyProps={{ component: "div" }}
                 />
-                {enrolled ? (
-                  <Chip
-                    size="small"
-                    label={String(lesson.status || "not_started").replace(
-                      /_/g,
-                      " ",
-                    )}
-                    sx={{ mr: { xs: 0, sm: 10 }, textTransform: "capitalize" }}
-                  />
-                ) : null}
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  flexWrap="wrap"
+                  useFlexGap
+                  sx={{ flexShrink: 0, alignSelf: { xs: "flex-end", sm: "center" } }}
+                >
+                  {enrolled ? (
+                    <Chip
+                      size="small"
+                      label={String(lesson.status || "not_started").replace(
+                        /_/g,
+                        " ",
+                      )}
+                      sx={{ textTransform: "capitalize" }}
+                    />
+                  ) : null}
+                  {enrolled ? (
+                    <Button
+                      component={RouterLink}
+                      to={`/student/lessons/${lesson.id}`}
+                      size="small"
+                      variant="contained"
+                    >
+                      Open
+                    </Button>
+                  ) : (
+                    <Chip size="small" label="Enroll to open" />
+                  )}
+                </Stack>
               </ListItem>
             ))}
           </List>
@@ -341,22 +355,14 @@ export default function StudentCourseDetailPage() {
                 <ListItem
                   key={quiz.id}
                   alignItems="flex-start"
-                  secondaryAction={
-                    actionChip || (
-                      <Button
-                        component={RouterLink}
-                        to={`/student/quizzes/${quiz.id}`}
-                      >
-                        {quiz.hasAttempted
-                          ? quiz.attemptsRemaining > 0
-                            ? "Retake"
-                            : "View"
-                          : "Take Quiz"}
-                      </Button>
-                    )
-                  }
+                  sx={{
+                    flexDirection: { xs: "column", sm: "row" },
+                    alignItems: { xs: "stretch", sm: "flex-start" },
+                    gap: 1,
+                  }}
                 >
                   <ListItemText
+                    sx={{ flex: 1, minWidth: 0 }}
                     primary={
                       <Stack
                         direction="row"
@@ -387,10 +393,7 @@ export default function StudentCourseDetailPage() {
                       </Stack>
                     }
                     secondary={
-                      <Stack
-                        spacing={0.5}
-                        sx={{ mt: 0.5, pr: { xs: 0, sm: 12 } }}
-                      >
+                      <Stack spacing={0.5} sx={{ mt: 0.5 }}>
                         <Typography variant="body2" color="text.secondary">
                           {quiz.question_count || 0} questions · {quiz.xp_reward}{" "}
                           XP
@@ -429,6 +432,27 @@ export default function StudentCourseDetailPage() {
                     }
                     secondaryTypographyProps={{ component: "div" }}
                   />
+                  <Box
+                    sx={{
+                      flexShrink: 0,
+                      alignSelf: { xs: "flex-end", sm: "center" },
+                    }}
+                  >
+                    {actionChip || (
+                      <Button
+                        component={RouterLink}
+                        to={`/student/quizzes/${quiz.id}`}
+                        size="small"
+                        variant="contained"
+                      >
+                        {quiz.hasAttempted
+                          ? quiz.attemptsRemaining > 0
+                            ? "Retake"
+                            : "View"
+                          : "Take Quiz"}
+                      </Button>
+                    )}
+                  </Box>
                 </ListItem>
               );
             })}
@@ -477,28 +501,17 @@ export default function StudentCourseDetailPage() {
                 <ListItem
                   key={game.id}
                   alignItems="flex-start"
-                  secondaryAction={
-                    actionChip || (
-                      <Button
-                        component={RouterLink}
-                        to={`/student/games/${game.id}`}
-                      >
-                        {game.hasAttempted
-                          ? game.attemptsRemaining > 0
-                            ? "Play again"
-                            : "View"
-                          : "Play"}
-                      </Button>
-                    )
-                  }
+                  sx={{
+                    flexDirection: { xs: "column", sm: "row" },
+                    alignItems: { xs: "stretch", sm: "flex-start" },
+                    gap: 1,
+                  }}
                 >
                   <ListItemText
+                    sx={{ flex: 1, minWidth: 0 }}
                     primary={game.title}
                     secondary={
-                      <Stack
-                        spacing={0.5}
-                        sx={{ mt: 0.5, pr: { xs: 0, sm: 12 } }}
-                      >
+                      <Stack spacing={0.5} sx={{ mt: 0.5 }}>
                         <Typography
                           variant="body2"
                           color="text.secondary"
@@ -538,6 +551,27 @@ export default function StudentCourseDetailPage() {
                     }
                     secondaryTypographyProps={{ component: "div" }}
                   />
+                  <Box
+                    sx={{
+                      flexShrink: 0,
+                      alignSelf: { xs: "flex-end", sm: "center" },
+                    }}
+                  >
+                    {actionChip || (
+                      <Button
+                        component={RouterLink}
+                        to={`/student/games/${game.id}`}
+                        size="small"
+                        variant="contained"
+                      >
+                        {game.hasAttempted
+                          ? game.attemptsRemaining > 0
+                            ? "Play again"
+                            : "View"
+                          : "Play"}
+                      </Button>
+                    )}
+                  </Box>
                 </ListItem>
               );
             })}

@@ -91,25 +91,12 @@ export default function AdminDashboard() {
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Total Users" value={totalUsers} icon={<PeopleIcon />} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Students" value={roleCounts.student} icon={<SchoolIcon />} color="#3B82F6" />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Teachers" value={roleCounts.teacher} icon={<PersonIcon />} color="#8B5CF6" />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Subjects" value={data.totalCourses} icon={<MenuBookIcon />} color="#10B981" />
-        </Grid>
-      </Grid>
-
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Quizzes" value={data.totalQuizzes} icon={<QuizIcon />} color="#F59E0B" />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard label="Games" value={data.totalGames || 0} icon={<SportsEsportsIcon />} color="#8B5CF6" />
+          <StatCard
+            label="Total Users"
+            value={totalUsers}
+            icon={<PeopleIcon />}
+            to="/admin/users"
+          />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
@@ -117,16 +104,44 @@ export default function AdminDashboard() {
             value={roleCounts.administrator}
             icon={<PeopleIcon />}
             color="#64748B"
+            to="/admin/users?role=administrator"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
-            label="Published Quizzes"
-            value={(data.recentQuizzes || []).filter((q) => q.is_published).length}
-            icon={<QuizIcon />}
-            color="#6366F1"
-            subtitle="From recent feed"
+            label="Teachers"
+            value={roleCounts.teacher}
+            icon={<PersonIcon />}
+            color="#8B5CF6"
+            to="/admin/users?role=teacher"
           />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatCard
+            label="Students"
+            value={roleCounts.student}
+            icon={<SchoolIcon />}
+            color="#3B82F6"
+            to="/admin/users?role=student"
+          />
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <StatCard
+            label="Subjects"
+            value={data.totalCourses}
+            icon={<MenuBookIcon />}
+            color="#10B981"
+            to="/admin/courses"
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <StatCard label="Quizzes" value={data.totalQuizzes} icon={<QuizIcon />} color="#F59E0B" />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <StatCard label="Games" value={data.totalGames || 0} icon={<SportsEsportsIcon />} color="#8B5CF6" />
         </Grid>
       </Grid>
 

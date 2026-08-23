@@ -15,6 +15,7 @@ import {
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import ResponsiveTableContainer from "../../components/common/ResponsiveTableContainer";
 import classSectionService from "../../services/classSectionService";
 import userService from "../../services/userService";
 import { getErrorMessage } from "../../services/api";
@@ -34,7 +35,7 @@ const emptyForm = {
 
 export default function AdminSectionsPage() {
   const schoolYearOptions = useMemo(
-    () => listSchoolYearOptions({ includeAll: false, pastCount: 3 }),
+    () => listSchoolYearOptions({ includeAll: false }),
     [],
   );
   const [sections, setSections] = useState([]);
@@ -218,47 +219,49 @@ export default function AdminSectionsPage() {
         </Stack>
       </Paper>
 
-      <Paper sx={{ p: 2 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>School Year</TableCell>
-              <TableCell>Grade</TableCell>
-              <TableCell>Section</TableCell>
-              <TableCell>Adviser</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sections.map((section) => (
-              <TableRow key={section.id}>
-                <TableCell>SY {section.schoolYear}</TableCell>
-                <TableCell>{section.gradeLevel}</TableCell>
-                <TableCell>{section.name}</TableCell>
-                <TableCell>{section.adviserName || "—"}</TableCell>
-                <TableCell align="right">
-                  <Button size="small" onClick={() => startEdit(section)}>
-                    Edit
-                  </Button>
-                  <Button
-                    size="small"
-                    color="error"
-                    onClick={() => setSectionToDelete(section)}
-                  >
-                    Delete
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!sections.length ? (
+      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+        <ResponsiveTableContainer>
+          <Table size="small" sx={{ minWidth: 560 }}>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={5}>
-                  No class sections yet. Add one above.
-                </TableCell>
+                <TableCell>School Year</TableCell>
+                <TableCell>Grade</TableCell>
+                <TableCell>Section</TableCell>
+                <TableCell>Adviser</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {sections.map((section) => (
+                <TableRow key={section.id}>
+                  <TableCell>SY {section.schoolYear}</TableCell>
+                  <TableCell>{section.gradeLevel}</TableCell>
+                  <TableCell>{section.name}</TableCell>
+                  <TableCell>{section.adviserName || "—"}</TableCell>
+                  <TableCell align="right">
+                    <Button size="small" onClick={() => startEdit(section)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => setSectionToDelete(section)}
+                    >
+                      Delete
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!sections.length ? (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    No class sections yet. Add one above.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </ResponsiveTableContainer>
       </Paper>
 
       <ConfirmDialog

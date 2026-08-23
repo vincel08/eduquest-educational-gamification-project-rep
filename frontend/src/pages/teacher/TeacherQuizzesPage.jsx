@@ -16,6 +16,7 @@ import AddIcon from "@mui/icons-material/Add";
 import { Link as RouterLink } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
+import ResponsiveTableContainer from "../../components/common/ResponsiveTableContainer";
 import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
@@ -86,62 +87,64 @@ export default function TeacherQuizzesPage() {
             </Button>
           </Stack>
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Title</TableCell>
-                <TableCell>Subject</TableCell>
-                <TableCell>Questions</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Source</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {quizzes.map((quiz) => (
-                <TableRow key={quiz.id} hover>
-                  <TableCell>
-                    <Typography fontWeight={700}>{quiz.title}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {quiz.xp_reward} XP · Pass {quiz.passing_score}%
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {quiz.course_title || `Subject #${quiz.course_id}`}
-                  </TableCell>
-                  <TableCell>{quiz.question_count || 0}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      color={quiz.is_published ? "success" : "default"}
-                      label={quiz.is_published ? "Published" : "Draft"}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {quiz.is_ai_generated ? (
+          <ResponsiveTableContainer>
+            <Table size="small" sx={{ minWidth: 720 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Title</TableCell>
+                  <TableCell>Subject</TableCell>
+                  <TableCell>Questions</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Source</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {quizzes.map((quiz) => (
+                  <TableRow key={quiz.id} hover>
+                    <TableCell>
+                      <Typography fontWeight={700}>{quiz.title}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {quiz.xp_reward} XP · Pass {quiz.passing_score}%
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {quiz.course_title || `Subject #${quiz.course_id}`}
+                    </TableCell>
+                    <TableCell>{quiz.question_count || 0}</TableCell>
+                    <TableCell>
                       <Chip
                         size="small"
-                        color="secondary"
-                        variant="outlined"
-                        label="AI"
+                        color={quiz.is_published ? "success" : "default"}
+                        label={quiz.is_published ? "Published" : "Draft"}
                       />
-                    ) : (
-                      <Chip size="small" variant="outlined" label="Manual" />
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button
-                      component={RouterLink}
-                      to={`/teacher/quizzes/${quiz.id}/edit`}
-                      size="small"
-                    >
-                      Open
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </TableCell>
+                    <TableCell>
+                      {quiz.is_ai_generated ? (
+                        <Chip
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                          label="AI"
+                        />
+                      ) : (
+                        <Chip size="small" variant="outlined" label="Manual" />
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button
+                        component={RouterLink}
+                        to={`/teacher/quizzes/${quiz.id}/edit`}
+                        size="small"
+                      >
+                        Open
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveTableContainer>
         )}
       </Paper>
     </Stack>
