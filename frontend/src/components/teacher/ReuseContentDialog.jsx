@@ -15,7 +15,8 @@ import {
 } from "@mui/material";
 
 /**
- * Reuse a quiz/game from the teacher's bank into a target subject (deep copy).
+ * Reuse a quiz/game from the teacher's bank into the same subject
+ * (typically another school year / grade offering).
  */
 export default function ReuseContentDialog({
   open,
@@ -23,6 +24,7 @@ export default function ReuseContentDialog({
   onConfirm,
   itemTitle = "",
   itemSubtitle = "",
+  sourceSubjectLabel = "",
   courses = [],
   loading = false,
   error = "",
@@ -62,9 +64,11 @@ export default function ReuseContentDialog({
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Creates a new draft copy in the subject you choose. The original
-            stays unchanged. Students will not see the copy until you publish
-            it.
+            Copies into another offering of the{" "}
+            <strong>{sourceSubjectLabel || "same subject"}</strong> only
+            (for example, last year&apos;s Math → this year&apos;s Math). The
+            original stays unchanged. Students will not see the copy until you
+            publish it.
           </Typography>
           {itemTitle ? (
             <Typography fontWeight={700}>
@@ -86,14 +90,19 @@ export default function ReuseContentDialog({
             select
             required
             fullWidth
-            label="Target subject"
+            label={`Target ${sourceSubjectLabel || "subject"} offering`}
             value={courseId}
             onChange={(event) => setCourseId(event.target.value)}
             disabled={loading || !courses.length}
+            helperText={
+              courses.length
+                ? "Same subject only — pick grade / school year offering"
+                : "No matching subject offerings found. Create this subject for the target school year first."
+            }
           >
             {!courses.length ? (
               <MenuItem value="" disabled>
-                No subjects available
+                No matching subject offerings
               </MenuItem>
             ) : (
               courses.map((course) => (

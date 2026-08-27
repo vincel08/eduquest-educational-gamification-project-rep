@@ -20,6 +20,7 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ResponsiveTableContainer from "../../components/common/ResponsiveTableContainer";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import ReuseContentDialog from "../../components/teacher/ReuseContentDialog";
 import quizService from "../../services/quizService";
 import courseService from "../../services/courseService";
@@ -29,6 +30,28 @@ import {
   defaultSchoolYearValue,
   listSchoolYearOptions,
 } from "../../utils/schoolYears";
+
+function subjectKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function sourceSubjectKey(item) {
+  return subjectKey(
+    item?.course_subject || item?.subject || item?.course_title,
+  );
+}
+
+function sourceSubjectLabel(item) {
+  return (
+    item?.course_subject ||
+    item?.subject ||
+    item?.course_title ||
+    "Subject"
+  );
+}
 
 export default function TeacherQuizzesPage() {
   const navigate = useNavigate();
@@ -41,6 +64,8 @@ export default function TeacherQuizzesPage() {
   const [reuseItem, setReuseItem] = useState(null);
   const [reuseLoading, setReuseLoading] = useState(false);
   const [reuseError, setReuseError] = useState("");
+  const [deleteItem, setDeleteItem] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const bankYearOptions = useMemo(
     () => listSchoolYearOptions({ includeAll: true }),
@@ -69,16 +94,20 @@ export default function TeacherQuizzesPage() {
   }, [gradeLevel, bankSchoolYear]);
 
   const targetCourses = useMemo(() => {
-    const sorted = [...courses].sort((a, b) => {
+    if (!reuseItem) return [];
+    const key = sourceSubjectKey(reuseItem);
+    const matched = courses.filter(
+      (course) => subjectKey(course.subject || course.title) === key,
+    );
+    return matched.sort((a, b) => {
       const aCurrent = a.school_year === currentSchoolYear ? 0 : 1;
       const bCurrent = b.school_year === currentSchoolYear ? 0 : 1;
       if (aCurrent !== bCurrent) return aCurrent - bCurrent;
-      return String(a.subject || a.title || "").localeCompare(
-        String(b.subject || b.title || ""),
+      return String(a.grade_level || "").localeCompare(
+        String(b.grade_level || ""),
       );
     });
-    return sorted;
-  }, [courses, currentSchoolYear]);
+  }, [courses, currentSchoolYear, reuseItem]);
 
   async function handleReuse({ courseId, title }) {
     if (!reuseItem) return;
@@ -96,6 +125,21 @@ export default function TeacherQuizzesPage() {
       setReuseError(getErrorMessage(err));
     } finally {
       setReuseLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteItem) return;
+    setDeleteLoading(true);
+    setError("");
+    try {
+      await quizService.remove(deleteItem.id);
+      setQuizzes((prev) => prev.filter((quiz) => quiz.id !== deleteItem.id));
+      setDeleteItem(null);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -250,6 +294,13 @@ export default function TeacherQuizzesPage() {
                         >
                           Open
                         </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => setDeleteItem(quiz)}
+                        >
+                          Delete
+                        </Button>
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -277,9 +328,31 @@ export default function TeacherQuizzesPage() {
             : ""
         }
         courses={targetCourses}
+        sourceSubjectLabel={sourceSubjectLabel(reuseItem)}
         loading={reuseLoading}
         error={reuseError}
         contentLabel="quiz"
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteItem)}
+        title="Delete quiz?"
+        description={
+          <>
+            You’re about to permanently delete{" "}
+            <strong>{deleteItem?.title || "this quiz"}</strong>.
+          </>
+        }
+        details="Student attempts and scores for this quiz will be removed. This can’t be undone."
+        confirmLabel="Delete quiz"
+        confirmColor="error"
+        loading={deleteLoading}
+        loadingLabel="Deleting…"
+        onClose={() => {
+          if (deleteLoading) return;
+          setDeleteItem(null);
+        }}
+        onConfirm={handleDelete}
       />
     </Stack>
   );

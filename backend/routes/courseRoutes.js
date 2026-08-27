@@ -49,6 +49,11 @@ router.get(
   authorize("teacher", "administrator"),
   CourseController.enrollments,
 );
+router.delete(
+  "/:id/enrollments/:studentId",
+  authorize("teacher", "administrator"),
+  CourseController.removeStudent,
+);
 router.get(
   "/:id/gradebook",
   authorize("teacher", "administrator"),
