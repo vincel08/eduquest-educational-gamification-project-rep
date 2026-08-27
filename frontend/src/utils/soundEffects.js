@@ -3,8 +3,8 @@
  * No binary assets required. Respects mute preference in localStorage.
  */
 
-const STORAGE_KEY = 'eduquest_sounds_enabled';
-const MUSIC_KEY = 'eduquest_music_enabled';
+const STORAGE_KEY = 'eduwow_sounds_enabled';
+const MUSIC_KEY = 'eduwow_music_enabled';
 
 /** Global loudness multipliers (Web Audio peaks stay under ~0.25 to avoid harsh clipping). */
 const SFX_GAIN = 2.4;

@@ -1,4 +1,4 @@
-USE eduquest;
+USE eduwow_lms;
 
 -- Audit trail: track who last edited content
 ALTER TABLE courses

@@ -41,13 +41,13 @@
 --      Auth is entirely on `users` (role + password_hash / google_id).
 --   2. MySQL DDL (ALTER TABLE ... AUTO_INCREMENT) causes an implicit commit.
 --      Deletes run inside a transaction; AUTO_INCREMENT resets run after COMMIT.
---   3. Run against the eduquest database, e.g.:
---        mysql -u root -p eduquest < database/reset_demo_data.sql
+--   3. Run against the eduwow_lms database, e.g.:
+--        mysql -u root -p eduwow_lms < database/reset_demo_data.sql
 --      Or via Node:
 --        npm run db:reset-demo
 -- =============================================================================
 
-USE eduquest;
+USE eduwow_lms;
 
 START TRANSACTION;
 

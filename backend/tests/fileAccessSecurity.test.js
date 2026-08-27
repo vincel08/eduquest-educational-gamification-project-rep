@@ -328,7 +328,7 @@ describe('AI extract path disclosure', () => {
     const absolute = path.join(UPLOADS_DIR, fileName);
     fs.writeFileSync(
       absolute,
-      'This is enough extracted text for AI processing validation in EduQuest tests.'
+      'This is enough extracted text for AI processing validation in EduWow tests.'
     );
     tempFiles.push(fileName);
 

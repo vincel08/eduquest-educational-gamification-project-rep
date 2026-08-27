@@ -1,5 +1,5 @@
--- Migration: expand quiz question types (run against existing eduquest DB)
--- mysql -u root -p eduquest < backend/database/migrations/001_quiz_question_types.sql
+-- Migration: expand quiz question types (run against existing eduwow_lms DB)
+-- mysql -u root -p eduwow_lms < backend/database/migrations/001_quiz_question_types.sql
 
 ALTER TABLE quiz_questions
   MODIFY COLUMN question_type ENUM(

@@ -5,7 +5,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { pickMascotMessage } from '../../utils/feedbackMessages';
 import { useAuth } from '../../contexts/AuthContext';
 
-const HIDE_KEY = 'eduquest_mascot_hidden';
+const HIDE_KEY = 'eduwow_mascot_hidden';
 const MESSAGE_MS = 2000;
 
 export default function QuestMascot() {

@@ -75,7 +75,7 @@ async function main() {
     'secret',
     'jwt_secret',
     'password',
-    'eduquest',
+    'eduwow',
   ]);
   if (!jwtSecret) {
     fail('JWT configuration', 'JWT_SECRET is missing');

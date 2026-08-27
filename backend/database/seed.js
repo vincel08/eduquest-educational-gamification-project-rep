@@ -142,14 +142,14 @@ async function run() {
     multipleStatements: true,
   });
 
-  const dbName = process.env.DB_NAME || "eduquest";
+  const dbName = process.env.DB_NAME || "eduwow_lms";
   let schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
   schema = schema
     .replace(
-      /CREATE DATABASE IF NOT EXISTS\s+`?eduquest`?[^;]*;/i,
+      /CREATE DATABASE IF NOT EXISTS\s+`?[\w]+`?[^;]*;/i,
       `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
     )
-    .replace(/USE\s+`?eduquest`?\s*;/i, `USE \`${dbName}\`;`);
+    .replace(/USE\s+`?[\w]+`?\s*;/i, `USE \`${dbName}\`;`);
 
   await connection.query(schema);
   await connection.changeUser({ database: dbName });

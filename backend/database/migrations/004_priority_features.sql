@@ -1,4 +1,4 @@
-USE eduquest;
+USE eduwow_lms;
 
 -- Streak tracking
 ALTER TABLE student_profiles

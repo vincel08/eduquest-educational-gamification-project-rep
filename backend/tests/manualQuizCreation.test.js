@@ -109,7 +109,7 @@ describe("manual quiz creation", () => {
     student = await createUser("student", "manual-student");
     await StudentProfileModel.create(student.id, {
       gradeLevel: "Grade 10",
-      schoolName: "EduQuest Test High",
+      schoolName: "EduWow Test High",
     });
     courseA = await createCourse(teacherA.id, "Teacher A Course");
     courseB = await createCourse(teacherB.id, "Teacher B Course");
@@ -441,7 +441,7 @@ describe("manual quiz creation", () => {
     const xpStudent = await createUser("student", "manual-xp-student");
     await StudentProfileModel.create(xpStudent.id, {
       gradeLevel: "Grade 10",
-      schoolName: "EduQuest Test High",
+      schoolName: "EduWow Test High",
     });
     const { default: CourseModel } = await import("../models/CourseModel.js");
     await CourseModel.enroll(courseA, xpStudent.id);

@@ -6,12 +6,12 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const cached = localStorage.getItem('eduquest_user');
+    const cached = localStorage.getItem('eduwow_user');
     return cached ? JSON.parse(cached) : null;
   });
   const [profile, setProfile] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem('eduquest_token'));
-  const [loading, setLoading] = useState(Boolean(localStorage.getItem('eduquest_token')));
+  const [token, setToken] = useState(() => localStorage.getItem('eduwow_token'));
+  const [loading, setLoading] = useState(Boolean(localStorage.getItem('eduwow_token')));
 
   useEffect(() => {
     async function bootstrap() {
@@ -24,10 +24,10 @@ export function AuthProvider({ children }) {
         const response = await authService.me();
         setUser(response.data.data.user);
         setProfile(response.data.data.profile);
-        localStorage.setItem('eduquest_user', JSON.stringify(response.data.data.user));
+        localStorage.setItem('eduwow_user', JSON.stringify(response.data.data.user));
       } catch {
-        localStorage.removeItem('eduquest_token');
-        localStorage.removeItem('eduquest_user');
+        localStorage.removeItem('eduwow_token');
+        localStorage.removeItem('eduwow_user');
         setToken(null);
         setUser(null);
         setProfile(null);
@@ -40,8 +40,8 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   const applyAuth = useCallback(({ token: nextToken, user: nextUser, profile: nextProfile }) => {
-    localStorage.setItem('eduquest_token', nextToken);
-    localStorage.setItem('eduquest_user', JSON.stringify(nextUser));
+    localStorage.setItem('eduwow_token', nextToken);
+    localStorage.setItem('eduwow_user', JSON.stringify(nextUser));
     setToken(nextToken);
     setUser(nextUser);
     setProfile(nextProfile);
@@ -61,8 +61,8 @@ export function AuthProvider({ children }) {
   }, [applyAuth]);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('eduquest_token');
-    localStorage.removeItem('eduquest_user');
+    localStorage.removeItem('eduwow_token');
+    localStorage.removeItem('eduwow_user');
     setToken(null);
     setUser(null);
     setProfile(null);
@@ -72,7 +72,7 @@ export function AuthProvider({ children }) {
     setProfile(nextProfile);
     if (nextUser) {
       setUser(nextUser);
-      localStorage.setItem('eduquest_user', JSON.stringify(nextUser));
+      localStorage.setItem('eduwow_user', JSON.stringify(nextUser));
     }
   }, []);
 
