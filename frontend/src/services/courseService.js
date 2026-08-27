@@ -25,6 +25,9 @@ const courseService = {
   enrollments(id, params) {
     return api.get(`/courses/${id}/enrollments`, { params });
   },
+  removeStudent(courseId, studentId) {
+    return api.delete(`/courses/${courseId}/enrollments/${studentId}`);
+  },
   gradebook(id, params) {
     return api.get(`/courses/${id}/gradebook`, { params });
   },

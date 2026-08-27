@@ -76,6 +76,19 @@ const CourseController = {
     }
   },
 
+  async removeStudent(req, res, next) {
+    try {
+      const data = await CourseService.removeStudent(
+        Number(req.params.id),
+        Number(req.params.studentId),
+        req.user,
+      );
+      return successResponse(res, "Student removed from subject", data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async myCourses(req, res, next) {
     try {
       const data = await CourseService.getStudentCourses(req.user.id);

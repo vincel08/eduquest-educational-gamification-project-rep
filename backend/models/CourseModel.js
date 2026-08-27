@@ -152,6 +152,15 @@ const CourseModel = {
     return true;
   },
 
+  async unenroll(courseId, studentId) {
+    const result = await query(
+      `DELETE FROM course_enrollments
+       WHERE course_id = :courseId AND student_id = :studentId`,
+      { courseId, studentId },
+    );
+    return Number(result?.affectedRows) > 0;
+  },
+
   async getEnrollments(courseId, rosterFilters = {}) {
     const filters = ["ce.course_id = :courseId"];
     const params = { courseId };

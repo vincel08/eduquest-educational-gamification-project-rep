@@ -36,6 +36,13 @@ function assertCourseAccess(course, user) {
   }
 }
 
+function normalizeSubjectKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 async function assertTeacherOwnsGame(gameId, user) {
   const game = await GameModel.findById(gameId);
   if (!game) throw new AppError("Game not found", 404);
@@ -117,6 +124,23 @@ const GameService = {
     const source = await assertTeacherOwnsGame(sourceId, user);
     const courseId = Number(payload.courseId);
     if (!courseId) throw new AppError("courseId is required", 400);
+
+    const sourceCourse = await CourseModel.findById(source.course_id);
+    const targetCourse = await CourseModel.findById(courseId);
+    assertCourseAccess(targetCourse, user);
+
+    const sourceKey = normalizeSubjectKey(
+      sourceCourse?.subject || sourceCourse?.title || source.course_title,
+    );
+    const targetKey = normalizeSubjectKey(
+      targetCourse.subject || targetCourse.title,
+    );
+    if (!sourceKey || sourceKey !== targetKey) {
+      throw new AppError(
+        "You can only reuse this game into the same subject (for example, Math → Math).",
+        400,
+      );
+    }
 
     const gameData =
       source.game_data && typeof source.game_data === "object"

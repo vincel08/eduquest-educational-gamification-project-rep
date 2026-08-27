@@ -241,6 +241,53 @@ const CourseService = {
     return CourseModel.findById(courseId);
   },
 
+  /**
+   * Teacher/admin removes a student from this subject only (keeps the account).
+   * Quiz/game attempt history is retained for records; the student loses access.
+   */
+  async removeStudent(courseId, studentId, user) {
+    const course = await CourseModel.findById(courseId);
+    if (!course) throw new AppError("Course not found", 404);
+
+    if (user.role === "teacher" && Number(course.teacher_id) !== Number(user.id)) {
+      throw new AppError("Access denied", 403);
+    }
+
+    const enrolled = await CourseModel.isEnrolled(courseId, studentId);
+    if (!enrolled) {
+      throw new AppError("Student is not enrolled in this subject", 404);
+    }
+
+    const student = await UserModel.findById(studentId);
+    if (!student || student.role !== "student") {
+      throw new AppError("Student not found", 404);
+    }
+
+    await CourseModel.unenroll(courseId, studentId);
+
+    await NotificationModel.create({
+      userId: studentId,
+      title: "Removed from subject",
+      message: `You were removed from "${course.subject || course.title}".`,
+      type: "course",
+      link: "/student/courses",
+    });
+
+    await ActivityLogService.log({
+      actorId: user?.id || null,
+      action: "course.student_removed",
+      entityType: "course",
+      entityId: courseId,
+      summary: `Removed ${student.first_name} ${student.last_name} from "${course.subject || course.title}"`,
+      metadata: { studentId: Number(studentId) },
+    });
+
+    return {
+      courseId: Number(courseId),
+      studentId: Number(studentId),
+    };
+  },
+
   async getStudentCourses(studentId) {
     const gradeLevel = await getStudentGradeLevel(studentId);
     if (!gradeLevel) {

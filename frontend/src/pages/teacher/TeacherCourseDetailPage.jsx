@@ -49,6 +49,8 @@ export default function TeacherCourseDetailPage() {
   const [enrollments, setEnrollments] = useState([]);
   const [open, setOpen] = useState(false);
   const [lessonToDelete, setLessonToDelete] = useState(null);
+  const [studentToRemove, setStudentToRemove] = useState(null);
+  const [removingStudentId, setRemovingStudentId] = useState(null);
   const [form, setForm] = useState({
     title: "",
     competency: "",
@@ -154,6 +156,28 @@ export default function TeacherCourseDetailPage() {
       setError(getErrorMessage(err));
     } finally {
       setDeletingLessonId(null);
+    }
+  }
+
+  async function handleRemoveStudent() {
+    if (!studentToRemove) return;
+    const studentId = Number(studentToRemove.student_id);
+    setError("");
+    setMessage("");
+    setRemovingStudentId(studentId);
+    try {
+      await courseService.removeStudent(courseId, studentId);
+      setStudentToRemove(null);
+      setMessage(
+        `${studentToRemove.first_name} ${studentToRemove.last_name} was removed from this subject.`,
+      );
+      setEnrollments((prev) =>
+        prev.filter((row) => Number(row.student_id) !== studentId),
+      );
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setRemovingStudentId(null);
     }
   }
 
@@ -567,16 +591,35 @@ export default function TeacherCourseDetailPage() {
           <Typography variant="h6" gutterBottom>
             Enrolled Students ({enrollments.length})
           </Typography>
-          <List>
-            {enrollments.map((student) => (
-              <ListItem key={student.id}>
-                <ListItemText
-                  primary={`${student.first_name} ${student.last_name}`}
-                  secondary={`Learning progress ${Number(student.progress_percent)}% (lessons) · Level ${student.level || 1}`}
-                />
-              </ListItem>
-            ))}
-          </List>
+          {!enrollments.length ? (
+            <Typography color="text.secondary">
+              No students enrolled yet.
+            </Typography>
+          ) : (
+            <List>
+              {enrollments.map((student) => (
+                <ListItem
+                  key={student.student_id || student.id}
+                  secondaryAction={
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => setStudentToRemove(student)}
+                    >
+                      Remove
+                    </Button>
+                  }
+                >
+                  <ListItemText
+                    primary={`${student.first_name} ${student.last_name}`}
+                    secondary={`Learning progress ${Number(student.progress_percent)}% (lessons) · Level ${student.level || 1}${
+                      student.section ? ` · ${student.section}` : ""
+                    }`}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
         </Paper>
       </Stack>
 
@@ -598,6 +641,34 @@ export default function TeacherCourseDetailPage() {
         loadingLabel="Deleting…"
         onClose={() => setLessonToDelete(null)}
         onConfirm={handleDeleteLesson}
+      />
+
+      <ConfirmDialog
+        open={Boolean(studentToRemove)}
+        title="Remove student?"
+        description={
+          <>
+            Remove{" "}
+            <strong>
+              {studentToRemove
+                ? `${studentToRemove.first_name} ${studentToRemove.last_name}`
+                : "this student"}
+            </strong>{" "}
+            from{" "}
+            <strong>{course.subject || course.title}</strong>?
+          </>
+        }
+        details="They will lose access to this subject. Their account stays active. Past quiz/game scores are kept for records."
+        cancelLabel="Keep enrolled"
+        confirmLabel="Remove student"
+        confirmColor="error"
+        loading={Boolean(removingStudentId)}
+        loadingLabel="Removing…"
+        onClose={() => {
+          if (removingStudentId) return;
+          setStudentToRemove(null);
+        }}
+        onConfirm={handleRemoveStudent}
       />
 
       <Dialog

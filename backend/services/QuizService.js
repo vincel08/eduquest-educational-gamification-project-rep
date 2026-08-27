@@ -36,6 +36,13 @@ function normalizeDueAt(value) {
   return date.toISOString().slice(0, 19).replace("T", " ");
 }
 
+function normalizeSubjectKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 async function resolveStudentQuizAccess(quiz, studentId) {
   const override = await QuizStudentOverrideModel.findByQuizAndStudent(
     quiz.id,
@@ -616,6 +623,29 @@ const QuizService = {
     const source = await assertTeacherOwnsQuiz(sourceId, user);
     const courseId = Number(payload.courseId);
     if (!courseId) throw new AppError("courseId is required", 400);
+
+    const sourceCourse = await CourseModel.findById(source.course_id);
+    const targetCourse = await CourseModel.findById(courseId);
+    if (!targetCourse) throw new AppError("Target subject not found", 404);
+    if (
+      user.role === "teacher" &&
+      Number(targetCourse.teacher_id) !== Number(user.id)
+    ) {
+      throw new AppError("Access denied", 403);
+    }
+
+    const sourceKey = normalizeSubjectKey(
+      sourceCourse?.subject || sourceCourse?.title || source.course_title,
+    );
+    const targetKey = normalizeSubjectKey(
+      targetCourse.subject || targetCourse.title,
+    );
+    if (!sourceKey || sourceKey !== targetKey) {
+      throw new AppError(
+        "You can only reuse this quiz into the same subject (for example, Math → Math).",
+        400,
+      );
+    }
 
     const questions = await QuizModel.getQuestions(sourceId, {
       includeCorrect: true,
