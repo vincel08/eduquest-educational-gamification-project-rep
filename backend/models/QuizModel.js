@@ -48,6 +48,47 @@ const QuizModel = {
     );
   },
 
+  /**
+   * Teacher quiz bank across subjects / school years (optional filters).
+   */
+  async findBankForTeacher({
+    teacherId,
+    gradeLevel,
+    schoolYear,
+  } = {}) {
+    const filters = [];
+    const params = {};
+
+    if (teacherId) {
+      filters.push("c.teacher_id = :teacherId");
+      params.teacherId = teacherId;
+    }
+    if (gradeLevel && gradeLevel !== "all") {
+      filters.push("c.grade_level = :gradeLevel");
+      params.gradeLevel = gradeLevel;
+    }
+    if (schoolYear && schoolYear !== "all") {
+      filters.push("c.school_year = :schoolYear");
+      params.schoolYear = schoolYear;
+    }
+
+    const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+    return query(
+      `SELECT q.*,
+              c.title AS course_title,
+              c.subject AS course_subject,
+              c.grade_level,
+              c.school_year,
+              (SELECT COUNT(*) FROM quiz_questions qq WHERE qq.quiz_id = q.id) AS question_count
+       FROM quizzes q
+       INNER JOIN courses c ON c.id = q.course_id
+       ${where}
+       ORDER BY q.created_at DESC`,
+      params,
+    );
+  },
+
   async update(id, data) {
     const mapping = {
       title: "title",

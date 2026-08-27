@@ -13,6 +13,7 @@ import {
   replaceQuestionsValidation,
   reorderQuestionsValidation,
   grantQuizOverrideValidation,
+  copyQuizValidation,
 } from "../validations/quizValidation.js";
 import { aiRateLimiter } from "../middleware/rateLimitMiddleware.js";
 
@@ -49,6 +50,13 @@ router.post(
   attachQuestionImageValidation,
   validate,
   QuizController.attachImage,
+);
+router.post(
+  "/:id/copy",
+  authorize("teacher", "administrator"),
+  copyQuizValidation,
+  validate,
+  QuizController.copy,
 );
 router.get(
   "/:id/preview",

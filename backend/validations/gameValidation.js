@@ -22,6 +22,13 @@ export const createGameValidation = [
   body('isPublished').optional().isBoolean(),
 ];
 
+export const copyGameValidation = [
+  param('id').isInt({ min: 1 }),
+  body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
+  body('lessonId').optional({ nullable: true }).isInt({ min: 1 }),
+  body('title').optional({ nullable: true }).trim().notEmpty(),
+];
+
 export const generateGameValidation = [
   body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
   body('lessonId').optional({ nullable: true }).isInt({ min: 1 }),

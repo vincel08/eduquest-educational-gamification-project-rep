@@ -7,6 +7,7 @@ import {
   generateGameValidation,
   grantGameOverrideValidation,
   submitGameScoreValidation,
+  copyGameValidation,
 } from '../validations/gameValidation.js';
 import { aiRateLimiter } from '../middleware/rateLimitMiddleware.js';
 
@@ -34,6 +35,13 @@ router.post(
   generateGameValidation,
   validate,
   GameController.generate
+);
+router.post(
+  '/:id/copy',
+  authorize('teacher', 'administrator'),
+  copyGameValidation,
+  validate,
+  GameController.copy,
 );
 router.get(
   '/:id/scores/:scoreId',

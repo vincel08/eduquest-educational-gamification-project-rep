@@ -11,6 +11,19 @@ const QuizController = {
     }
   },
 
+  async copy(req, res, next) {
+    try {
+      const data = await QuizService.copyQuiz(
+        Number(req.params.id),
+        req.body,
+        req.user,
+      );
+      return successResponse(res, "Quiz copied into subject", data, 201);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async generate(req, res, next) {
     try {
       const data = await QuizService.generateAiQuiz(req.body, req.user);
@@ -24,6 +37,7 @@ const QuizController = {
     try {
       const data = await QuizService.listForTeacher(req.user, {
         gradeLevel: req.query.gradeLevel,
+        schoolYear: req.query.schoolYear || "all",
       });
       return successResponse(res, "Quizzes retrieved", data);
     } catch (error) {

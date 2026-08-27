@@ -4,6 +4,9 @@ const gameService = {
   listMine(params) {
     return api.get('/games/mine', { params });
   },
+  copy(id, payload) {
+    return api.post(`/games/${id}/copy`, payload);
+  },
   create(payload) {
     return api.post('/games', payload);
   },

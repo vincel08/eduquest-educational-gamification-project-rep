@@ -61,6 +61,50 @@ const GameModel = {
     }));
   },
 
+  /**
+   * Teacher game bank across subjects / school years (optional filters).
+   */
+  async findBankForTeacher({
+    teacherId,
+    gradeLevel,
+    schoolYear,
+  } = {}) {
+    const filters = [];
+    const params = {};
+
+    if (teacherId) {
+      filters.push('c.teacher_id = :teacherId');
+      params.teacherId = teacherId;
+    }
+    if (gradeLevel && gradeLevel !== 'all') {
+      filters.push('c.grade_level = :gradeLevel');
+      params.gradeLevel = gradeLevel;
+    }
+    if (schoolYear && schoolYear !== 'all') {
+      filters.push('c.school_year = :schoolYear');
+      params.schoolYear = schoolYear;
+    }
+
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    const rows = await query(
+      `SELECT g.id, g.course_id, g.lesson_id, g.title, g.description, g.game_type,
+              g.difficulty, g.estimated_time, g.xp_reward, g.is_ai_generated,
+              g.is_published, g.created_by, g.updated_by, g.created_at, g.updated_at,
+              c.title AS course_title,
+              c.subject,
+              c.grade_level,
+              c.school_year
+       FROM educational_games g
+       INNER JOIN courses c ON c.id = g.course_id
+       ${where}
+       ORDER BY g.created_at DESC`,
+      params,
+    );
+
+    return rows;
+  },
+
   async update(id, data) {
     const mapping = {
       title: 'title',

@@ -11,6 +11,19 @@ const GameController = {
     }
   },
 
+  async copy(req, res, next) {
+    try {
+      const data = await GameService.copyGame(
+        Number(req.params.id),
+        req.body,
+        req.user,
+      );
+      return successResponse(res, 'Game copied into subject', data, 201);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async generate(req, res, next) {
     try {
       const data = await GameService.generateAiGame(req.body, req.user);
@@ -42,6 +55,7 @@ const GameController = {
     try {
       const data = await GameService.listForTeacher(req.user, {
         gradeLevel: req.query.gradeLevel,
+        schoolYear: req.query.schoolYear || "all",
       });
       return successResponse(res, 'Games retrieved', data);
     } catch (error) {

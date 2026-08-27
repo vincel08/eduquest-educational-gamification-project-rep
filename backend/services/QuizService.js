@@ -608,6 +608,51 @@ const QuizService = {
     return { ...quiz, questions };
   },
 
+  /**
+   * Deep-copy a quiz into a target course (bank reuse).
+   * Creates an independent draft; does not share attempts or due dates.
+   */
+  async copyQuiz(sourceId, payload, user) {
+    const source = await assertTeacherOwnsQuiz(sourceId, user);
+    const courseId = Number(payload.courseId);
+    if (!courseId) throw new AppError("courseId is required", 400);
+
+    const questions = await QuizModel.getQuestions(sourceId, {
+      includeCorrect: true,
+    });
+    if (!questions.length) {
+      throw new AppError(
+        "This quiz has no questions to reuse. Add questions first.",
+        400,
+      );
+    }
+
+    const title = String(payload.title || "").trim()
+      || `${source.title} (Copy)`;
+
+    let lessonId = null;
+    if (payload.lessonId != null && payload.lessonId !== "") {
+      lessonId = Number(payload.lessonId);
+    }
+
+    return this.createQuiz(
+      {
+        courseId,
+        lessonId,
+        title,
+        description: source.description || null,
+        timeLimitMinutes: source.time_limit_minutes || null,
+        passingScore: source.passing_score ?? 70,
+        xpReward: source.xp_reward || 50,
+        dueAt: null,
+        isAiGenerated: Boolean(source.is_ai_generated),
+        isPublished: false,
+        questions,
+      },
+      user,
+    );
+  },
+
   async generateAiQuiz(payload, user) {
     const course = await CourseModel.findById(payload.courseId);
     if (!course) throw new AppError("Course not found", 404);
@@ -708,33 +753,12 @@ const QuizService = {
       throw new AppError("Access denied", 403);
     }
 
-    const courseFilters = {
+    // Bank includes all school years by default (schoolYear=all or omitted).
+    return QuizModel.findBankForTeacher({
       teacherId: user.role === "teacher" ? user.id : undefined,
-      limit: 200,
-      page: 1,
-    };
-    if (filters.gradeLevel && filters.gradeLevel !== "all") {
-      courseFilters.gradeLevel = filters.gradeLevel;
-    }
-
-    const { courses: courseList } = await CourseModel.findAll(courseFilters);
-
-    const quizzes = [];
-    for (const course of courseList) {
-      const courseQuizzes = await QuizModel.findByCourse(course.id, {
-        publishedOnly: false,
-      });
-      for (const quiz of courseQuizzes) {
-        quizzes.push({
-          ...quiz,
-          course_title: course.title,
-          grade_level: course.grade_level,
-        });
-      }
-    }
-
-    quizzes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    return quizzes;
+      gradeLevel: filters.gradeLevel,
+      schoolYear: filters.schoolYear,
+    });
   },
 
   async updateQuiz(id, data, user) {

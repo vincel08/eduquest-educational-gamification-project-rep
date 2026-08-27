@@ -10,6 +10,9 @@ const quizService = {
   listMine(params) {
     return api.get("/quizzes/mine", { params });
   },
+  copy(id, payload) {
+    return api.post(`/quizzes/${id}/copy`, payload);
+  },
   getById(id) {
     return api.get(`/quizzes/${id}`);
   },
