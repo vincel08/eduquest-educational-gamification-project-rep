@@ -26,7 +26,7 @@ import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
 import { celebrateAchievement } from "../../utils/confetti";
 import { pickMotivationalMessage } from "../../utils/feedbackMessages";
-import { playSound, SOUND_KEYS, unlockAudio } from "../../utils/soundEffects";
+import { playSound, SOUND_KEYS, unlockAudio, stopAmbient } from "../../utils/soundEffects";
 import SoundToggle from "../../components/games/SoundToggle";
 import SessionTimerBar from "../../components/games/SessionTimerBar";
 import useSessionCountdown from "../../hooks/useSessionCountdown";
@@ -64,6 +64,8 @@ export default function StudentQuizPage() {
   });
   const submitOnceRef = useRef(false);
   const handleSubmitRef = useRef(null);
+
+  useEffect(() => () => stopAmbient(), []);
 
   function applyStartPayload(data) {
     setQuiz(data.quiz);

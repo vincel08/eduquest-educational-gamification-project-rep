@@ -3,6 +3,7 @@ import StudentProfileModel from "../models/StudentProfileModel.js";
 import QuizModel from "../models/QuizModel.js";
 import NotificationModel from "../models/NotificationModel.js";
 import StreakService from "./StreakService.js";
+import ActivityLogService from "./ActivityLogService.js";
 import AppError from "../utils/AppError.js";
 import {
   calculateLevel,
@@ -314,18 +315,34 @@ const GamificationService = {
     }));
   },
 
-  async createBadge(data) {
-    return GamificationModel.createBadge(data);
+  async createBadge(data, actor = null) {
+    const badge = await GamificationModel.createBadge(data);
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: "badge.created",
+      entityType: "badge",
+      entityId: badge.id,
+      summary: `Created badge "${badge.name}"`,
+    });
+    return badge;
   },
 
   async listBadges() {
     return GamificationModel.findAllBadges();
   },
 
-  async updateBadge(id, data) {
+  async updateBadge(id, data, actor = null) {
     const badge = await GamificationModel.findBadgeById(id);
     if (!badge) throw new AppError("Badge not found", 404);
-    return GamificationModel.updateBadge(id, data);
+    const updated = await GamificationModel.updateBadge(id, data);
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: "badge.updated",
+      entityType: "badge",
+      entityId: id,
+      summary: `Updated badge "${updated.name || badge.name}"`,
+    });
+    return updated;
   },
 
   async awardBadgeManually({ studentId, badgeId, awardedBy }) {
@@ -343,6 +360,14 @@ const GamificationService = {
       message: `You were awarded the "${badge.name}" badge.`,
       type: "achievement",
       link: "/student/achievements",
+    });
+    await ActivityLogService.log({
+      actorId: awardedBy || null,
+      action: "badge.awarded",
+      entityType: "badge",
+      entityId: badgeId,
+      summary: `Awarded badge "${badge.name}" to student #${studentId}`,
+      metadata: { studentId },
     });
     return awarded;
   },

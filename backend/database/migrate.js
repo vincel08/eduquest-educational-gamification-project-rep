@@ -38,6 +38,7 @@ const MIGRATION_FILES = [
   "023_lesson_material_views.sql",
   "024_game_overrides_and_answers.sql",
   "025_release_results_to_gradebook.sql",
+  "026_activity_logs.sql",
 ];
 
 async function main() {

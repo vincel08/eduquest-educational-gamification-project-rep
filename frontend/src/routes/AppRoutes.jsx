@@ -38,6 +38,7 @@ import AdminCoursesPage from "../pages/admin/AdminCoursesPage";
 import AdminLeaderboardPage from "../pages/admin/AdminLeaderboardPage";
 import AdminBadgesPage from "../pages/admin/AdminBadgesPage";
 import AdminSectionsPage from "../pages/admin/AdminSectionsPage";
+import AdminActivityLogsPage from "../pages/admin/AdminActivityLogsPage";
 import StudentProfilePage from "../pages/student/StudentProfilePage";
 import { useAuth } from "../contexts/AuthContext";
 import LoadingScreen from "../components/common/LoadingScreen";
@@ -123,6 +124,7 @@ export default function AppRoutes() {
           <Route path="leaderboard" element={<AdminLeaderboardPage />} />
           <Route path="badges" element={<AdminBadgesPage />} />
           <Route path="sections" element={<AdminSectionsPage />} />
+          <Route path="activity" element={<AdminActivityLogsPage />} />
         </Route>
       </Route>
 

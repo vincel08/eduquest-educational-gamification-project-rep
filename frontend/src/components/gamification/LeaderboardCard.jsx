@@ -37,9 +37,11 @@ const RANK_STYLES = [
 export default function LeaderboardCard({ entries = [], title = 'Leaderboard' }) {
   return (
     <Paper className="quest-card" sx={{ p: 2.5 }}>
-      <Typography variant="h6" sx={{ mb: 2 }} fontWeight={900}>
-        {title}
-      </Typography>
+      {title ? (
+        <Typography variant="h6" sx={{ mb: 2 }} fontWeight={900}>
+          {title}
+        </Typography>
+      ) : null}
       <List>
         {entries.map((entry, index) => {
           const style = RANK_STYLES[index];

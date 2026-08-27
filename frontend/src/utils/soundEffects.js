@@ -128,6 +128,9 @@ const AMBIENT_BY_TYPE = {
 let audioCtx = null;
 let ambientNodes = null;
 let ambientMood = null;
+/** Bumped on every stop so delayed syncs / intervals cannot restart a bed after leave. */
+let ambientGeneration = 0;
+let ambientFadeTimerId = null;
 
 function readFlag(key, defaultValue) {
   try {
@@ -973,6 +976,11 @@ const AMBIENT_TRACKS = {
 };
 
 function stopAmbientHard() {
+  ambientGeneration += 1;
+  if (ambientFadeTimerId != null) {
+    window.clearTimeout(ambientFadeTimerId);
+    ambientFadeTimerId = null;
+  }
   if (!ambientNodes) {
     ambientMood = null;
     return;
@@ -986,9 +994,10 @@ function stopAmbientHard() {
     if (ctx && master) {
       master.gain.cancelScheduledValues(ctx.currentTime);
       master.gain.setValueAtTime(Math.max(0.0001, master.gain.value), ctx.currentTime);
-      master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+      master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
     }
-    window.setTimeout(() => {
+    ambientFadeTimerId = window.setTimeout(() => {
+      ambientFadeTimerId = null;
       (stopList || []).forEach((node) => {
         try {
           node.stop?.();
@@ -997,7 +1006,12 @@ function stopAmbientHard() {
           // already stopped
         }
       });
-    }, 450);
+      try {
+        master?.disconnect?.();
+      } catch {
+        // ignore
+      }
+    }, 280);
   } catch {
     // ignore
   }
@@ -1021,6 +1035,7 @@ export function startAmbient(trackId) {
   if (ambientMood === trackId && ambientNodes) return;
 
   stopAmbient();
+  const generation = ambientGeneration;
   const ctx = getContext();
   if (!ctx) return;
 
@@ -1080,6 +1095,10 @@ export function startAmbient(trackId) {
     const hasMelody = Boolean(track.melody?.length);
 
     const timerId = window.setInterval(() => {
+      if (generation !== ambientGeneration) {
+        window.clearInterval(timerId);
+        return;
+      }
       if (!getSoundsEnabled() || !getMusicEnabled()) {
         stopAmbient();
         return;
@@ -1485,7 +1504,18 @@ export function startAmbient(trackId) {
       step += 1;
     }, beatSec * 1000);
 
-    ambientNodes = { master, bus, filter, stopList, timerId };
+    // Ignore if something stopped ambient while we were wiring nodes.
+    if (generation !== ambientGeneration) {
+      window.clearInterval(timerId);
+      try {
+        master.disconnect();
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    ambientNodes = { master, bus, filter, stopList, timerId, generation };
     ambientMood = trackId;
   } catch {
     ambientNodes = null;

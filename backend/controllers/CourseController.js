@@ -5,7 +5,7 @@ import { successResponse } from "../utils/apiResponse.js";
 const CourseController = {
   async create(req, res, next) {
     try {
-      const data = await CourseService.createCourse(req.body, req.user.id);
+      const data = await CourseService.createCourse(req.body, req.user.id, req.user);
       return successResponse(res, "Course created", data, 201);
     } catch (error) {
       return next(error);

@@ -20,6 +20,7 @@ import {
   isValidSchoolYearLabel,
 } from "../utils/schoolYears.js";
 import ClassSectionService from "./ClassSectionService.js";
+import ActivityLogService from "./ActivityLogService.js";
 
 async function getStudentGradeLevel(studentId) {
   const profile = await StudentProfileModel.findByUserId(studentId);
@@ -62,17 +63,26 @@ const CourseService = {
     });
   },
 
-  async createCourse(data, teacherId) {
+  async createCourse(data, teacherId, actor = null) {
     const subject = String(data.subject || "").trim();
     const title = String(data.title || subject).trim() || subject;
     const schedule = resolveScheduleFields(data);
-    return CourseModel.create({
+    const course = await CourseModel.create({
       ...data,
       ...schedule,
       subject,
       title,
       teacherId,
     });
+    await ActivityLogService.log({
+      actorId: actor?.id || teacherId || null,
+      action: "course.created",
+      entityType: "course",
+      entityId: course.id,
+      summary: `Created subject "${course.title || title}"`,
+      metadata: { teacherId, schoolYear: course.school_year || schedule.schoolYear },
+    });
+    return course;
   },
 
   async listCourses(filters = {}, user = null) {
@@ -162,7 +172,21 @@ const CourseService = {
       }
     }
 
-    return CourseModel.update(id, patch);
+    const updated = await CourseModel.update(id, patch);
+    await ActivityLogService.log({
+      actorId: user?.id || null,
+      action: "course.updated",
+      entityType: "course",
+      entityId: id,
+      summary: `Updated subject "${updated.title || course.title}"`,
+      metadata: {
+        published:
+          data.isPublished !== undefined
+            ? Boolean(data.isPublished)
+            : undefined,
+      },
+    });
+    return updated;
   },
 
   async deleteCourse(id, user) {
@@ -174,6 +198,13 @@ const CourseService = {
     }
 
     await CourseModel.delete(id);
+    await ActivityLogService.log({
+      actorId: user?.id || null,
+      action: "course.deleted",
+      entityType: "course",
+      entityId: id,
+      summary: `Deleted subject "${course.title}"`,
+    });
     return true;
   },
 
