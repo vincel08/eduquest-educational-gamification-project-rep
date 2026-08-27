@@ -24,6 +24,13 @@ export const createQuizValidation = [
   body("questions").optional().isArray(),
 ];
 
+export const copyQuizValidation = [
+  param("id").isInt({ min: 1 }),
+  body("courseId").isInt({ min: 1 }).withMessage("courseId is required"),
+  body("lessonId").optional({ nullable: true }).isInt({ min: 1 }),
+  body("title").optional({ nullable: true }).trim().notEmpty(),
+];
+
 export const updateQuizValidation = [
   param("id").isInt({ min: 1 }),
   body("title")

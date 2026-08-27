@@ -109,6 +109,49 @@ const GameService = {
     });
   },
 
+  /**
+   * Deep-copy a game into a target course (bank reuse).
+   * Creates an independent draft with cloned game_data JSON.
+   */
+  async copyGame(sourceId, payload, user) {
+    const source = await assertTeacherOwnsGame(sourceId, user);
+    const courseId = Number(payload.courseId);
+    if (!courseId) throw new AppError("courseId is required", 400);
+
+    const gameData =
+      source.game_data && typeof source.game_data === "object"
+        ? JSON.parse(JSON.stringify(source.game_data))
+        : source.game_data;
+    if (!gameData || typeof gameData !== "object") {
+      throw new AppError("This game has no content to reuse.", 400);
+    }
+
+    const title = String(payload.title || "").trim()
+      || `${source.title} (Copy)`;
+
+    let lessonId = null;
+    if (payload.lessonId != null && payload.lessonId !== "") {
+      lessonId = Number(payload.lessonId);
+    }
+
+    return this.createGame(
+      {
+        courseId,
+        lessonId,
+        title,
+        description: source.description || null,
+        gameType: source.game_type,
+        difficulty: source.difficulty || "medium",
+        estimatedTime: source.estimated_time || 10,
+        gameData,
+        xpReward: source.xp_reward || 100,
+        isAiGenerated: Boolean(source.is_ai_generated),
+        isPublished: false,
+      },
+      user,
+    );
+  },
+
   async generateAiGame(payload, user) {
     const course = await CourseModel.findById(payload.courseId);
     assertCourseAccess(course, user);
@@ -278,33 +321,12 @@ const GameService = {
       throw new AppError("Access denied", 403);
     }
 
-    const courseFilters = {
+    // Bank includes all school years by default (schoolYear=all or omitted).
+    return GameModel.findBankForTeacher({
       teacherId: user.role === "teacher" ? user.id : undefined,
-      limit: 200,
-      page: 1,
-    };
-    if (filters.gradeLevel && filters.gradeLevel !== "all") {
-      courseFilters.gradeLevel = filters.gradeLevel;
-    }
-
-    const { courses: courseList } = await CourseModel.findAll(courseFilters);
-    const games = [];
-    for (const course of courseList) {
-      const courseGames = await GameModel.findByCourse(course.id, {
-        publishedOnly: false,
-      });
-      for (const game of courseGames) {
-        games.push({
-          ...game,
-          course_title: course.title,
-          subject: course.subject,
-          grade_level: course.grade_level,
-        });
-      }
-    }
-
-    games.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    return games;
+      gradeLevel: filters.gradeLevel,
+      schoolYear: filters.schoolYear,
+    });
   },
 
   async updateGame(id, data, user) {
