@@ -20,17 +20,14 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
 import FlagIcon from "@mui/icons-material/Flag";
 import LeaderboardIcon from "@mui/icons-material/Leaderboard";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
-import MilitaryTechIcon from "@mui/icons-material/MilitaryTech";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import { Link as RouterLink } from "react-router-dom";
 import { motion } from "framer-motion";
-import StatCard from "../../components/common/StatCard";
 import GlassStatCard from "../../components/common/GlassStatCard";
 import QuestCard from "../../components/common/QuestCard";
 import EmptyState from "../../components/common/EmptyState";
 import SectionHeader from "../../components/common/SectionHeader";
 import PageContainer from "../../components/common/PageContainer";
-import XpBar from "../../components/gamification/XpBar";
 import LeaderboardCard from "../../components/gamification/LeaderboardCard";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import analyticsService from "../../services/analyticsService";
@@ -57,7 +54,7 @@ export default function StudentDashboard() {
           await Promise.all([
             analyticsService.student(),
             gamificationService.me(),
-            gamificationService.leaderboard({ limit: 5 }),
+            gamificationService.leaderboard({ limit: 3 }),
             courseService.myCourses(),
           ]);
         setData({
@@ -98,8 +95,8 @@ export default function StudentDashboard() {
   const courseList = Array.isArray(courses) ? courses : [];
   const recommended = courseList
     .filter((course) => Number(course.progress_percent || 0) < 100)
-    .slice(0, 3);
-  const upcomingQuizzes = analytics.upcomingQuizzes || [];
+    .slice(0, 2);
+  const upcomingQuiz = (analytics.upcomingQuizzes || [])[0] || null;
   const quickStart = analytics.quickStart || null;
   const quickStartTo = quickStart?.path || "/student/courses";
   const quickStartLabel = quickStart?.label || "Quick Start";
@@ -107,9 +104,12 @@ export default function StudentDashboard() {
     100,
     Math.round((todayXp / DAILY_XP_GOAL) * 100),
   );
+  const overallPercent = analytics.learningProgress?.overallPercent ?? null;
   const avatarSrc = buildAuthenticatedFileUrl(
     authProfile?.avatar_url || profile.avatar_url,
   );
+  const badgeCount = analytics.badges || 0;
+  const medalCount = analytics.medals || 0;
 
   return (
     <PageContainer>
@@ -164,16 +164,14 @@ export default function StudentDashboard() {
             <Typography sx={{ color: "rgba(255,255,255,0.92)", maxWidth: 520 }}>
               {quickStart?.title
                 ? `${quickStartLabel}: ${quickStart.title}`
-                : "Ready for today's quest? Earn XP, beat challenges, and climb the leaderboard."}
+                : "Ready for today's quest? Pick up where you left off."}
             </Typography>
           </Box>
         </Stack>
         <Stack
-          direction="row"
           spacing={1}
+          alignItems={{ xs: "stretch", md: "flex-end" }}
           sx={{ position: "relative", zIndex: 1 }}
-          flexWrap="wrap"
-          useFlexGap
         >
           <Button
             component={RouterLink}
@@ -192,9 +190,9 @@ export default function StudentDashboard() {
           <Button
             component={RouterLink}
             to="/student/games"
-            variant="outlined"
-            size="large"
+            size="small"
             startIcon={<SportsEsportsIcon />}
+            sx={{ color: "rgba(255,255,255,0.92)" }}
           >
             Play a Game
           </Button>
@@ -202,7 +200,7 @@ export default function StudentDashboard() {
       </Stack>
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 6, sm: 3 }}>
           <GlassStatCard
             accent
             label="Total XP"
@@ -211,280 +209,99 @@ export default function StudentDashboard() {
             subtitle={`+${todayXp} today`}
           />
         </Grid>
-        <Grid size={{ xs: 6, sm: 4 }}>
+        <Grid size={{ xs: 6, sm: 3 }}>
           <GlassStatCard
-            label="Badges"
-            value={analytics.badges || 0}
-            icon={<EmojiEventsIcon />}
-            subtitle="Trophy room"
+            label="Level"
+            value={profile.level || 1}
+            icon={<TrendingUpIcon />}
+            subtitle="Keep climbing"
           />
         </Grid>
-        <Grid size={{ xs: 6, sm: 4 }}>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <GlassStatCard
+            label="Streak"
+            value={`${profile.current_streak || 0}d`}
+            icon={<LocalFireDepartmentIcon />}
+            subtitle={`Best ${profile.longest_streak || 0}d`}
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
           <GlassStatCard
             label="Rank"
             value={rank ? `#${rank}` : "—"}
             icon={<LeaderboardIcon />}
-            subtitle="Climb the board"
+            subtitle="On the board"
           />
         </Grid>
       </Grid>
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, md: 8 }}>
-          <Paper sx={{ p: { xs: 2, md: 2.5 }, height: "100%" }}>
-            <SectionHeader
-              title="Learning Progress"
-              subtitle="Lesson status across your grade-level subjects"
-              icon={<AutoAwesomeIcon color="secondary" />}
-            />
-            {(() => {
-              const lp = analytics.learningProgress || {};
-              const subjects = lp.subjects || [];
-              return (
-                <Stack spacing={2}>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    <Chip
-                      color="success"
-                      label={`Completed ${lp.completed || 0}`}
-                    />
-                    <Chip
-                      color="warning"
-                      label={`In progress ${lp.inProgress || 0}`}
-                    />
-                    <Chip
-                      variant="outlined"
-                      label={`Not started ${lp.notStarted || 0}`}
-                    />
-                    <Chip
-                      color="primary"
-                      label={`Overall ${lp.overallPercent || 0}%`}
-                    />
-                  </Stack>
-                  <Box>
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      sx={{ mb: 0.75 }}
-                    >
-                      <Typography variant="body2" fontWeight={700}>
-                        Overall lesson progress
-                      </Typography>
-                      <Typography variant="body2" fontWeight={800}>
-                        {lp.overallPercent || 0}%
-                      </Typography>
-                    </Stack>
-                    <LinearProgress
-                      variant="determinate"
-                      value={Math.min(
-                        100,
-                        Math.max(0, Number(lp.overallPercent || 0)),
-                      )}
-                      sx={{ height: 10, borderRadius: 999 }}
-                    />
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ mt: 0.75, display: "block" }}
-                    >
-                      {lp.completed || 0} of {lp.totalLessons || 0} lessons
-                      completed
-                      {lp.subjectCount
-                        ? ` across ${lp.subjectCount} subject${lp.subjectCount === 1 ? "" : "s"}`
-                        : ""}
-                    </Typography>
-                  </Box>
-                  {subjects.length ? (
-                    <Stack spacing={1.25}>
-                      <Typography variant="subtitle2" fontWeight={800}>
-                        Per subject
-                      </Typography>
-                      {subjects.map((subject) => (
-                        <Paper
-                          key={subject.courseId}
-                          variant="outlined"
-                          sx={{ p: 1.5 }}
-                        >
-                          <Stack
-                            direction={{ xs: "column", sm: "row" }}
-                            spacing={1}
-                            justifyContent="space-between"
-                            alignItems={{ sm: "center" }}
-                          >
-                            <Box sx={{ minWidth: 0, flex: 1 }}>
-                              <Typography fontWeight={800} noWrap>
-                                {subject.subject || subject.title}
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{ mb: 0.75 }}
-                              >
-                                {subject.completed} completed ·{" "}
-                                {subject.inProgress} in progress ·{" "}
-                                {subject.notStarted} not started
-                              </Typography>
-                              <LinearProgress
-                                variant="determinate"
-                                value={Math.min(
-                                  100,
-                                  Math.max(0, Number(subject.percent || 0)),
-                                )}
-                              />
-                            </Box>
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              alignItems="center"
-                            >
-                              <Chip
-                                size="small"
-                                label={`${subject.percent}%`}
-                                color="primary"
-                              />
-                              <Button
-                                component={RouterLink}
-                                to={`/student/courses/${subject.courseId}`}
-                                size="small"
-                                variant="outlined"
-                              >
-                                Open
-                              </Button>
-                            </Stack>
-                          </Stack>
-                        </Paper>
-                      ))}
-                    </Stack>
-                  ) : (
-                    <Typography color="text.secondary">
-                      Enroll in a subject for your grade to start tracking
-                      lesson progress.
-                    </Typography>
-                  )}
-                  <Box sx={{ mt: 1 }}>
-                    <Typography
-                      variant="subtitle2"
-                      fontWeight={700}
-                      sx={{ mb: 1 }}
-                    >
-                      XP level
-                    </Typography>
-                    <XpBar xp={profile.xp} />
-                  </Box>
-                </Stack>
-              );
-            })()}
-          </Paper>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Stack spacing={2} sx={{ height: "100%" }}>
-            <Paper
-              sx={{
-                p: 2.5,
-                background:
-                  "linear-gradient(160deg, rgba(250,204,21,0.16), rgba(99,102,241,0.08))",
-              }}
-            >
-              <Stack spacing={1.25}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <FlagIcon sx={{ color: "#F59E0B" }} />
-                  <Typography variant="h6" fontWeight={800}>
-                    Daily Goal
-                  </Typography>
-                </Stack>
-                <Typography color="text.secondary">
-                  Earn {DAILY_XP_GOAL} XP today
-                </Typography>
-                <Typography variant="h4" fontWeight={800}>
-                  {todayXp} / {DAILY_XP_GOAL}
-                </Typography>
-                <LinearProgress variant="determinate" value={dailyProgress} />
-                <Chip
-                  size="small"
-                  label={
-                    dailyProgress >= 100
-                      ? "Daily challenge complete!"
-                      : `${dailyProgress}% complete`
-                  }
-                  color={dailyProgress >= 100 ? "success" : "default"}
-                  sx={{ alignSelf: "flex-start" }}
-                />
-              </Stack>
-            </Paper>
-            <Paper sx={{ p: 2.5 }}>
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                sx={{ mb: 1 }}
-              >
-                <EmojiEventsIcon sx={{ color: "#FACC15" }} />
-                <Typography variant="h6" fontWeight={800}>
-                  Trophy Room
-                </Typography>
-              </Stack>
-              <Typography color="text.secondary" sx={{ mb: 1.5 }}>
-                {(analytics.badges || 0) + (analytics.medals || 0)
-                  ? `You have ${analytics.badges || 0} badge(s) and ${analytics.medals || 0} medal(s).`
-                  : "Complete lessons, quizzes, and challenges to earn badges and medals."}
+      <Paper
+        sx={{
+          p: { xs: 1.75, md: 2 },
+          mb: 2,
+          background:
+            "linear-gradient(160deg, rgba(250,204,21,0.14), rgba(99,102,241,0.06))",
+        }}
+      >
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1.5}
+          alignItems={{ sm: "center" }}
+          justifyContent="space-between"
+        >
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+            <FlagIcon sx={{ color: "#F59E0B" }} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography fontWeight={800}>
+                Daily goal · {todayXp} / {DAILY_XP_GOAL} XP
               </Typography>
-              <Button
-                component={RouterLink}
-                to="/student/achievements"
-                variant="contained"
-                fullWidth
-                startIcon={<EmojiEventsIcon />}
-              >
-                Open Trophy Room
-              </Button>
-            </Paper>
+              <Typography variant="body2" color="text.secondary">
+                {dailyProgress >= 100
+                  ? "Daily challenge complete!"
+                  : `${dailyProgress}% toward today's XP goal`}
+              </Typography>
+            </Box>
           </Stack>
-        </Grid>
-      </Grid>
-
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard
-            label="Medals"
-            value={analytics.medals || 0}
-            icon={<MilitaryTechIcon />}
-            color="#F59E0B"
-          />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard
-            label="Quizzes Passed"
-            value={analytics.quizzesPassed || 0}
-            icon={<QuizIcon />}
-            color="#8B5CF6"
-          />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard
-            label="Streak"
-            value={`${profile.current_streak || 0} days`}
-            icon={<LocalFireDepartmentIcon />}
-            color="#F97316"
-            subtitle={`Best ${profile.longest_streak || 0}`}
-          />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard
-            label="Leaderboard"
-            value={rank ? `#${rank}` : "—"}
-            icon={<LeaderboardIcon />}
-            color="#6366F1"
-          />
-        </Grid>
-      </Grid>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
+            sx={{ width: { xs: "100%", sm: "auto" }, minWidth: { sm: 220 } }}
+          >
+            <Box sx={{ flex: 1, minWidth: 140 }}>
+              <LinearProgress
+                variant="determinate"
+                value={dailyProgress}
+                sx={{ height: 8, borderRadius: 999 }}
+              />
+            </Box>
+            <Button
+              component={RouterLink}
+              to="/student/achievements"
+              size="small"
+              startIcon={<EmojiEventsIcon />}
+            >
+              {badgeCount + medalCount
+                ? `${badgeCount} badges · ${medalCount} medals`
+                : "Trophy Room"}
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 7 }}>
           <Paper sx={{ p: { xs: 2, md: 2.5 }, mb: 2 }}>
             <SectionHeader
               title="Continue Learning"
-              subtitle="Pick up where you left off"
-              actionLabel="My subjects"
+              subtitle={
+                overallPercent != null
+                  ? `Overall lesson progress ${overallPercent}%`
+                  : "Pick up where you left off"
+              }
+              actionLabel="All subjects"
               actionTo="/student/courses"
               icon={<MenuBookIcon color="secondary" />}
             />
@@ -507,8 +324,7 @@ export default function StudentDashboard() {
                           color="text.secondary"
                           sx={{ mb: 1 }}
                         >
-                          {course.subject || course.title} ·{" "}
-                          {Number(course.progress_percent || 0)}% lessons
+                          {Number(course.progress_percent || 0)}% lessons complete
                         </Typography>
                         <LinearProgress
                           variant="determinate"
@@ -541,31 +357,25 @@ export default function StudentDashboard() {
 
           <Paper sx={{ p: { xs: 2, md: 2.5 } }}>
             <SectionHeader
-              title="Upcoming Quizzes"
-              subtitle="Jump in and earn XP"
+              title="Up Next"
+              subtitle="One challenge ready when you are"
               actionLabel="All quizzes"
               actionTo="/student/quizzes"
               icon={<QuizIcon color="primary" />}
             />
-            {upcomingQuizzes.length ? (
-              <Grid container spacing={2}>
-                {upcomingQuizzes.slice(0, 4).map((quiz) => (
-                  <Grid key={quiz.id} size={{ xs: 12, sm: 6 }}>
-                    <QuestCard
-                      title={quiz.title}
-                      description={quiz.course_title}
-                      icon={<QuizIcon />}
-                      accent="purple"
-                      xpReward={quiz.xp_reward || 50}
-                      difficulty="Challenge"
-                      status="Ready"
-                      statusColor="success"
-                      to={`/student/quizzes/${quiz.id}`}
-                      actionLabel="Start Quiz"
-                    />
-                  </Grid>
-                ))}
-              </Grid>
+            {upcomingQuiz ? (
+              <QuestCard
+                title={upcomingQuiz.title}
+                description={upcomingQuiz.course_title}
+                icon={<QuizIcon />}
+                accent="purple"
+                xpReward={upcomingQuiz.xp_reward || 50}
+                difficulty="Challenge"
+                status="Ready"
+                statusColor="success"
+                to={`/student/quizzes/${upcomingQuiz.id}`}
+                actionLabel="Start Quiz"
+              />
             ) : (
               <EmptyState
                 icon={<QuizIcon sx={{ fontSize: 36 }} />}
@@ -580,44 +390,15 @@ export default function StudentDashboard() {
 
         <Grid size={{ xs: 12, md: 5 }}>
           <Box sx={{ mb: 2 }}>
-            <LeaderboardCard entries={leaderboard} />
-          </Box>
-          <Paper sx={{ p: 2.5 }}>
             <SectionHeader
-              title="Recent Achievements"
-              subtitle="Celebrate your milestones"
-              actionLabel="View all"
-              actionTo="/student/achievements"
-              icon={<EmojiEventsIcon sx={{ color: "#FACC15" }} />}
+              title="Top Climbers"
+              subtitle="See who is leading the board"
+              actionLabel="Full board"
+              actionTo="/student/leaderboard"
+              icon={<LeaderboardIcon color="secondary" />}
             />
-            <Stack spacing={1.25}>
-              <Chip
-                icon={<EmojiEventsIcon />}
-                label={`${analytics.badges || 0} badges earned`}
-                sx={{
-                  alignSelf: "flex-start",
-                  bgcolor: "rgba(250,204,21,0.22)",
-                  fontWeight: 700,
-                }}
-              />
-              <Chip
-                icon={<MilitaryTechIcon />}
-                label={`${analytics.medals || 0} medals`}
-                color="warning"
-                variant="outlined"
-                sx={{ alignSelf: "flex-start", fontWeight: 700 }}
-              />
-              <Button
-                component={RouterLink}
-                to="/student/achievements"
-                variant="contained"
-                color="secondary"
-                startIcon={<EmojiEventsIcon />}
-              >
-                Open Trophy Room
-              </Button>
-            </Stack>
-          </Paper>
+            <LeaderboardCard entries={leaderboard.slice(0, 3)} title="" />
+          </Box>
         </Grid>
       </Grid>
     </PageContainer>

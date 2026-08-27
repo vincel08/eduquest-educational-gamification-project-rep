@@ -34,7 +34,7 @@ const ClassSectionController = {
 
   async create(req, res, next) {
     try {
-      const data = await ClassSectionService.create(req.body);
+      const data = await ClassSectionService.create(req.body, req.user);
       return successResponse(res, "Class section created", data, 201);
     } catch (error) {
       return next(error);
@@ -46,6 +46,7 @@ const ClassSectionController = {
       const data = await ClassSectionService.update(
         Number(req.params.id),
         req.body,
+        req.user,
       );
       return successResponse(res, "Class section updated", data);
     } catch (error) {
@@ -55,7 +56,7 @@ const ClassSectionController = {
 
   async remove(req, res, next) {
     try {
-      await ClassSectionService.remove(Number(req.params.id));
+      await ClassSectionService.remove(Number(req.params.id), req.user);
       return successResponse(res, "Class section deleted", {});
     } catch (error) {
       return next(error);

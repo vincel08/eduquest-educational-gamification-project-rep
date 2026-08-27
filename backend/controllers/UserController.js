@@ -34,7 +34,7 @@ const UserController = {
 
   async create(req, res, next) {
     try {
-      const data = await UserService.createUser(req.body);
+      const data = await UserService.createUser(req.body, req.user);
       return successResponse(res, 'User created', data, 201);
     } catch (error) {
       return next(error);
@@ -43,7 +43,7 @@ const UserController = {
 
   async update(req, res, next) {
     try {
-      const data = await UserService.updateUser(Number(req.params.id), req.body);
+      const data = await UserService.updateUser(Number(req.params.id), req.body, req.user);
       return successResponse(res, 'User updated', data);
     } catch (error) {
       return next(error);

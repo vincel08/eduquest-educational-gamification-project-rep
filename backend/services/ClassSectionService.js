@@ -15,6 +15,7 @@ import {
   normalizeGradeLevel,
 } from "../utils/gradeLevels.js";
 import { isValidSchoolYearLabel } from "../utils/schoolYears.js";
+import ActivityLogService from "./ActivityLogService.js";
 
 export const SECTION_NOT_IN_CATALOG_MESSAGE =
   "Please select a valid class section for this grade and school year.";
@@ -69,7 +70,7 @@ const ClassSectionService = {
     return serializeSection(row);
   },
 
-  async create(data) {
+  async create(data, actor = null) {
     const schoolYear = String(data.schoolYear || "").trim();
     if (!isValidSchoolYearLabel(schoolYear)) {
       throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
@@ -107,10 +108,18 @@ const ClassSectionService = {
       name,
       adviserId,
     });
-    return serializeSection(row);
+    const section = serializeSection(row);
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: "section.created",
+      entityType: "class_section",
+      entityId: section.id,
+      summary: `Created section ${section.name} (${section.gradeLevel}, SY ${section.schoolYear})`,
+    });
+    return section;
   },
 
-  async update(id, data) {
+  async update(id, data, actor = null) {
     const current = await ClassSectionModel.findById(id);
     if (!current) throw new AppError("Class section not found", 404);
 
@@ -164,10 +173,18 @@ const ClassSectionService = {
       name,
       adviserId,
     });
-    return serializeSection(row);
+    const section = serializeSection(row);
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: "section.updated",
+      entityType: "class_section",
+      entityId: section.id,
+      summary: `Updated section ${section.name} (${section.gradeLevel}, SY ${section.schoolYear})`,
+    });
+    return section;
   },
 
-  async remove(id) {
+  async remove(id, actor = null) {
     const current = await ClassSectionModel.findById(id);
     if (!current) throw new AppError("Class section not found", 404);
 
@@ -184,6 +201,13 @@ const ClassSectionService = {
     }
 
     await ClassSectionModel.delete(id);
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: "section.deleted",
+      entityType: "class_section",
+      entityId: id,
+      summary: `Deleted section ${current.name} (${current.grade_level}, SY ${current.school_year})`,
+    });
     return true;
   },
 

@@ -34,7 +34,15 @@ import {
   isValidSchoolYearLabel,
 } from '../utils/schoolYears.js';
 import ClassSectionService from './ClassSectionService.js';
+import ActivityLogService from './ActivityLogService.js';
 import { query } from '../config/db.js';
+
+function displayUserLabel(user) {
+  if (!user) return 'Unknown user';
+  const name = `${user.firstName || user.first_name || ''} ${user.lastName || user.last_name || ''}`.trim();
+  if (name) return name;
+  return user.username || user.email || `User #${user.id}`;
+}
 
 function normalizeStoredAvatarUrl(avatarUrl) {
   if (avatarUrl === null || avatarUrl === '') return null;
@@ -108,7 +116,7 @@ const UserService = {
     return { user: sanitizeUser(user), profile };
   },
 
-  async createUser(data) {
+  async createUser(data, actor = null) {
     const allowedRoles = ['student', 'teacher', 'administrator'];
     if (!allowedRoles.includes(data.role)) {
       throw new AppError('Invalid role', 400);
@@ -190,10 +198,19 @@ const UserService = {
       });
     }
 
-    return sanitizeUser(user);
+    const created = sanitizeUser(user);
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: 'user.created',
+      entityType: 'user',
+      entityId: created.id,
+      summary: `Created ${created.role} account for ${displayUserLabel(created)}`,
+      metadata: { role: created.role },
+    });
+    return created;
   },
 
-  async updateUser(id, data) {
+  async updateUser(id, data, actor = null) {
     const user = await UserModel.findById(id);
     if (!user) throw new AppError('User not found', 404);
 
@@ -224,7 +241,19 @@ const UserService = {
     }
 
     const updated = await UserModel.update(id, fields);
-    return sanitizeUser(updated);
+    const sanitized = sanitizeUser(updated);
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: 'user.updated',
+      entityType: 'user',
+      entityId: sanitized.id,
+      summary: `Updated account for ${displayUserLabel(sanitized)}`,
+      metadata: {
+        fields: Object.keys(fields).filter((key) => key !== 'password_hash'),
+        passwordChanged: Boolean(fields.password_hash),
+      },
+    });
+    return sanitized;
   },
 
   async setStudentPassword(actor, studentId, password) {
@@ -240,7 +269,15 @@ const UserService = {
 
     const passwordHash = await bcrypt.hash(password, 12);
     const updated = await UserModel.update(student.id, { password_hash: passwordHash });
-    return sanitizeUser(updated);
+    const sanitized = sanitizeUser(updated);
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: 'user.password_reset',
+      entityType: 'user',
+      entityId: sanitized.id,
+      summary: `Reset password for ${displayUserLabel(sanitized)}`,
+    });
+    return sanitized;
   },
 
   async listDistinctSections(filters = {}) {
@@ -308,6 +345,14 @@ const UserService = {
     }
 
     await UserModel.delete(id);
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: 'user.deleted',
+      entityType: 'user',
+      entityId: id,
+      summary: `Deleted ${user.role} account for ${displayUserLabel(user)}`,
+      metadata: { role: user.role },
+    });
     return true;
   },
 };

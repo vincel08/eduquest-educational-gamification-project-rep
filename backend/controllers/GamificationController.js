@@ -44,7 +44,7 @@ const GamificationController = {
 
   async createBadge(req, res, next) {
     try {
-      const data = await GamificationService.createBadge(req.body);
+      const data = await GamificationService.createBadge(req.body, req.user);
       return successResponse(res, "Badge created", data, 201);
     } catch (error) {
       return next(error);
@@ -56,6 +56,7 @@ const GamificationController = {
       const data = await GamificationService.updateBadge(
         Number(req.params.id),
         req.body,
+        req.user,
       );
       return successResponse(res, "Badge updated", data);
     } catch (error) {

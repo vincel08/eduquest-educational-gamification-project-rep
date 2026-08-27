@@ -11,12 +11,14 @@ import {
   setMusicEnabled,
   setSoundsEnabled,
   SOUND_KEYS,
+  stopAmbient,
   syncAmbientForGame,
   unlockAudio,
 } from '../../utils/soundEffects';
 
 /**
  * Mute controls for game SFX and optional ambient music.
+ * Starts ambient for `gameType` while mounted; always stops it on leave.
  */
 export default function SoundToggle({ gameType = null, size = 'small' }) {
   const [sfxOn, setSfxOn] = useState(() => getSoundsEnabled());
@@ -26,6 +28,9 @@ export default function SoundToggle({ gameType = null, size = 'small' }) {
     if (sfxOn && musicOn && gameType) {
       syncAmbientForGame(gameType);
     }
+    return () => {
+      if (gameType) stopAmbient();
+    };
   }, [sfxOn, musicOn, gameType]);
 
   function toggleSfx() {

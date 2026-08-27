@@ -4,6 +4,7 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import LeaderboardIcon from "@mui/icons-material/Leaderboard";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import GroupsIcon from "@mui/icons-material/Groups";
+import HistoryIcon from "@mui/icons-material/History";
 import DashboardLayout from "./DashboardLayout";
 import { AdminFiltersProvider } from "../contexts/AdminFiltersContext";
 import AdminSidebarFilters from "../components/admin/AdminSidebarFilters";
@@ -19,6 +20,7 @@ const navItems = [
     path: "/admin/leaderboard",
     icon: <LeaderboardIcon />,
   },
+  { label: "Activity", path: "/admin/activity", icon: <HistoryIcon /> },
 ];
 
 export default function AdminLayout() {

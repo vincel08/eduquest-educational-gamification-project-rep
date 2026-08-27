@@ -10,7 +10,7 @@ import gameService from "../../services/gameService";
 import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { pickMotivationalMessage } from "../../utils/feedbackMessages";
-import { playSound, SOUND_KEYS } from "../../utils/soundEffects";
+import { playSound, SOUND_KEYS, stopAmbient } from "../../utils/soundEffects";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRewards } from "../../contexts/RewardsContext";
 import { formatGameTypeLabel } from "../../utils/gameTypes";
@@ -37,6 +37,8 @@ export default function StudentGamePage() {
     gradeReleased: false,
     unavailable: false,
   });
+
+  useEffect(() => () => stopAmbient(), []);
 
   useEffect(() => {
     async function load() {
