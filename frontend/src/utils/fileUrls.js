@@ -24,7 +24,7 @@ export function buildAuthenticatedFileUrl(filePath, { download = false } = {}) {
 
   const normalized = filePath.startsWith('/') ? filePath : `/${filePath}`;
   let absolute = `${API_BASE}${normalized}`;
-  const token = localStorage.getItem('eduquest_token');
+  const token = localStorage.getItem('eduwow_token');
 
   const params = new URLSearchParams();
   if (token && normalized.startsWith('/api/files/')) {
@@ -51,7 +51,7 @@ export async function downloadAuthenticatedFile(filePath, filename = 'download')
     throw new Error('File URL is missing');
   }
 
-  const token = localStorage.getItem('eduquest_token');
+  const token = localStorage.getItem('eduwow_token');
   const normalized = filePath.startsWith('/') ? filePath : `/${filePath}`;
   const absolute = filePath.startsWith('http://') || filePath.startsWith('https://')
     ? filePath

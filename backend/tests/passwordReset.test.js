@@ -94,7 +94,7 @@ async function createUser({ role, emailPrefix, password = 'OldPass123' }) {
     lastName: role,
     role,
     gradeLevel: 'Grade 10',
-    schoolName: 'EduQuest High',
+    schoolName: 'EduWow High',
   };
   if (role === 'student') {
     payload.username = `u${emailPrefix}${suffix}`.replace(/[^a-z0-9]/gi, '').slice(0, 64).toLowerCase();

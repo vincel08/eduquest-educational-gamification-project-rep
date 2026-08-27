@@ -1,4 +1,4 @@
-USE eduquest;
+USE eduwow_lms;
 
 CREATE TABLE IF NOT EXISTS ai_review_drafts (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

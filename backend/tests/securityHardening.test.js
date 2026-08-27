@@ -28,7 +28,7 @@ function runEnvImport({ nodeEnv, jwtSecret, clientUrl = 'https://example.com' })
     ...process.env,
     NODE_ENV: nodeEnv,
     DB_HOST: process.env.DB_HOST || 'localhost',
-    DB_NAME: process.env.DB_NAME || 'eduquest',
+    DB_NAME: process.env.DB_NAME || 'eduwow_lms',
     DB_USER: process.env.DB_USER || 'root',
     DB_PASSWORD: process.env.DB_PASSWORD ?? '',
     PORT: process.env.PORT || '4000',

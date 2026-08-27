@@ -5,10 +5,10 @@ import { createAppTheme } from '../styles/theme';
 const ThemeModeContext = createContext(null);
 
 export function ThemeModeProvider({ children }) {
-  const [mode, setMode] = useState(() => localStorage.getItem('eduquest_theme') || 'light');
+  const [mode, setMode] = useState(() => localStorage.getItem('eduwow_theme') || 'light');
 
   useEffect(() => {
-    localStorage.setItem('eduquest_theme', mode);
+    localStorage.setItem('eduwow_theme', mode);
     document.body.setAttribute('data-theme', mode);
   }, [mode]);
 

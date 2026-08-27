@@ -25,7 +25,7 @@ const weakSecrets = new Set([
   "secret",
   "jwt_secret",
   "password",
-  "eduquest",
+  "eduwow",
 ]);
 
 function assertValidClientUrl(rawUrl) {

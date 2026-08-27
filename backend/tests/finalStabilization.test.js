@@ -140,7 +140,7 @@ describe("final stabilization - enrollment", () => {
     student = await createUser("student", "stab-enroll-student");
     await StudentProfileModel.create(student.id, {
       gradeLevel: "Grade 10",
-      schoolName: "EduQuest Test",
+      schoolName: "EduWow Test",
     });
 
     const published = await query(
