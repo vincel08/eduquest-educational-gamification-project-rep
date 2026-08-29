@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
   CardContent,
   IconButton,
   InputAdornment,
@@ -16,10 +15,10 @@ import {
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import { getErrorMessage } from "../../services/api";
 import BrandLogo from "../../components/common/BrandLogo";
+import AuthLiquidShell from "../../components/common/AuthLiquidShell";
 import classSectionService from "../../services/classSectionService";
 import {
   getPasswordError,
@@ -147,16 +146,8 @@ export default function RegisterPage() {
   }
 
   return (
-    <Box
-      sx={{ minHeight: "100vh", display: "grid", placeItems: "center", p: 2 }}
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={{ width: "100%", maxWidth: 560 }}
-      >
-        <Card sx={{ width: "100%" }}>
-          <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
+    <AuthLiquidShell maxWidth={560}>
+      <CardContent sx={{ p: { xs: 2.5, sm: 4 }, position: "relative" }}>
             <Box sx={{ display: "flex", justifyContent: "center", mb: 1.5 }}>
               <BrandLogo size="auth" to="/" />
             </Box>
@@ -360,8 +351,6 @@ export default function RegisterPage() {
               </Link>
             </Typography>
           </CardContent>
-        </Card>
-      </motion.div>
-    </Box>
+    </AuthLiquidShell>
   );
 }
