@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
   CardContent,
   Link,
   Stack,
@@ -11,10 +10,10 @@ import {
   Typography,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import authService from '../../services/authService';
 import { getErrorMessage } from '../../services/api';
 import BrandLogo from '../../components/common/BrandLogo';
+import AuthLiquidShell from '../../components/common/AuthLiquidShell';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -63,67 +62,59 @@ export default function ForgotPasswordPage() {
   const formLocked = loading || Boolean(feedback?.eligible);
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2 }}>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={{ width: '100%', maxWidth: 460 }}
-      >
-        <Card sx={{ width: '100%' }}>
-          <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-              <BrandLogo size="auth" to="/" />
-            </Box>
-            <Typography variant="h5" fontWeight={800} gutterBottom sx={{ textAlign: 'center' }}>
-              Staff password reset
-            </Typography>
-            <Typography color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
-              Teachers and administrators can reset via email.
-            </Typography>
-            <Alert severity="info" sx={{ mb: 3 }}>
-              Learners cannot use this page — even if they have an email on their account.
-              Ask a school administrator to set a new password.
-            </Alert>
+    <AuthLiquidShell>
+      <CardContent sx={{ p: { xs: 2.5, sm: 4 }, position: 'relative' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+          <BrandLogo size="auth" to="/" />
+        </Box>
+        <Typography variant="h5" fontWeight={800} gutterBottom sx={{ textAlign: 'center' }}>
+          Staff password reset
+        </Typography>
+        <Typography color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
+          Teachers and administrators can reset via email.
+        </Typography>
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Learners cannot use this page — even if they have an email on their account.
+          Ask a school administrator to set a new password.
+        </Alert>
 
-            {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-            {feedback ? (
-              <Alert severity={feedback.severity} sx={{ mb: 2 }}>
-                {feedback.message}
-              </Alert>
-            ) : null}
+        {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+        {feedback ? (
+          <Alert severity={feedback.severity} sx={{ mb: 2 }}>
+            {feedback.message}
+          </Alert>
+        ) : null}
 
-            <Stack component="form" spacing={2} onSubmit={handleSubmit}>
-              <TextField
-                label="Work email"
-                type="email"
-                required
-                value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                  if (feedback && !feedback.eligible) {
-                    setFeedback(null);
-                  }
-                }}
-                disabled={formLocked}
-                helperText={
-                  feedback?.reason === 'learner'
-                    ? 'This address belongs to a learner account.'
-                    : undefined
-                }
-              />
-              <Button type="submit" variant="contained" size="large" disabled={formLocked}>
-                {loading ? 'Sending...' : 'Send Reset Link'}
-              </Button>
-            </Stack>
+        <Stack component="form" spacing={2} onSubmit={handleSubmit}>
+          <TextField
+            label="Work email"
+            type="email"
+            required
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              if (feedback && !feedback.eligible) {
+                setFeedback(null);
+              }
+            }}
+            disabled={formLocked}
+            helperText={
+              feedback?.reason === 'learner'
+                ? 'This address belongs to a learner account.'
+                : undefined
+            }
+          />
+          <Button type="submit" variant="contained" size="large" disabled={formLocked}>
+            {loading ? 'Sending...' : 'Send Reset Link'}
+          </Button>
+        </Stack>
 
-            <Typography sx={{ mt: 3 }} variant="body2">
-              <Link component={RouterLink} to="/login">
-                Back to Login
-              </Link>
-            </Typography>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </Box>
+        <Typography sx={{ mt: 3 }} variant="body2">
+          <Link component={RouterLink} to="/login">
+            Back to Login
+          </Link>
+        </Typography>
+      </CardContent>
+    </AuthLiquidShell>
   );
 }

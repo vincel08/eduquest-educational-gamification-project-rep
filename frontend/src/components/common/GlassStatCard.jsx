@@ -2,7 +2,7 @@ import { Box, Card, CardContent, LinearProgress, Typography } from '@mui/materia
 import { motion } from 'framer-motion';
 
 /**
- * Achievement-style glass card for Level / XP / badges dashboards.
+ * Student achievement card — soft glass + clay dual shadow (via .glass-panel).
  * Accent styles are applied via sx so they override MuiCard theme defaults.
  */
 export default function GlassStatCard({
@@ -21,19 +21,22 @@ export default function GlassStatCard({
       transition={{ type: 'spring', stiffness: 320, damping: 24 }}
       sx={{
         height: '100%',
+        borderRadius: '22px',
         ...(accent
           ? {
               color: '#fff',
               backgroundImage: 'linear-gradient(135deg, #6366F1 0%, #3B82F6 100%)',
               backgroundColor: '#6366F1',
-              border: '1px solid rgba(255,255,255,0.22)',
-              boxShadow: '0 14px 32px rgba(99, 102, 241, 0.28)',
+              border: '1px solid rgba(255,255,255,0.28)',
+              boxShadow:
+                '8px 12px 24px rgba(99, 102, 241, 0.32), -4px -4px 12px rgba(255,255,255,0.35)',
               '&:hover': {
-                boxShadow: '0 16px 36px rgba(99, 102, 241, 0.34)',
+                boxShadow:
+                  '10px 14px 28px rgba(99, 102, 241, 0.38), -4px -4px 12px rgba(255,255,255,0.4)',
               },
             }
           : {
-              backgroundColor: 'background.paper',
+              backgroundColor: 'transparent',
             }),
         '@media (prefers-reduced-motion: reduce)': {
           transform: 'none !important',
