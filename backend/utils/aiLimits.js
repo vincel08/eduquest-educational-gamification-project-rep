@@ -86,7 +86,8 @@ export function sanitizeAiError(error) {
   if (lower.includes('timed out') || lower.includes('timeout') || error?.code === 'AI_TIMEOUT') {
     return {
       statusCode: 504,
-      message: 'AI generation timed out. Please try again.',
+      message:
+        'AI generation timed out. Live generation can take a few minutes — please try again.',
       errorCode: 'AI_TIMEOUT',
     };
   }
@@ -169,7 +170,7 @@ export function sanitizeAiError(error) {
   };
 }
 
-export function withTimeout(promise, timeoutMs, message = 'AI generation timed out. Please try again.') {
+export function withTimeout(promise, timeoutMs, message = 'AI generation timed out. Live generation can take a few minutes — please try again.') {
   const ms = Number(timeoutMs) || env.aiLimits.requestTimeoutMs;
   let timer;
   const timeoutPromise = new Promise((_, reject) => {

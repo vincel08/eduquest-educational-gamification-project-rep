@@ -182,7 +182,7 @@ export default function TeacherAiQuizPage() {
             inputProps={{ min: 3, max: 15 }}
           />
           <Button type="submit" variant="contained" disabled={loading || !form.courseId || !form.topic.trim()}>
-            {loading ? 'Generating...' : 'Generate Quiz'}
+            {loading ? 'Generating… this can take a few minutes' : 'Generate Quiz'}
           </Button>
         </Stack>
       </Paper>

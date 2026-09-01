@@ -1,4 +1,4 @@
-import api from './api';
+import api, { AI_REQUEST_TIMEOUT_MS } from './api';
 
 const aiReviewService = {
   list(params) {
@@ -8,13 +8,19 @@ const aiReviewService = {
     return api.get(`/ai-review/drafts/${id}`);
   },
   createFromQuiz(payload) {
-    return api.post('/ai-review/from-quiz', payload);
+    return api.post('/ai-review/from-quiz', payload, {
+      timeout: AI_REQUEST_TIMEOUT_MS,
+    });
   },
   createFromGame(payload) {
-    return api.post('/ai-review/from-game', payload);
+    return api.post('/ai-review/from-game', payload, {
+      timeout: AI_REQUEST_TIMEOUT_MS,
+    });
   },
   createFromContent(payload) {
-    return api.post('/ai-review/from-content', payload);
+    return api.post('/ai-review/from-content', payload, {
+      timeout: AI_REQUEST_TIMEOUT_MS,
+    });
   },
   update(id, payload) {
     return api.put(`/ai-review/drafts/${id}`, payload);
@@ -29,10 +35,14 @@ const aiReviewService = {
     return api.delete(`/ai-review/drafts/${id}`);
   },
   regenerate(id, payload) {
-    return api.post(`/ai-review/drafts/${id}/regenerate`, payload);
+    return api.post(`/ai-review/drafts/${id}/regenerate`, payload, {
+      timeout: AI_REQUEST_TIMEOUT_MS,
+    });
   },
   transform(id, payload) {
-    return api.post(`/ai-review/drafts/${id}/transform`, payload);
+    return api.post(`/ai-review/drafts/${id}/transform`, payload, {
+      timeout: AI_REQUEST_TIMEOUT_MS,
+    });
   },
 };
 

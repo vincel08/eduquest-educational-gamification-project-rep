@@ -107,6 +107,7 @@ Serve the `frontend/dist/` directory from any static host. Set CORS `CLIENT_URL`
 | `UPLOAD_DIR`                            | Absolute persistent path for uploads |
 | `JWT_EXPIRES_IN`                        | Default `1d` in production           |
 | `GEMINI_API_KEY` / `OPENAI_API_KEY`     | Optional AI                          |
+| `AI_REQUEST_TIMEOUT_MS`                 | Default `240000` (4 min) in production; raise if live AI still times out |
 | `MAIL_HOST` (+ port/user/password/from) | Optional SMTP                        |
 
 ### Frontend

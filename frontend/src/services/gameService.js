@@ -1,4 +1,4 @@
-import api from './api';
+import api, { AI_REQUEST_TIMEOUT_MS } from './api';
 
 const gameService = {
   listMine(params) {
@@ -11,7 +11,9 @@ const gameService = {
     return api.post('/games', payload);
   },
   generate(payload) {
-    return api.post('/games/generate', payload);
+    return api.post('/games/generate', payload, {
+      timeout: AI_REQUEST_TIMEOUT_MS,
+    });
   },
   getById(id) {
     return api.get(`/games/${id}`);

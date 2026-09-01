@@ -1,11 +1,13 @@
-import api from "./api";
+import api, { AI_REQUEST_TIMEOUT_MS } from "./api";
 
 const quizService = {
   create(payload) {
     return api.post("/quizzes", payload);
   },
   generate(payload) {
-    return api.post("/quizzes/generate", payload);
+    return api.post("/quizzes/generate", payload, {
+      timeout: AI_REQUEST_TIMEOUT_MS,
+    });
   },
   listMine(params) {
     return api.get("/quizzes/mine", { params });

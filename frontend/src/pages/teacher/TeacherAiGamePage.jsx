@@ -355,7 +355,7 @@ export default function TeacherAiGamePage() {
             size="large"
             disabled={loading || !canGenerate}
           >
-            {loading ? "Generating..." : "Generate Game"}
+            {loading ? "Generating… this can take a few minutes" : "Generate Game"}
           </Button>
           {!canGenerate ? (
             <Typography variant="caption" color="text.secondary">

@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { resolveApiBaseUrl } from '../utils/apiBase';
 
+/** Client wait for AI generate/regenerate — slightly above server timeout. */
+export const AI_REQUEST_TIMEOUT_MS = 270000;
+
 const api = axios.create({
   baseURL: resolveApiBaseUrl(),
   headers: {
@@ -46,7 +49,13 @@ export function getErrorMessage(error, fallback = 'Something went wrong') {
   if (status === 403) return "You don't have permission to access this content.";
   if (status === 404) return 'The requested content was not found.';
   if (status === 429) return 'AI generation limit reached. Please try again later.';
+  if (status === 504) {
+    return 'AI generation timed out. Live generation can take a few minutes — please try again.';
+  }
   if (status >= 500) return 'The server is temporarily unavailable. Please try again.';
+  if (error.code === 'ECONNABORTED') {
+    return 'AI generation timed out. Live generation can take a few minutes — please try again.';
+  }
   if (error.message && !/status code/i.test(error.message)) return error.message;
 
   return fallback;
