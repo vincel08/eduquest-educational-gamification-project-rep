@@ -348,14 +348,9 @@ const CourseService = {
   async listTeacherSections(teacherId, filters = {}) {
     const catalog = await ClassSectionService.listOptions(filters);
     if (catalog.length) {
-      // Prefer catalog names that appear among this teacher's enrolled students when possible.
-      const enrolled = await CourseModel.listTeacherSections(teacherId, filters);
-      if (!enrolled.length) {
-        return catalog;
-      }
-      const enrolledSet = new Set(enrolled);
-      const intersection = catalog.filter((name) => enrolledSet.has(name));
-      return intersection.length ? intersection : catalog;
+      // Always expose the admin catalog so newly added sections appear system-wide
+      // before any students are assigned to them.
+      return catalog;
     }
     return CourseModel.listTeacherSections(teacherId, filters);
   },

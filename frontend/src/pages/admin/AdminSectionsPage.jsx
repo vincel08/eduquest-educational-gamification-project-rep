@@ -34,6 +34,9 @@ export default function AdminSectionsPage() {
     schoolYear,
     gradeLevel,
     section: sectionFilter,
+    setSchoolYear,
+    setGradeLevel,
+    setSection,
   } = useAdminFilters();
 
   const schoolYearOptions = useMemo(
@@ -65,35 +68,38 @@ export default function AdminSectionsPage() {
   const [sectionToDelete, setSectionToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(async () => {
-    const filterParams = toQueryParams();
-    const listParams = { limit: 200 };
-    if (filterParams.schoolYear) {
-      listParams.schoolYear = filterParams.schoolYear;
-    }
-    if (filterParams.gradeLevel) {
-      listParams.gradeLevel = filterParams.gradeLevel;
-    }
+  const load = useCallback(
+    async (overrides = {}) => {
+      const filterParams = { ...toQueryParams(), ...overrides };
+      const listParams = { limit: 200 };
+      if (filterParams.schoolYear && filterParams.schoolYear !== "all") {
+        listParams.schoolYear = filterParams.schoolYear;
+      }
+      if (filterParams.gradeLevel && filterParams.gradeLevel !== "all") {
+        listParams.gradeLevel = filterParams.gradeLevel;
+      }
 
-    const [sectionsRes, teachersRes] = await Promise.all([
-      classSectionService.list(listParams),
-      userService.list({ role: "teacher", limit: 100 }),
-    ]);
+      const [sectionsRes, teachersRes] = await Promise.all([
+        classSectionService.list(listParams),
+        userService.list({ role: "teacher", limit: 100 }),
+      ]);
 
-    let nextSections = sectionsRes.data.data.sections || [];
-    if (filterParams.section) {
-      const wanted = String(filterParams.section).trim().toLowerCase();
-      nextSections = nextSections.filter(
-        (item) =>
-          String(item.name || "")
-            .trim()
-            .toLowerCase() === wanted,
-      );
-    }
+      let nextSections = sectionsRes.data.data.sections || [];
+      if (filterParams.section && filterParams.section !== "all") {
+        const wanted = String(filterParams.section).trim().toLowerCase();
+        nextSections = nextSections.filter(
+          (item) =>
+            String(item.name || "")
+              .trim()
+              .toLowerCase() === wanted,
+        );
+      }
 
-    setSections(nextSections);
-    setTeachers(teachersRes.data.data.users || []);
-  }, [toQueryParams]);
+      setSections(nextSections);
+      setTeachers(teachersRes.data.data.users || []);
+    },
+    [toQueryParams],
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -101,6 +107,12 @@ export default function AdminSectionsPage() {
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [load, schoolYear, gradeLevel, sectionFilter]);
+
+  // Keep create form aligned with sidebar school year / grade when not editing.
+  useEffect(() => {
+    if (editingId) return;
+    setForm(defaultForm());
+  }, [defaultForm, editingId]);
 
   function resetForm() {
     setEditingId(null);
@@ -129,6 +141,9 @@ export default function AdminSectionsPage() {
         name: form.name.trim(),
         adviserId: form.adviserId ? Number(form.adviserId) : null,
       };
+      if (!payload.name) {
+        throw new Error("Section name is required.");
+      }
       if (editingId) {
         await classSectionService.update(editingId, payload);
         setMessage("Section updated");
@@ -136,9 +151,24 @@ export default function AdminSectionsPage() {
         await classSectionService.create(payload);
         setMessage("Section created");
       }
-      resetForm();
-      await load();
+
+      // Align sidebar so the new/updated section is visible system-wide selectors refresh.
+      setSchoolYear(payload.schoolYear);
+      setGradeLevel(payload.gradeLevel);
+      setSection("all");
+      setEditingId(null);
+      setForm({
+        schoolYear: payload.schoolYear,
+        gradeLevel: payload.gradeLevel,
+        name: "",
+        adviserId: "",
+      });
       notifyClassSectionsChanged();
+      await load({
+        schoolYear: payload.schoolYear,
+        gradeLevel: payload.gradeLevel,
+        section: "all",
+      });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -156,8 +186,9 @@ export default function AdminSectionsPage() {
       setMessage(`Deleted section ${sectionToDelete.name}`);
       if (editingId === sectionToDelete.id) resetForm();
       setSectionToDelete(null);
-      await load();
+      setSection("all");
       notifyClassSectionsChanged();
+      await load({ section: "all" });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -187,6 +218,46 @@ export default function AdminSectionsPage() {
       <Paper component="form" onSubmit={handleSubmit} sx={{ p: 2, mb: 3 }}>
         <Stack spacing={2}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+            <TextField
+              select
+              required
+              label="School Year"
+              value={form.schoolYear}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, schoolYear: e.target.value }))
+              }
+              fullWidth
+            >
+              {schoolYearOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              required
+              label="Grade"
+              value={form.gradeLevel}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, gradeLevel: e.target.value }))
+              }
+              fullWidth
+            >
+              {GRADE_LEVELS.map((grade) => (
+                <MenuItem key={grade} value={grade}>
+                  {grade}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              required
+              label="Section name"
+              placeholder="e.g. Faith, Newton, A"
+              value={form.name}
+              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              fullWidth
+            />
             <TextField
               select
               label="Adviser"
