@@ -12,6 +12,7 @@ import { assertGameDataMatchesType } from '../utils/gameDataValidation.js';
 import {
   assertInputTextSize,
   assertQuestionCount,
+  assertGameItemCount,
   buildIdempotencyKey,
 } from '../utils/aiLimits.js';
 
@@ -198,6 +199,105 @@ function normalizeGame(raw) {
     xpReward: Number(raw.xpReward || 100),
     gameData,
   };
+}
+
+/** Resolve the editable item list for AI regenerate/transform. */
+function getGameItemCollection(game) {
+  const normalized = normalizeGame(game);
+  const gameType = normalized.gameType;
+  const data = normalized.gameData || {};
+
+  if (gameType === 'escape_room') {
+    return { game: normalized, collection: 'stages', items: data.stages || [] };
+  }
+  if (gameType === 'mission_adventure') {
+    return { game: normalized, collection: 'missions', items: data.missions || [] };
+  }
+  if (gameType === 'jeopardy') {
+    return { game: normalized, collection: 'jeopardy', items: [] };
+  }
+  return { game: normalized, collection: 'items', items: data.items || [] };
+}
+
+/**
+ * Replace the editable item list and keep pairs/clues/rounds/words in sync
+ * so normalizeGame does not discard updates by preferring a stale parallel array.
+ */
+function withGameItems(game, items, collection = 'items') {
+  const current = normalizeGame(game);
+  const gameType = current.gameType;
+  const gameData = { ...(current.gameData || {}) };
+  const nextItems = Array.isArray(items) ? items : [];
+
+  if (collection === 'stages') {
+    gameData.stages = nextItems;
+  } else if (collection === 'missions') {
+    gameData.missions = nextItems;
+  } else if (['word_search', 'word_scramble'].includes(gameType)) {
+    gameData.words = nextItems
+      .map((item) => (
+        typeof item === 'string'
+          ? item
+          : (item.word || item.term || item.answer || '')
+      ))
+      .map((word) => String(word || '').trim())
+      .filter(Boolean);
+    delete gameData.grid;
+    delete gameData.placements;
+    delete gameData.items;
+  } else {
+    gameData.items = nextItems;
+    if (['flashcards', 'memory_match', 'drag_drop'].includes(gameType)) {
+      gameData.pairs = nextItems;
+    }
+    if (['crossword', 'puzzle_challenge'].includes(gameType)) {
+      gameData.clues = nextItems;
+    }
+    if (['quiz_show', 'quiz_rush', 'spin_wheel', 'millionaire'].includes(gameType)) {
+      gameData.rounds = nextItems;
+    }
+  }
+
+  return normalizeGame({ ...current, gameData });
+}
+
+function gameItemDisplayText(item) {
+  if (!item || typeof item !== 'object') return String(item || '');
+  return String(
+    item.question
+      || item.prompt
+      || item.clue
+      || item.term
+      || item.label
+      || item.name
+      || item.word
+      || item.answer
+      || ''
+  ).trim();
+}
+
+function applyRewrittenGameItemText(item, text) {
+  const value = String(text || '').trim();
+  if (!item || typeof item !== 'object') return { word: value, term: value, answer: value };
+  if (item.question != null || item.prompt != null) {
+    return { ...item, question: value, prompt: value };
+  }
+  if (item.clue != null) {
+    return { ...item, clue: value };
+  }
+  if (item.term != null || item.definition != null) {
+    return { ...item, term: value, front: value };
+  }
+  if (item.label != null) {
+    return { ...item, label: value };
+  }
+  if (item.name != null) {
+    return { ...item, name: value };
+  }
+  if (item.word != null) {
+    return { ...item, word: value, term: value, answer: value };
+  }
+  return { ...item, prompt: value, question: value };
 }
 
 function normalizeObjectives(raw) {
@@ -972,29 +1072,37 @@ const AiReviewService = {
     }
 
     if (target === 'selected_game_item' && draft.game) {
+      const { game: current, collection, items } = getGameItemCollection(draft.game);
+      if (collection === 'jeopardy') {
+        throw new AppError(
+          'Regenerate Selected Game Item is not supported for Jeopardy. Use Regenerate All instead.',
+          400,
+        );
+      }
       const index = Number(payload.itemIndex);
-      const gameType = draft.game.gameType || 'flashcards';
-      const current = normalizeGame(draft.game);
-      const items = current.gameData?.items || [];
       if (Number.isNaN(index) || index < 0 || index >= items.length) {
-        throw new AppError('Invalid game item index', 400);
+        throw new AppError('Select a game item first, then try again.', 400);
       }
       const generated = await AiService.generateGame({
         topic: draft.game.title,
-        gameType,
+        gameType: current.gameType || 'flashcards',
         gradeLevel: course.grade_level || "junior high school",
         lessonContent: sourceText || draft.game.title,
       });
-      const replacement = normalizeGame(generated).gameData.items?.[0];
+      const generatedList = getGameItemCollection(
+        normalizeGame(generated),
+      ).items;
+      const replacement = generatedList[0];
+      if (!replacement) {
+        throw new AppError('AI did not return a replacement game item. Please try again.', 502);
+      }
       const nextItems = [...items];
-      if (replacement) nextItems[index] = replacement;
-      updates.game = normalizeGame({
-        ...current,
-        gameData: {
-          ...current.gameData,
-          items: nextItems,
-        },
-      });
+      nextItems[index] = {
+        ...replacement,
+        id: items[index]?.id || replacement.id || tempId('g'),
+      };
+      assertGameItemCount(nextItems.length);
+      updates.game = withGameItems(current, nextItems, collection);
     }
 
     if (target === 'all' || target === 'summary' || target === 'objectives') {
@@ -1027,21 +1135,32 @@ const AiReviewService = {
     }
 
     if (target === 'more_game_items' && draft.game) {
+      const { game: current, collection, items } = getGameItemCollection(draft.game);
+      if (collection === 'jeopardy') {
+        throw new AppError(
+          'Generate More Game Items is not supported for Jeopardy. Use Regenerate All instead.',
+          400,
+        );
+      }
+      const addCount = Math.min(Math.max(Number(payload.count) || 3, 1), 10);
       const generated = await AiService.generateGame({
         topic: draft.game.title,
-        gameType: draft.game.gameType || 'flashcards',
+        gameType: current.gameType || 'flashcards',
         gradeLevel: course.grade_level || "junior high school",
         lessonContent: sourceText || draft.game.title,
       });
-      const current = normalizeGame(draft.game);
-      const extra = normalizeGame(generated).gameData.items || [];
-      updates.game = normalizeGame({
-        ...current,
-        gameData: {
-          ...current.gameData,
-          items: [...(current.gameData.items || []), ...extra],
-        },
-      });
+      const extra = getGameItemCollection(normalizeGame(generated)).items
+        .slice(0, addCount)
+        .map((item, i) => ({
+          ...item,
+          id: item.id || tempId(`g${i}`),
+        }));
+      if (!extra.length) {
+        throw new AppError('AI did not return additional game items. Please try again.', 502);
+      }
+      const nextItems = [...items, ...extra];
+      assertGameItemCount(nextItems.length);
+      updates.game = withGameItems(current, nextItems, collection);
     }
 
     updates.generationMeta = {
@@ -1076,6 +1195,11 @@ const AiReviewService = {
     }
 
     let source = '';
+    let gameCollection = null;
+    let gameItems = null;
+    let gameItemIndex = null;
+    const itemIndex = Number(payload.itemIndex);
+
     if (section === 'summary') {
       source = draft.lessonSummary?.sections?.map((s) => s.body).join('\n\n') || '';
     } else if (section === 'objectives') {
@@ -1087,6 +1211,23 @@ const AiReviewService = {
     } else if (section === 'selected_question' && draft.quiz) {
       const q = draft.quiz.questions[Number(payload.questionIndex)];
       source = q ? `${q.questionText}\n${q.explanation || ''}` : '';
+    } else if (section === 'selected_game_item' && draft.game) {
+      const resolved = getGameItemCollection(draft.game);
+      gameCollection = resolved.collection;
+      gameItems = resolved.items;
+      gameItemIndex = itemIndex;
+      if (resolved.collection === 'jeopardy') {
+        source = draft.game?.instructions || draft.game?.description || '';
+      } else if (
+        Number.isInteger(itemIndex)
+        && itemIndex >= 0
+        && itemIndex < resolved.items.length
+      ) {
+        source = gameItemDisplayText(resolved.items[itemIndex]);
+      }
+      if (!source.trim()) {
+        source = draft.game?.instructions || draft.game?.description || '';
+      }
     } else {
       source = String(payload.text || '');
     }
@@ -1129,6 +1270,29 @@ const AiReviewService = {
         next[index] = { ...next[index], questionText: text.split('\n')[0], explanation: text };
       }
       updates.quiz = { ...draft.quiz, questions: next };
+    } else if (section === 'selected_game_item' && draft.game) {
+      if (
+        gameCollection
+        && gameCollection !== 'jeopardy'
+        && Array.isArray(gameItems)
+        && Number.isInteger(gameItemIndex)
+        && gameItemIndex >= 0
+        && gameItemIndex < gameItems.length
+        && gameItemDisplayText(gameItems[gameItemIndex])
+      ) {
+        const nextItems = [...gameItems];
+        nextItems[gameItemIndex] = applyRewrittenGameItemText(
+          gameItems[gameItemIndex],
+          text,
+        );
+        updates.game = withGameItems(draft.game, nextItems, gameCollection);
+      } else {
+        updates.game = {
+          ...draft.game,
+          instructions: text,
+          description: text,
+        };
+      }
     }
 
     updates.generationMeta = {

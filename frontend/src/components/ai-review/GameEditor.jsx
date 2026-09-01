@@ -161,6 +161,14 @@ export default function GameEditor({
     });
   }
 
+  function itemCardSx(index) {
+    return {
+      borderColor: selectedIndex === index ? 'secondary.main' : 'divider',
+      borderWidth: selectedIndex === index ? 2 : 1,
+      cursor: 'pointer',
+    };
+  }
+
   function renderPairEditor(listKey = 'items') {
     const list = Array.isArray(gameData[listKey]) ? gameData[listKey] : [];
     return (
@@ -180,7 +188,12 @@ export default function GameEditor({
           </Button>
         </Stack>
         {list.map((item, index) => (
-          <Card key={item.id || index} variant="outlined" sx={{ borderColor: selectedIndex === index ? 'secondary.main' : 'divider' }}>
+          <Card
+            key={item.id || index}
+            variant="outlined"
+            onClick={() => onSelectIndex?.(index)}
+            sx={itemCardSx(index)}
+          >
             <CardContent>
               <Stack spacing={1.5}>
                 <ItemToolbar
@@ -248,14 +261,25 @@ export default function GameEditor({
           </Button>
         </Stack>
         {list.map((item, index) => (
-          <Card key={item.id || index} variant="outlined">
+          <Card
+            key={item.id || index}
+            variant="outlined"
+            onClick={() => onSelectIndex?.(index)}
+            sx={itemCardSx(index)}
+          >
             <CardContent>
               <Stack spacing={1.5}>
                 <ItemToolbar
                   label={`${labels.item || 'Item'} ${index + 1}`}
                   index={index}
-                  onMove={(dir) => updateGameData({ [listKey]: moveInArray(list, index, dir) })}
-                  onDelete={() => updateGameData({ [listKey]: list.filter((_, i) => i !== index) })}
+                  onMove={(dir) => {
+                    updateGameData({ [listKey]: moveInArray(list, index, dir) });
+                    onSelectIndex?.(index + dir);
+                  }}
+                  onDelete={() => {
+                    updateGameData({ [listKey]: list.filter((_, i) => i !== index) });
+                    onSelectIndex?.(Math.max(0, index - 1));
+                  }}
                 />
                 {gameType === 'spin_wheel' ? (
                   <TextField
@@ -345,14 +369,25 @@ export default function GameEditor({
               </Button>
             </Stack>
             {stages.map((stage, index) => (
-              <Card key={stage.id || index} variant="outlined">
+              <Card
+                key={stage.id || index}
+                variant="outlined"
+                onClick={() => onSelectIndex?.(index)}
+                sx={itemCardSx(index)}
+              >
                 <CardContent>
                   <Stack spacing={1.5}>
                     <ItemToolbar
                       label={`Stage ${index + 1}`}
                       index={index}
-                      onMove={(dir) => updateGameData({ stages: moveInArray(stages, index, dir) })}
-                      onDelete={() => updateGameData({ stages: stages.filter((_, i) => i !== index) })}
+                      onMove={(dir) => {
+                        updateGameData({ stages: moveInArray(stages, index, dir) });
+                        onSelectIndex?.(index + dir);
+                      }}
+                      onDelete={() => {
+                        updateGameData({ stages: stages.filter((_, i) => i !== index) });
+                        onSelectIndex?.(Math.max(0, index - 1));
+                      }}
                     />
                     <TextField label="Name" fullWidth value={stage.name || ''} onChange={(e) => {
                       const next = [...stages];
@@ -563,14 +598,25 @@ export default function GameEditor({
             {items.map((item, index) => {
               const playAnswer = normalizeAnswer(item.answer || item.word);
               return (
-              <Card key={item.id || index} variant="outlined">
+              <Card
+                key={item.id || index}
+                variant="outlined"
+                onClick={() => onSelectIndex?.(index)}
+                sx={itemCardSx(index)}
+              >
                 <CardContent>
                   <Stack spacing={1.5}>
                     <ItemToolbar
                       label={`${gameType === 'crossword' ? 'Clue' : 'Puzzle'} ${index + 1}`}
                       index={index}
-                      onMove={(dir) => commitClueItems(moveInArray(items, index, dir))}
-                      onDelete={() => commitClueItems(items.filter((_, i) => i !== index))}
+                      onMove={(dir) => {
+                        commitClueItems(moveInArray(items, index, dir));
+                        onSelectIndex?.(index + dir);
+                      }}
+                      onDelete={() => {
+                        commitClueItems(items.filter((_, i) => i !== index));
+                        onSelectIndex?.(Math.max(0, index - 1));
+                      }}
                     />
                     <TextField
                       label={gameType === 'crossword' ? 'Clue' : 'Prompt'}

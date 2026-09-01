@@ -636,11 +636,6 @@ export default function StudentProgressPage() {
                 <Typography fontWeight={700}>Badges</Typography>
                 <Chip label={badgeCount} size="small" sx={{ fontWeight: 800 }} />
               </Stack>
-              <LinearProgress
-                variant="determinate"
-                value={badgeCount ? Math.min(100, badgeCount * 10) : 0}
-                sx={{ height: 8, borderRadius: 999 }}
-              />
               <Stack
                 direction="row"
                 justifyContent="space-between"
@@ -649,12 +644,6 @@ export default function StudentProgressPage() {
                 <Typography fontWeight={700}>Medals</Typography>
                 <Chip label={medalCount} size="small" sx={{ fontWeight: 800 }} />
               </Stack>
-              <LinearProgress
-                variant="determinate"
-                value={medalCount ? Math.min(100, medalCount * 20) : 0}
-                color="secondary"
-                sx={{ height: 8, borderRadius: 999 }}
-              />
               <Typography variant="body2" color="text.secondary">
                 Keep finishing lessons and scoring 70%+ on quizzes and games to
                 unlock more.
