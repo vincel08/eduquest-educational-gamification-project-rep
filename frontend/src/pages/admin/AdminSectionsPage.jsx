@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
@@ -11,7 +12,10 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
 } from "@mui/material";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
@@ -20,27 +24,39 @@ import classSectionService from "../../services/classSectionService";
 import userService from "../../services/userService";
 import { getErrorMessage } from "../../services/api";
 import { GRADE_LEVELS } from "../../utils/gradeLevels";
-import {
-  defaultSchoolYearValue,
-  listSchoolYearOptions,
-} from "../../utils/schoolYears";
+import { listSchoolYearOptions } from "../../utils/schoolYears";
 import { notifyClassSectionsChanged } from "../../utils/classSectionsEvents";
-
-const emptyForm = {
-  schoolYear: defaultSchoolYearValue(),
-  gradeLevel: "Grade 7",
-  name: "",
-  adviserId: "",
-};
+import { useAdminFilters } from "../../contexts/AdminFiltersContext";
 
 export default function AdminSectionsPage() {
+  const {
+    toQueryParams,
+    schoolYear,
+    gradeLevel,
+    section: sectionFilter,
+  } = useAdminFilters();
+
   const schoolYearOptions = useMemo(
     () => listSchoolYearOptions({ includeAll: false }),
     [],
   );
+
+  const defaultForm = useCallback(
+    () => ({
+      schoolYear:
+        schoolYear && schoolYear !== "all"
+          ? schoolYear
+          : schoolYearOptions[0]?.value || "",
+      gradeLevel: gradeLevel && gradeLevel !== "all" ? gradeLevel : "Grade 7",
+      name: "",
+      adviserId: "",
+    }),
+    [schoolYear, gradeLevel, schoolYearOptions],
+  );
+
   const [sections, setSections] = useState([]);
   const [teachers, setTeachers] = useState([]);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() => defaultForm());
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -49,24 +65,46 @@ export default function AdminSectionsPage() {
   const [sectionToDelete, setSectionToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
+    const filterParams = toQueryParams();
+    const listParams = { limit: 200 };
+    if (filterParams.schoolYear) {
+      listParams.schoolYear = filterParams.schoolYear;
+    }
+    if (filterParams.gradeLevel) {
+      listParams.gradeLevel = filterParams.gradeLevel;
+    }
+
     const [sectionsRes, teachersRes] = await Promise.all([
-      classSectionService.list({ limit: 200 }),
+      classSectionService.list(listParams),
       userService.list({ role: "teacher", limit: 100 }),
     ]);
-    setSections(sectionsRes.data.data.sections || []);
+
+    let nextSections = sectionsRes.data.data.sections || [];
+    if (filterParams.section) {
+      const wanted = String(filterParams.section).trim().toLowerCase();
+      nextSections = nextSections.filter(
+        (item) =>
+          String(item.name || "")
+            .trim()
+            .toLowerCase() === wanted,
+      );
+    }
+
+    setSections(nextSections);
     setTeachers(teachersRes.data.data.users || []);
-  }
+  }, [toQueryParams]);
 
   useEffect(() => {
+    setLoading(true);
     load()
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [load, schoolYear, gradeLevel, sectionFilter]);
 
   function resetForm() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm(defaultForm());
   }
 
   function startEdit(section) {
@@ -151,46 +189,6 @@ export default function AdminSectionsPage() {
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
             <TextField
               select
-              label="School Year"
-              required
-              value={form.schoolYear}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, schoolYear: e.target.value }))
-              }
-              fullWidth
-            >
-              {schoolYearOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Grade Level"
-              required
-              value={form.gradeLevel}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, gradeLevel: e.target.value }))
-              }
-              fullWidth
-            >
-              {GRADE_LEVELS.map((grade) => (
-                <MenuItem key={grade} value={grade}>
-                  {grade}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Section name"
-              required
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              placeholder="e.g. A, Newton"
-              fullWidth
-            />
-            <TextField
-              select
               label="Adviser"
               value={form.adviserId}
               onChange={(e) =>
@@ -228,7 +226,7 @@ export default function AdminSectionsPage() {
                 <TableCell>Grade</TableCell>
                 <TableCell>Section</TableCell>
                 <TableCell>Adviser</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -239,23 +237,38 @@ export default function AdminSectionsPage() {
                   <TableCell>{section.name}</TableCell>
                   <TableCell>{section.adviserName || "—"}</TableCell>
                   <TableCell align="right">
-                    <Button size="small" onClick={() => startEdit(section)}>
-                      Edit
-                    </Button>
-                    <Button
-                      size="small"
-                      color="error"
-                      onClick={() => setSectionToDelete(section)}
+                    <Stack
+                      direction="row"
+                      spacing={0.25}
+                      justifyContent="flex-end"
                     >
-                      Delete
-                    </Button>
+                      <Tooltip title="Edit">
+                        <IconButton
+                          size="small"
+                          aria-label={`Edit section ${section.name}`}
+                          onClick={() => startEdit(section)}
+                        >
+                          <EditOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          aria-label={`Delete section ${section.name}`}
+                          onClick={() => setSectionToDelete(section)}
+                        >
+                          <DeleteOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}
               {!sections.length ? (
                 <TableRow>
                   <TableCell colSpan={5}>
-                    No class sections yet. Add one above.
+                    No class sections match the current sidebar filters.
                   </TableCell>
                 </TableRow>
               ) : null}

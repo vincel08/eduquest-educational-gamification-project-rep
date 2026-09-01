@@ -16,6 +16,9 @@ const gamificationService = {
   updateBadge(id, payload) {
     return api.put(`/gamification/badges/${id}`, payload);
   },
+  deleteBadge(id) {
+    return api.delete(`/gamification/badges/${id}`);
+  },
   awardBadge(payload) {
     return api.post("/gamification/badges/award", payload);
   },
@@ -24,6 +27,12 @@ const gamificationService = {
   },
   createMedal(payload) {
     return api.post("/gamification/medals", payload);
+  },
+  updateMedal(id, payload) {
+    return api.put(`/gamification/medals/${id}`, payload);
+  },
+  deleteMedal(id) {
+    return api.delete(`/gamification/medals/${id}`);
   },
   awardMedal(payload) {
     return api.post("/gamification/medals/award", payload);

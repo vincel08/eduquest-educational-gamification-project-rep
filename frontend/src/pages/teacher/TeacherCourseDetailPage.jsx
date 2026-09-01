@@ -8,16 +8,21 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   List,
   ListItem,
   ListItemText,
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import DownloadIcon from "@mui/icons-material/Download";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import PersonRemoveOutlinedIcon from "@mui/icons-material/PersonRemoveOutlined";
+import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
@@ -295,36 +300,43 @@ export default function TeacherCourseDetailPage() {
                   />
                   <Stack
                     direction="row"
-                    spacing={1}
+                    spacing={0.25}
                     alignItems="center"
                     flexWrap="wrap"
                     useFlexGap
                     sx={{
                       flexShrink: 0,
                       alignSelf: { xs: "stretch", sm: "flex-start" },
-                      "& .MuiButton-root": {
-                        flex: { xs: "1 1 auto", sm: "0 0 auto" },
-                      },
                     }}
                   >
-                    <Button component="label" size="small" variant="outlined">
-                      Upload Material
-                      <input
-                        hidden
-                        type="file"
-                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.rtf,.md,.png,.jpg,.jpeg,.webp,.gif,.zip,application/pdf,image/*"
-                        onChange={(event) => handleUpload(lesson.id, event)}
-                      />
-                    </Button>
-                    <Button
-                      size="small"
-                      color="error"
-                      variant="outlined"
-                      disabled={deletingLessonId === lesson.id}
-                      onClick={() => setLessonToDelete(lesson)}
-                    >
-                      {deletingLessonId === lesson.id ? "…" : "Delete"}
-                    </Button>
+                    <Tooltip title="Upload material">
+                      <IconButton
+                        component="label"
+                        size="small"
+                        aria-label="Upload material"
+                      >
+                        <UploadFileOutlinedIcon fontSize="small" />
+                        <input
+                          hidden
+                          type="file"
+                          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.rtf,.md,.png,.jpg,.jpeg,.webp,.gif,.zip,application/pdf,image/*"
+                          onChange={(event) => handleUpload(lesson.id, event)}
+                        />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete lesson">
+                      <span>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          aria-label={`Delete lesson ${lesson.title}`}
+                          disabled={deletingLessonId === lesson.id}
+                          onClick={() => setLessonToDelete(lesson)}
+                        >
+                          <DeleteOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                   </Stack>
                 </ListItem>
 
@@ -380,35 +392,39 @@ export default function TeacherCourseDetailPage() {
                               </Box>
                               <Stack
                                 direction="row"
-                                spacing={1}
+                                spacing={0.25}
                                 flexWrap="wrap"
                                 useFlexGap
                               >
                                 {viewable && href ? (
-                                  <Button
-                                    component="a"
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    size="small"
-                                    variant="outlined"
-                                    startIcon={<VisibilityIcon />}
-                                  >
-                                    View
-                                  </Button>
+                                  <Tooltip title="View">
+                                    <IconButton
+                                      component="a"
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      size="small"
+                                      aria-label={`View ${material.original_name}`}
+                                    >
+                                      <VisibilityOutlinedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
                                 ) : null}
                                 {material.download_url ? (
-                                  <Button
-                                    size="small"
-                                    variant="contained"
-                                    startIcon={<DownloadIcon />}
-                                    disabled={busy}
-                                    onClick={() =>
-                                      handleDownloadMaterial(material)
-                                    }
-                                  >
-                                    {busy ? "…" : "Download"}
-                                  </Button>
+                                  <Tooltip title="Download">
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        aria-label={`Download ${material.original_name}`}
+                                        disabled={busy}
+                                        onClick={() =>
+                                          handleDownloadMaterial(material)
+                                        }
+                                      >
+                                        <DownloadOutlinedIcon fontSize="small" />
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
                                 ) : null}
                               </Stack>
                             </Stack>
@@ -601,13 +617,17 @@ export default function TeacherCourseDetailPage() {
                 <ListItem
                   key={student.student_id || student.id}
                   secondaryAction={
-                    <Button
-                      size="small"
-                      color="error"
-                      onClick={() => setStudentToRemove(student)}
-                    >
-                      Remove
-                    </Button>
+                    <Tooltip title="Remove student">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        edge="end"
+                        aria-label={`Remove ${student.first_name} ${student.last_name}`}
+                        onClick={() => setStudentToRemove(student)}
+                      >
+                        <PersonRemoveOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   }
                 >
                   <ListItemText

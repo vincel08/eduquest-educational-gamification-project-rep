@@ -11,16 +11,16 @@ import AdminSidebarFilters from "../components/admin/AdminSidebarFilters";
 
 const navItems = [
   { label: "Dashboard", path: "/admin/dashboard", icon: <DashboardIcon /> },
-  { label: "Users", path: "/admin/users", icon: <PeopleIcon /> },
   { label: "Sections", path: "/admin/sections", icon: <GroupsIcon /> },
   { label: "Subjects", path: "/admin/courses", icon: <MenuBookIcon /> },
-  { label: "Badges", path: "/admin/badges", icon: <EmojiEventsIcon /> },
+  { label: "Badges & Medals", path: "/admin/badges", icon: <EmojiEventsIcon /> },
   {
     label: "Leaderboard",
     path: "/admin/leaderboard",
     icon: <LeaderboardIcon />,
   },
   { label: "Activity", path: "/admin/activity", icon: <HistoryIcon /> },
+  { label: "Users", path: "/admin/users", icon: <PeopleIcon /> },
 ];
 
 export default function AdminLayout() {

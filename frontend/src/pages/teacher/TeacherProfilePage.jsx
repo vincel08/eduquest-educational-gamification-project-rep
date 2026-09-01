@@ -4,13 +4,15 @@ import {
   Avatar,
   Button,
   Grid,
+  IconButton,
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
-import CancelRoundedIcon from "@mui/icons-material/CancelRounded";
+import NoPhotographyOutlinedIcon from "@mui/icons-material/NoPhotographyOutlined";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import authService from "../../services/authService";
@@ -166,25 +168,32 @@ export default function TeacherProfilePage() {
             >
               {(form.firstName || "T")[0]}
             </Avatar>
-            <Stack spacing={1} sx={{ mb: 2 }}>
-              <Button
-                variant="contained"
-                startIcon={<PhotoCameraIcon />}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingAvatar}
-              >
-                {uploadingAvatar ? "Uploading..." : "Upload photo"}
-              </Button>
+            <Stack direction="row" spacing={1} justifyContent="center" sx={{ mb: 2 }}>
+              <Tooltip title={uploadingAvatar ? "Uploading…" : "Upload photo"}>
+                <span>
+                  <IconButton
+                    color="primary"
+                    aria-label="Upload photo"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                  >
+                    <PhotoCameraIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
               {avatarUrl ? (
-                <Button
-                  variant="outlined"
-                  color="inherit"
-                  startIcon={<CancelRoundedIcon />}
-                  onClick={handleRemoveAvatar}
-                  disabled={uploadingAvatar}
-                >
-                  Remove photo
-                </Button>
+                <Tooltip title="Remove photo">
+                  <span>
+                    <IconButton
+                      color="error"
+                      aria-label="Remove photo"
+                      onClick={handleRemoveAvatar}
+                      disabled={uploadingAvatar}
+                    >
+                      <NoPhotographyOutlinedIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               ) : null}
               <input
                 ref={fileInputRef}
@@ -193,10 +202,10 @@ export default function TeacherProfilePage() {
                 hidden
                 onChange={handleAvatarChange}
               />
-              <Typography variant="caption" color="text.secondary">
-                PNG, JPG, or WEBP up to 5MB
-              </Typography>
             </Stack>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+              PNG, JPG, or WEBP up to 5MB
+            </Typography>
             <Typography variant="h5">
               {form.firstName} {form.lastName}
             </Typography>

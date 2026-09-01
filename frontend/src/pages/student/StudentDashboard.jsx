@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Avatar,
@@ -35,12 +35,17 @@ import gamificationService from "../../services/gamificationService";
 import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
+import { useRewards } from "../../contexts/RewardsContext";
 import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
-
-const DAILY_XP_GOAL = 50;
+import {
+  DEFAULT_DAILY_XP_GOAL,
+  getDailyXpGoalDisplay,
+  sumTodayXpFromTrend,
+} from "../../utils/dailyXpGoal";
 
 export default function StudentDashboard() {
   const { user, profile: authProfile, updateProfile } = useAuth();
+  const { todayXp, setTodayXpBaseline } = useRewards();
   const [data, setData] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -48,6 +53,8 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+
     async function load() {
       try {
         const [analyticsRes, gamificationRes, leaderboardRes, coursesRes] =
@@ -57,34 +64,46 @@ export default function StudentDashboard() {
             gamificationService.leaderboard({ limit: 3 }),
             courseService.myCourses(),
           ]);
+        if (!active) return;
+        const analytics = analyticsRes.data.data;
         setData({
-          analytics: analyticsRes.data.data,
+          analytics,
           gamification: gamificationRes.data.data,
         });
         updateProfile(gamificationRes.data.data.profile);
         setLeaderboard(leaderboardRes.data.data);
         setCourses(coursesRes.data.data?.courses || coursesRes.data.data || []);
+        setTodayXpBaseline(sumTodayXpFromTrend(analytics?.xpTrend));
       } catch (err) {
+        if (!active) return;
         setError(getErrorMessage(err));
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
-    load();
-  }, [updateProfile]);
 
-  const todayXp = useMemo(() => {
-    if (!data?.analytics?.xpTrend?.length) return 0;
-    const today = new Date().toISOString().slice(0, 10);
-    const match = data.analytics.xpTrend.find(
-      (item) =>
-        String(item.day).startsWith(today) ||
-        String(item.day).slice(0, 10) === today,
-    );
-    if (match) return Number(match.xp) || 0;
-    const last = data.analytics.xpTrend[data.analytics.xpTrend.length - 1];
-    return Number(last?.xp) || 0;
-  }, [data]);
+    load();
+
+    function onFocus() {
+      analyticsService
+        .student()
+        .then((response) => {
+          if (!active) return;
+          const analytics = response.data.data;
+          setData((prev) =>
+            prev ? { ...prev, analytics } : { analytics, gamification: null },
+          );
+          setTodayXpBaseline(sumTodayXpFromTrend(analytics?.xpTrend));
+        })
+        .catch(() => {});
+    }
+
+    window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [updateProfile, setTodayXpBaseline]);
 
   if (loading) return <LoadingScreen label="Loading your quest..." showCards />;
   if (error) return <Alert severity="error">{error}</Alert>;
@@ -100,10 +119,7 @@ export default function StudentDashboard() {
   const quickStart = analytics.quickStart || null;
   const quickStartTo = quickStart?.path || "/student/courses";
   const quickStartLabel = quickStart?.label || "Quick Start";
-  const dailyProgress = Math.min(
-    100,
-    Math.round((todayXp / DAILY_XP_GOAL) * 100),
-  );
+  const dailyGoal = getDailyXpGoalDisplay(todayXp, DEFAULT_DAILY_XP_GOAL);
   const overallPercent = analytics.learningProgress?.overallPercent ?? null;
   const avatarSrc = buildAuthenticatedFileUrl(
     authProfile?.avatar_url || profile.avatar_url,
@@ -252,13 +268,9 @@ export default function StudentDashboard() {
           <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
             <FlagIcon sx={{ color: "#F59E0B" }} />
             <Box sx={{ minWidth: 0 }}>
-              <Typography fontWeight={800}>
-                Daily goal · {todayXp} / {DAILY_XP_GOAL} XP
-              </Typography>
+              <Typography fontWeight={800}>{dailyGoal.title}</Typography>
               <Typography variant="body2" color="text.secondary">
-                {dailyProgress >= 100
-                  ? "Daily challenge complete!"
-                  : `${dailyProgress}% toward today's XP goal`}
+                {dailyGoal.subtitle}
               </Typography>
             </Box>
           </Stack>
@@ -273,7 +285,7 @@ export default function StudentDashboard() {
             <Box sx={{ flex: 1, minWidth: 140 }}>
               <LinearProgress
                 variant="determinate"
-                value={dailyProgress}
+                value={dailyGoal.progress}
                 sx={{ height: 8, borderRadius: 999 }}
               />
             </Box>

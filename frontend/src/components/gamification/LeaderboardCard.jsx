@@ -53,15 +53,14 @@ export default function LeaderboardCard({ entries = [], title = 'Leaderboard' })
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
-              whileHover={{ scale: 1.03, x: 4 }}
               sx={{
                 mb: 1,
                 borderRadius: 3,
                 border: style?.border || '1px solid rgba(59,130,246,0.12)',
                 bgcolor: style?.bgcolor || 'rgba(255,255,255,0.55)',
-                cursor: 'pointer',
+                cursor: 'default',
+                pointerEvents: 'none',
                 boxShadow: index < 3 ? '0 10px 24px rgba(15,23,42,0.08)' : 'none',
-                transition: 'box-shadow 0.2s ease, transform 0.2s ease',
               }}
             >
               <ListItemAvatar>

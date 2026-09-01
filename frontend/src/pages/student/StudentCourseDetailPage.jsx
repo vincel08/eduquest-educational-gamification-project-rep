@@ -23,6 +23,8 @@ import PageContainer from "../../components/common/PageContainer";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ContentTimestamp from "../../components/common/ContentTimestamp";
 import courseService from "../../services/courseService";
+import gameService from "../../services/gameService";
+import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
 import {
   computeLearningProgressPercent,
@@ -42,6 +44,8 @@ export default function StudentCourseDetailPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
+  const [submittingQuizId, setSubmittingQuizId] = useState(null);
+  const [submittingGameId, setSubmittingGameId] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -105,6 +109,46 @@ export default function StudentCourseDetailPage() {
       setError(getErrorMessage(err));
     } finally {
       setEnrolling(false);
+    }
+  }
+
+  async function handleSubmitQuizGrade(quizId) {
+    setSubmittingQuizId(quizId);
+    setError("");
+    try {
+      await quizService.releaseGrade(quizId);
+      setQuizzes((prev) =>
+        prev.map((quiz) =>
+          Number(quiz.id) === Number(quizId)
+            ? { ...quiz, gradeReleased: true, unavailable: true }
+            : quiz,
+        ),
+      );
+      setMessage("Quiz result submitted to your teacher.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSubmittingQuizId(null);
+    }
+  }
+
+  async function handleSubmitGameGrade(gameId) {
+    setSubmittingGameId(gameId);
+    setError("");
+    try {
+      await gameService.releaseGrade(gameId);
+      setGames((prev) =>
+        prev.map((game) =>
+          Number(game.id) === Number(gameId)
+            ? { ...game, gradeReleased: true, unavailable: true }
+            : game,
+        ),
+      );
+      setMessage("Game result submitted to your teacher.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSubmittingGameId(null);
     }
   }
 
@@ -439,18 +483,38 @@ export default function StudentCourseDetailPage() {
                     }}
                   >
                     {actionChip || (
-                      <Button
-                        component={RouterLink}
-                        to={`/student/quizzes/${quiz.id}`}
-                        size="small"
-                        variant="contained"
-                      >
-                        {quiz.hasAttempted
-                          ? quiz.attemptsRemaining > 0
-                            ? "Retake"
-                            : "View"
-                          : "Take Quiz"}
-                      </Button>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Button
+                          component={RouterLink}
+                          to={`/student/quizzes/${quiz.id}`}
+                          size="small"
+                          variant="contained"
+                          disabled={Number(submittingQuizId) === Number(quiz.id)}
+                        >
+                          {quiz.hasAttempted
+                            ? quiz.attemptsRemaining > 0
+                              ? "Retake"
+                              : "View"
+                            : "Take Quiz"}
+                        </Button>
+                        {quiz.hasAttempted &&
+                        Number(quiz.attemptsRemaining) > 0 &&
+                        !quiz.gradeReleased ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
+                            disabled={
+                              Number(submittingQuizId) === Number(quiz.id)
+                            }
+                            onClick={() => handleSubmitQuizGrade(quiz.id)}
+                          >
+                            {Number(submittingQuizId) === Number(quiz.id)
+                              ? "Submitting…"
+                              : "Submit result"}
+                          </Button>
+                        ) : null}
+                      </Stack>
                     )}
                   </Box>
                 </ListItem>
@@ -558,18 +622,38 @@ export default function StudentCourseDetailPage() {
                     }}
                   >
                     {actionChip || (
-                      <Button
-                        component={RouterLink}
-                        to={`/student/games/${game.id}`}
-                        size="small"
-                        variant="contained"
-                      >
-                        {game.hasAttempted
-                          ? game.attemptsRemaining > 0
-                            ? "Play again"
-                            : "View"
-                          : "Play"}
-                      </Button>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Button
+                          component={RouterLink}
+                          to={`/student/games/${game.id}`}
+                          size="small"
+                          variant="contained"
+                          disabled={Number(submittingGameId) === Number(game.id)}
+                        >
+                          {game.hasAttempted
+                            ? game.attemptsRemaining > 0
+                              ? "Play again"
+                              : "View"
+                            : "Play"}
+                        </Button>
+                        {game.hasAttempted &&
+                        Number(game.attemptsRemaining) > 0 &&
+                        !game.gradeReleased ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
+                            disabled={
+                              Number(submittingGameId) === Number(game.id)
+                            }
+                            onClick={() => handleSubmitGameGrade(game.id)}
+                          >
+                            {Number(submittingGameId) === Number(game.id)
+                              ? "Submitting…"
+                              : "Submit result"}
+                          </Button>
+                        ) : null}
+                      </Stack>
                     )}
                   </Box>
                 </ListItem>

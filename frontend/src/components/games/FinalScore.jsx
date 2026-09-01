@@ -54,9 +54,7 @@ export default function FinalScore({
     ? 'Submitting…'
     : releasedToGradebook
       ? 'Back to games'
-      : didPass
-        ? 'Submit grade to teacher'
-        : 'Submit this score to teacher';
+      : 'Submit result';
   const retryLabel = didPass
     ? `Try for a higher score (${Math.max(0, Number(attemptsRemaining) || 0)} left)`
     : `Play again (${Math.max(0, Number(attemptsRemaining) || 0)} left)`;
@@ -193,7 +191,7 @@ export default function FinalScore({
       >
         {canRetry ? (
           <Button
-            variant="contained"
+            variant="outlined"
             color={didPass ? 'secondary' : 'primary'}
             onClick={onPlayAgain}
             disabled={releasingGrade}
@@ -203,7 +201,7 @@ export default function FinalScore({
         ) : null}
         {onContinue ? (
           <Button
-            variant={canRetry ? 'outlined' : 'contained'}
+            variant="contained"
             color="secondary"
             onClick={onContinue}
             disabled={releasingGrade}

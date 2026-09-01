@@ -39,6 +39,11 @@ const MIGRATION_FILES = [
   "024_game_overrides_and_answers.sql",
   "025_release_results_to_gradebook.sql",
   "026_activity_logs.sql",
+  "027_teacher_owned_badges.sql",
+  "028_badge_difficulty.sql",
+  "029_badge_difficulty_quiz_only.sql",
+  "030_medal_major_criteria.sql",
+  "031_badge_more_criteria.sql",
 ];
 
 async function main() {

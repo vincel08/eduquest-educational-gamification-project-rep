@@ -29,7 +29,12 @@ import { buildAuthenticatedFileUrl } from "../utils/fileUrls";
 
 const drawerWidth = 260;
 
-export default function DashboardLayout({ title, navItems, sidebarFilters = null }) {
+export default function DashboardLayout({
+  title,
+  navItems,
+  sidebarFilters = null,
+  profilePath = null,
+}) {
   const theme = useTheme();
   const { user, logout, profile } = useAuth();
   const { mode, toggleMode } = useThemeMode();
@@ -206,6 +211,36 @@ export default function DashboardLayout({ title, navItems, sidebarFilters = null
             {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
           </IconButton>
           <NotificationBell />
+          {profilePath ? (
+            <IconButton
+              onClick={() => navigate(profilePath)}
+              aria-label="Open profile"
+              size="small"
+              sx={{
+                p: 0.35,
+                border: location.pathname.startsWith(profilePath)
+                  ? "2px solid"
+                  : "2px solid transparent",
+                borderColor: location.pathname.startsWith(profilePath)
+                  ? "primary.main"
+                  : "transparent",
+              }}
+            >
+              <Avatar
+                src={avatarSrc || undefined}
+                alt={user?.firstName || "Profile"}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  bgcolor: "secondary.main",
+                  fontWeight: 800,
+                  fontSize: "0.85rem",
+                }}
+              >
+                {(user?.firstName || "U").charAt(0)}
+              </Avatar>
+            </IconButton>
+          ) : null}
         </Toolbar>
       </AppBar>
 

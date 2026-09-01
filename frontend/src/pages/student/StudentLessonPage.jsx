@@ -5,15 +5,18 @@ import {
   Button,
   Chip,
   Grid,
+  IconButton,
   List,
   ListItem,
   ListItemText,
   Paper,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import DownloadIcon from "@mui/icons-material/Download";
+import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import QuizIcon from "@mui/icons-material/Quiz";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
@@ -255,31 +258,38 @@ export default function StudentLessonPage() {
                       {material.download_url ? (
                         <Stack
                           direction="row"
-                          spacing={0.5}
+                          spacing={0.25}
                           sx={{
                             flexShrink: 0,
                             alignSelf: { xs: "flex-end", sm: "center" },
                           }}
                         >
                           {isViewableMaterial(material.file_type) && href ? (
-                            <Button
-                              component="a"
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              size="small"
-                            >
-                              View
-                            </Button>
+                            <Tooltip title="View">
+                              <IconButton
+                                component="a"
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                size="small"
+                                aria-label={`View ${material.original_name}`}
+                              >
+                                <VisibilityOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                           ) : null}
-                          <Button
-                            size="small"
-                            startIcon={<DownloadIcon />}
-                            disabled={busy}
-                            onClick={() => handleDownloadMaterial(material)}
-                          >
-                            {busy ? "…" : "Download"}
-                          </Button>
+                          <Tooltip title="Download">
+                            <span>
+                              <IconButton
+                                size="small"
+                                aria-label={`Download ${material.original_name}`}
+                                disabled={busy}
+                                onClick={() => handleDownloadMaterial(material)}
+                              >
+                                <DownloadOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
                         </Stack>
                       ) : null}
                     </ListItem>

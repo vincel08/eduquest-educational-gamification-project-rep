@@ -18,10 +18,15 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import LockResetIcon from '@mui/icons-material/LockReset';
+import PersonOffOutlinedIcon from '@mui/icons-material/PersonOffOutlined';
+import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -366,35 +371,49 @@ export default function AdminUsersPage() {
                       </TableCell>
                       <TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
                       <TableCell>
-                        <Stack alignItems="flex-start" spacing={0}>
-                          <Button
-                            size="small"
-                            onClick={() => toggleActive(user)}
-                            sx={{ px: 0.5, justifyContent: 'flex-start' }}
-                          >
-                            {user.isActive ? 'Deactivate' : 'Activate'}
-                          </Button>
-                          {user.role === 'student' ? (
-                            <Button
+                        <Stack direction="row" spacing={0.25} justifyContent="flex-end">
+                          <Tooltip title={user.isActive ? 'Deactivate' : 'Activate'}>
+                            <IconButton
                               size="small"
-                              onClick={() => {
-                                setPasswordTarget(user);
-                                setNewPassword('');
-                              }}
-                              sx={{ px: 0.5, justifyContent: 'flex-start' }}
+                              aria-label={
+                                user.isActive
+                                  ? `Deactivate ${user.firstName} ${user.lastName}`
+                                  : `Activate ${user.firstName} ${user.lastName}`
+                              }
+                              onClick={() => toggleActive(user)}
                             >
-                              Set password
-                            </Button>
+                              {user.isActive ? (
+                                <PersonOffOutlinedIcon fontSize="small" />
+                              ) : (
+                                <HowToRegOutlinedIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                          {user.role === 'student' ? (
+                            <Tooltip title="Set password">
+                              <IconButton
+                                size="small"
+                                aria-label={`Set password for ${user.firstName} ${user.lastName}`}
+                                onClick={() => {
+                                  setPasswordTarget(user);
+                                  setNewPassword('');
+                                }}
+                              >
+                                <LockResetIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                           ) : null}
                           {canDeleteUser(user) ? (
-                            <Button
-                              size="small"
-                              color="error"
-                              onClick={() => setUserToDelete(user)}
-                              sx={{ px: 0.5, justifyContent: 'flex-start' }}
-                            >
-                              Delete
-                            </Button>
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                aria-label={`Delete ${user.firstName} ${user.lastName}`}
+                                onClick={() => setUserToDelete(user)}
+                              >
+                                <DeleteOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                           ) : null}
                         </Stack>
                       </TableCell>

@@ -35,7 +35,7 @@ const GamificationController = {
 
   async listBadges(req, res, next) {
     try {
-      const data = await GamificationService.listBadges();
+      const data = await GamificationService.listBadges(req.user);
       return successResponse(res, "Badges retrieved", data);
     } catch (error) {
       return next(error);
@@ -64,12 +64,31 @@ const GamificationController = {
     }
   },
 
+  async deleteBadge(req, res, next) {
+    try {
+      const data = await GamificationService.deleteBadge(
+        Number(req.params.id),
+        req.user,
+      );
+      return successResponse(
+        res,
+        data.soft
+          ? "Badge deleted. Students who already earned it keep it."
+          : "Badge deleted",
+        data,
+      );
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async awardBadge(req, res, next) {
     try {
       const data = await GamificationService.awardBadgeManually({
         studentId: Number(req.body.studentId),
         badgeId: Number(req.body.badgeId),
         awardedBy: req.user.id,
+        actorRole: req.user.role,
       });
       return successResponse(res, "Badge awarded", data);
     } catch (error) {
@@ -79,7 +98,7 @@ const GamificationController = {
 
   async listMedals(req, res, next) {
     try {
-      const data = await GamificationService.listMedals();
+      const data = await GamificationService.listMedals(req.user);
       return successResponse(res, "Medals retrieved", data);
     } catch (error) {
       return next(error);
@@ -88,8 +107,39 @@ const GamificationController = {
 
   async createMedal(req, res, next) {
     try {
-      const data = await GamificationService.createMedal(req.body);
+      const data = await GamificationService.createMedal(req.body, req.user);
       return successResponse(res, "Medal created", data, 201);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async updateMedal(req, res, next) {
+    try {
+      const data = await GamificationService.updateMedal(
+        Number(req.params.id),
+        req.body,
+        req.user,
+      );
+      return successResponse(res, "Medal updated", data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async deleteMedal(req, res, next) {
+    try {
+      const data = await GamificationService.deleteMedal(
+        Number(req.params.id),
+        req.user,
+      );
+      return successResponse(
+        res,
+        data.soft
+          ? "Medal deleted. Students who already earned it keep it."
+          : "Medal deleted",
+        data,
+      );
     } catch (error) {
       return next(error);
     }

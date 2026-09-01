@@ -7,6 +7,11 @@ import {
 } from "react";
 import { celebrate } from "../utils/confetti";
 import { playSound, SOUND_KEYS } from "../utils/soundEffects";
+import {
+  localTodayKey,
+  readStoredTodayXp,
+  writeStoredTodayXp,
+} from "../utils/dailyXpGoal";
 import XpFloatLayer from "../components/rewards/XpFloatLayer";
 import BadgeUnlockDialog from "../components/rewards/BadgeUnlockDialog";
 
@@ -16,6 +21,7 @@ export function RewardsProvider({ children }) {
   const [xpFloats, setXpFloats] = useState([]);
   const [badgeQueue, setBadgeQueue] = useState([]);
   const [activeBadge, setActiveBadge] = useState(null);
+  const [todayXpState, setTodayXpState] = useState(() => readStoredTodayXp());
 
   const showXpFloat = useCallback((amount) => {
     if (!amount) return;
@@ -41,6 +47,27 @@ export function RewardsProvider({ children }) {
     });
   }, []);
 
+  const setTodayXpBaseline = useCallback((serverAmount) => {
+    setTodayXpState((prev) => {
+      const date = localTodayKey();
+      const server = Math.max(0, Number(serverAmount) || 0);
+      const local = prev.date === date ? prev.amount : 0;
+      // Keep the higher value so live gains are not wiped by a slightly stale fetch.
+      const next = writeStoredTodayXp(Math.max(server, local));
+      return next;
+    });
+  }, []);
+
+  const addTodayXp = useCallback((amount) => {
+    const gained = Math.max(0, Number(amount) || 0);
+    if (!gained) return;
+    setTodayXpState((prev) => {
+      const date = localTodayKey();
+      const base = prev.date === date ? prev.amount : 0;
+      return writeStoredTodayXp(base + gained);
+    });
+  }, []);
+
   /**
    * Notify UI of XP / unlock rewards from an existing API response.
    * Does not call the backend.
@@ -54,7 +81,11 @@ export function RewardsProvider({ children }) {
         celebrateWin = false,
       } = payload;
 
-      if (xpEarned > 0) showXpFloat(xpEarned);
+      const gained = Math.max(0, Number(xpEarned) || 0);
+      if (gained > 0) {
+        showXpFloat(gained);
+        addTodayXp(gained);
+      }
       if (celebrateWin) celebrate();
 
       const unlocks = [
@@ -72,15 +103,21 @@ export function RewardsProvider({ children }) {
         enqueueBadges(unlocks);
       }
     },
-    [enqueueBadges, showXpFloat],
+    [addTodayXp, enqueueBadges, showXpFloat],
   );
+
+  const todayXp =
+    todayXpState.date === localTodayKey() ? todayXpState.amount : 0;
 
   const value = useMemo(
     () => ({
       notifyReward,
       showXpFloat,
+      todayXp,
+      setTodayXpBaseline,
+      addTodayXp,
     }),
-    [notifyReward, showXpFloat],
+    [notifyReward, showXpFloat, todayXp, setTodayXpBaseline, addTodayXp],
   );
 
   return (

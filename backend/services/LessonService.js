@@ -191,6 +191,14 @@ const LessonService = {
         description: `Completed lesson: ${lesson.title}`,
       });
       xpAward = xpResult.alreadyAwarded ? null : xpResult.xpAward;
+    } else {
+      // Still unlock lesson/streak achievements when the lesson grants no XP.
+      await StreakService.recordActivity(studentId);
+      const newlyUnlocked =
+        await GamificationService.evaluateAchievements(studentId);
+      if (newlyUnlocked.badges.length || newlyUnlocked.medals.length) {
+        xpAward = { newlyUnlocked };
+      }
     }
 
     const counts = await LessonModel.countCompleted(
