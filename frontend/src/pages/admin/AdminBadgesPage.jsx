@@ -97,7 +97,9 @@ const MEDAL_CRITERIA_LABELS = Object.fromEntries(
 const DIFFICULTY_LABELS = Object.fromEntries(
   DIFFICULTIES.map((item) => [item.value, item.label]),
 );
-const TIER_LABELS = Object.fromEntries(TIERS.map((item) => [item.value, item.label]));
+const TIER_LABELS = Object.fromEntries(
+  TIERS.map((item) => [item.value, item.label]),
+);
 
 const COLOR_OPTIONS = [
   "#FFB300",
@@ -110,10 +112,7 @@ const COLOR_OPTIONS = [
   "#3B82F6",
 ];
 
-const CRITERIA_WITH_DIFFICULTY = new Set([
-  "quizzes_passed",
-  "games_completed",
-]);
+const CRITERIA_WITH_DIFFICULTY = new Set(["quizzes_passed", "games_completed"]);
 
 const emptyBadgeForm = {
   name: "",
@@ -210,7 +209,8 @@ function ColorPicker({ value, onChange }) {
               height: 36,
               borderRadius: "50%",
               bgcolor: color,
-              border: value === color ? "3px solid #fff" : "2px solid transparent",
+              border:
+                value === color ? "3px solid #fff" : "2px solid transparent",
               outline: value === color ? `2px solid ${color}` : "none",
               cursor: "pointer",
               p: 0,
@@ -371,7 +371,9 @@ export default function AdminBadgesPage() {
     setError("");
     setMessage("");
     try {
-      const response = await gamificationService.deleteBadge(deleteBadgeTarget.id);
+      const response = await gamificationService.deleteBadge(
+        deleteBadgeTarget.id,
+      );
       const result = response.data.data || {};
       setMessage(
         result.soft
@@ -394,7 +396,9 @@ export default function AdminBadgesPage() {
     setError("");
     setMessage("");
     try {
-      const response = await gamificationService.deleteMedal(deleteMedalTarget.id);
+      const response = await gamificationService.deleteMedal(
+        deleteMedalTarget.id,
+      );
       const result = response.data.data || {};
       setMessage(
         result.soft
@@ -414,7 +418,9 @@ export default function AdminBadgesPage() {
   if (loading) return <LoadingScreen />;
 
   const isBadgeTab = tab === "badges";
-  const editing = isBadgeTab ? Boolean(editingBadgeId) : Boolean(editingMedalId);
+  const editing = isBadgeTab
+    ? Boolean(editingBadgeId)
+    : Boolean(editingMedalId);
 
   return (
     <>
@@ -473,7 +479,7 @@ export default function AdminBadgesPage() {
                   <TableCell>Difficulty</TableCell>
                   <TableCell>XP Bonus</TableCell>
                   <TableCell>Active</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -487,7 +493,8 @@ export default function AdminBadgesPage() {
                     <TableCell>{badge.criteria_value}</TableCell>
                     <TableCell>
                       {badge.difficulty
-                        ? DIFFICULTY_LABELS[badge.difficulty] || badge.difficulty
+                        ? DIFFICULTY_LABELS[badge.difficulty] ||
+                          badge.difficulty
                         : "—"}
                     </TableCell>
                     <TableCell>{badge.xp_bonus}</TableCell>
@@ -530,7 +537,11 @@ export default function AdminBadgesPage() {
         </Paper>
       ) : (
         <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, px: 0.5 }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 2, px: 0.5 }}
+          >
             Medals mark major milestones — harder or rarer than regular badges.
           </Typography>
           <ResponsiveTableContainer>
@@ -542,7 +553,7 @@ export default function AdminBadgesPage() {
                   <TableCell>Criteria</TableCell>
                   <TableCell>Value</TableCell>
                   <TableCell>Active</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

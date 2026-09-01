@@ -15,10 +15,12 @@ import AiGeneratedReviewPanel from '../../components/ai-review/AiGeneratedReview
 import courseService from '../../services/courseService';
 import aiReviewService from '../../services/aiReviewService';
 import { getErrorMessage } from '../../services/api';
+import { useTeacherFilters } from '../../contexts/TeacherFiltersContext';
 
 const STEPS = ['Configure', 'AI Generation', 'Review & Edit', 'Save / Publish'];
 
 export default function TeacherAiQuizPage() {
+  const { schoolYear, gradeLevel } = useTeacherFilters();
   const [courses, setCourses] = useState([]);
   const [lessons, setLessons] = useState([]);
   const [form, setForm] = useState({
@@ -36,14 +38,26 @@ export default function TeacherAiQuizPage() {
   const generateInFlight = useRef(false);
 
   useEffect(() => {
-    courseService.list({ limit: 50 })
+    const params = { limit: 50 };
+    if (schoolYear && schoolYear !== 'all') params.schoolYear = schoolYear;
+    if (gradeLevel && gradeLevel !== 'all') params.gradeLevel = gradeLevel;
+
+    courseService.list(params)
       .then((response) => {
         const list = response.data.data.courses || [];
         setCourses(list);
-        if (list[0]) setForm((prev) => ({ ...prev, courseId: String(list[0].id) }));
+        setForm((prev) => {
+          const stillValid = list.some((course) => String(course.id) === String(prev.courseId));
+          if (stillValid) return prev;
+          return {
+            ...prev,
+            courseId: list[0] ? String(list[0].id) : '',
+            lessonId: '',
+          };
+        });
       })
       .catch((err) => setError(getErrorMessage(err)));
-  }, []);
+  }, [schoolYear, gradeLevel]);
 
   useEffect(() => {
     if (!form.courseId) {

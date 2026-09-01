@@ -13,6 +13,7 @@ import QuizPreviewDialog from "../../components/quiz/QuizPreviewDialog";
 import courseService from "../../services/courseService";
 import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
+import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 import {
   blankQuestion,
   editorQuestionToPayload,
@@ -45,6 +46,7 @@ export default function TeacherQuizEditorPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isNew = !quizId || quizId === "new";
+  const { schoolYear, gradeLevel } = useTeacherFilters();
 
   const [form, setForm] = useState(emptyForm);
   const [questions, setQuestions] = useState([
@@ -63,21 +65,41 @@ export default function TeacherQuizEditorPage() {
   const [publishOpen, setPublishOpen] = useState(false);
 
   useEffect(() => {
+    const params = { limit: 100 };
+    if (schoolYear && schoolYear !== "all") params.schoolYear = schoolYear;
+    if (gradeLevel && gradeLevel !== "all") params.gradeLevel = gradeLevel;
+
     courseService
-      .list({ limit: 100 })
+      .list(params)
       .then((response) => {
         const list = response.data.data.courses || [];
         setCourses(list);
-        const presetCourseId = searchParams.get("courseId");
-        if (isNew && (presetCourseId || list[0])) {
-          setForm((prev) => ({
+        setForm((prev) => {
+          const stillValid = list.some(
+            (course) => String(course.id) === String(prev.courseId),
+          );
+          if (stillValid) return prev;
+          // Editing an existing quiz: keep its course even if outside current filters.
+          if (!isNew && prev.courseId) return prev;
+
+          const presetCourseId = searchParams.get("courseId");
+          if (
+            isNew
+            && presetCourseId
+            && list.some((course) => String(course.id) === String(presetCourseId))
+          ) {
+            return { ...prev, courseId: String(presetCourseId), lessonId: "" };
+          }
+
+          return {
             ...prev,
-            courseId: String(presetCourseId || list[0].id),
-          }));
-        }
+            courseId: list[0] ? String(list[0].id) : "",
+            lessonId: "",
+          };
+        });
       })
       .catch((err) => setError(getErrorMessage(err)));
-  }, [isNew, searchParams]);
+  }, [isNew, searchParams, schoolYear, gradeLevel]);
 
   useEffect(() => {
     if (!form.courseId) {
@@ -89,6 +111,34 @@ export default function TeacherQuizEditorPage() {
       .then((response) => setLessons(response.data.data || []))
       .catch((err) => setError(getErrorMessage(err)));
   }, [form.courseId]);
+
+  // Keep the quiz's subject selectable when editing outside current sidebar filters.
+  useEffect(() => {
+    if (isNew || !form.courseId) return undefined;
+    const exists = courses.some(
+      (course) => String(course.id) === String(form.courseId),
+    );
+    if (exists) return undefined;
+
+    let active = true;
+    courseService
+      .getById(form.courseId)
+      .then((response) => {
+        if (!active) return;
+        const course = response.data.data;
+        if (!course) return;
+        setCourses((prev) => {
+          if (prev.some((item) => String(item.id) === String(course.id))) {
+            return prev;
+          }
+          return [course, ...prev];
+        });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [isNew, form.courseId, courses]);
 
   useEffect(() => {
     if (isNew) return undefined;

@@ -4,7 +4,6 @@ import {
   Button,
   Chip,
   IconButton,
-  MenuItem,
   Paper,
   Stack,
   Table,
@@ -12,7 +11,6 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -25,16 +23,14 @@ import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ResponsiveTableContainer from "../../components/common/ResponsiveTableContainer";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import ContentTimestamp from "../../components/common/ContentTimestamp";
 import ReuseContentDialog from "../../components/teacher/ReuseContentDialog";
 import gameService from "../../services/gameService";
 import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 import { formatGameTypeLabel } from "../../utils/gameTypes";
-import {
-  defaultSchoolYearValue,
-  listSchoolYearOptions,
-} from "../../utils/schoolYears";
+import { defaultSchoolYearValue } from "../../utils/schoolYears";
 
 function subjectKey(value) {
   return String(value || "")
@@ -57,27 +53,25 @@ function sourceSubjectLabel(item) {
 
 export default function TeacherGamesPage() {
   const navigate = useNavigate();
-  const { gradeLevel } = useTeacherFilters();
+  const { schoolYear, gradeLevel } = useTeacherFilters();
   const [games, setGames] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [bankSchoolYear, setBankSchoolYear] = useState("all");
   const [reuseItem, setReuseItem] = useState(null);
   const [reuseLoading, setReuseLoading] = useState(false);
   const [reuseError, setReuseError] = useState("");
   const [deleteItem, setDeleteItem] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const bankYearOptions = useMemo(
-    () => listSchoolYearOptions({ includeAll: true }),
-    [],
-  );
   const currentSchoolYear = useMemo(() => defaultSchoolYearValue(), []);
 
   useEffect(() => {
     setLoading(true);
-    const params = { schoolYear: bankSchoolYear };
+    const params = {};
+    if (schoolYear && schoolYear !== "all") {
+      params.schoolYear = schoolYear;
+    }
     if (gradeLevel && gradeLevel !== "all") {
       params.gradeLevel = gradeLevel;
     }
@@ -92,7 +86,7 @@ export default function TeacherGamesPage() {
       })
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [gradeLevel, bankSchoolYear]);
+  }, [schoolYear, gradeLevel]);
 
   const targetCourses = useMemo(() => {
     if (!reuseItem) return [];
@@ -150,7 +144,7 @@ export default function TeacherGamesPage() {
     <Stack spacing={3}>
       <PageHeader
         title="My Games"
-        subtitle="Game bank across school years — reuse a past game into the current subject as a new draft."
+        subtitle="Games for the school year and grade selected in the sidebar. Reuse a game into another subject as a new draft."
         action={
           <Button
             component={RouterLink}
@@ -165,29 +159,13 @@ export default function TeacherGamesPage() {
 
       {error ? <Alert severity="error">{error}</Alert> : null}
 
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-        <TextField
-          select
-          size="small"
-          label="Bank school year"
-          value={bankSchoolYear}
-          onChange={(event) => setBankSchoolYear(event.target.value)}
-          sx={{ minWidth: 220 }}
-        >
-          {bankYearOptions.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
-      </Stack>
-
       <Paper sx={{ p: 2 }}>
         {!games.length ? (
           <Stack spacing={2} alignItems="flex-start" sx={{ p: 2 }}>
             <Typography color="text.secondary">
-              No games in this bank view. Create one, or switch school year to
-              All school years.
+              No games for the selected school year
+              {gradeLevel && gradeLevel !== "all" ? ` / ${gradeLevel}` : ""}.
+              Create one or change the sidebar filters.
             </Typography>
             <Button
               component={RouterLink}
@@ -200,15 +178,17 @@ export default function TeacherGamesPage() {
           </Stack>
         ) : (
           <ResponsiveTableContainer>
-            <Table size="small" sx={{ minWidth: 780 }}>
+            <Table size="small" sx={{ minWidth: 980 }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Title</TableCell>
                   <TableCell>Subject</TableCell>
+                  <TableCell>Grade</TableCell>
                   <TableCell>School year</TableCell>
                   <TableCell>Type</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Source</TableCell>
+                  <TableCell>Created</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -219,6 +199,14 @@ export default function TeacherGamesPage() {
                       <Typography fontWeight={700}>{game.title}</Typography>
                       <Typography variant="caption" color="text.secondary">
                         {game.xp_reward} XP
+                        {game.estimated_time
+                          ? ` · ~${game.estimated_time} min`
+                          : ""}
+                        {game.difficulty
+                          ? ` · ${String(game.difficulty).replace(/^\w/, (c) =>
+                              c.toUpperCase(),
+                            )}`
+                          : ""}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -226,6 +214,7 @@ export default function TeacherGamesPage() {
                         game.subject ||
                         `Subject #${game.course_id}`}
                     </TableCell>
+                    <TableCell>{game.grade_level || "—"}</TableCell>
                     <TableCell>
                       {game.school_year ? (
                         <Chip
@@ -263,6 +252,9 @@ export default function TeacherGamesPage() {
                       ) : (
                         <Chip size="small" variant="outlined" label="Manual" />
                       )}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 150 }}>
+                      <ContentTimestamp item={game} dense sx={{ mt: 0 }} />
                     </TableCell>
                     <TableCell align="right">
                       <Stack

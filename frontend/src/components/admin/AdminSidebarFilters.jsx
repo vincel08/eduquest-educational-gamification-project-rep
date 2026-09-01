@@ -7,11 +7,18 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useLocation } from "react-router-dom";
 import { useAdminFilters } from "../../contexts/AdminFiltersContext";
 import userService from "../../services/userService";
 import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
 
+/** Badges & Medals are global system unlockables — not roster-scoped. */
+function hideFiltersForPath(pathname) {
+  return pathname.startsWith("/admin/badges");
+}
+
 export default function AdminSidebarFilters() {
+  const location = useLocation();
   const {
     schoolYear,
     gradeLevel,
@@ -25,8 +32,14 @@ export default function AdminSidebarFilters() {
   } = useAdminFilters();
   const sectionsRevision = useClassSectionsRevision();
   const [sections, setSections] = useState([]);
+  const hideFilters = hideFiltersForPath(location.pathname);
 
   useEffect(() => {
+    if (hideFilters) {
+      setSections([]);
+      return undefined;
+    }
+
     let active = true;
     const params = toQueryParams();
     delete params.section;
@@ -48,7 +61,16 @@ export default function AdminSidebarFilters() {
     return () => {
       active = false;
     };
-  }, [schoolYear, gradeLevel, toQueryParams, sectionsRevision, setSection]);
+  }, [
+    hideFilters,
+    schoolYear,
+    gradeLevel,
+    toQueryParams,
+    sectionsRevision,
+    setSection,
+  ]);
+
+  if (hideFilters) return null;
 
   return (
     <Box sx={{ px: 1.5, pb: 1.5 }}>

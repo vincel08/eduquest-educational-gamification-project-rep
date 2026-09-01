@@ -34,6 +34,7 @@ export default function DashboardLayout({
   navItems,
   sidebarFilters = null,
   profilePath = null,
+  showNotifications = true,
 }) {
   const theme = useTheme();
   const { user, logout, profile } = useAuth();
@@ -210,8 +211,7 @@ export default function DashboardLayout({
           <IconButton onClick={toggleMode} aria-label="Toggle theme" size="small">
             {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
           </IconButton>
-          <NotificationBell />
-          {profilePath ? (
+          {showNotifications ? <NotificationBell /> : null}          {profilePath ? (
             <IconButton
               onClick={() => navigate(profilePath)}
               aria-label="Open profile"

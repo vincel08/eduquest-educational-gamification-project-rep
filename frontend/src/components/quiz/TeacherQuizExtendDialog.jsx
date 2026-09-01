@@ -126,9 +126,15 @@ export default function TeacherQuizExtendDialog({
             label="Extended due date"
             type="datetime-local"
             fullWidth
-            InputLabelProps={{ shrink: true }}
             value={extendedDueAt}
             onChange={(e) => setExtendedDueAt(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            slotProps={{
+              inputLabel: { shrink: true },
+              htmlInput: {
+                "aria-label": "Extended due date",
+              },
+            }}
             helperText="Required if the class due date has already passed"
           />
           <TextField

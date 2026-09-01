@@ -30,6 +30,7 @@ export default function AdminLayout() {
         title="Admin Control"
         navItems={navItems}
         sidebarFilters={<AdminSidebarFilters />}
+        showNotifications={false}
       />
     </AdminFiltersProvider>
   );
