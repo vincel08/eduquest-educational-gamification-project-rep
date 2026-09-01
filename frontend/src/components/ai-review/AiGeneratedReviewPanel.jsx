@@ -124,17 +124,18 @@ export default function AiGeneratedReviewPanel({
     }
   }
 
+  async function persistDraft() {
+    return aiReviewService.saveDraft(draftId, {
+      title: draft.title,
+      quiz: draft.quiz,
+      game: draft.game,
+      learningObjectives: draft.learningObjectives,
+      lessonSummary: draft.lessonSummary,
+    });
+  }
+
   async function handleSaveDraft() {
-    await runAction(
-      () => aiReviewService.saveDraft(draftId, {
-        title: draft.title,
-        quiz: draft.quiz,
-        game: draft.game,
-        learningObjectives: draft.learningObjectives,
-        lessonSummary: draft.lessonSummary,
-      }),
-      'Draft saved successfully.'
-    );
+    await runAction(() => persistDraft(), 'Draft saved successfully.');
   }
 
   function validateBeforePublish() {
@@ -193,32 +194,33 @@ export default function AiGeneratedReviewPanel({
   }
 
   async function handleRegenerate(target) {
-    await runAction(
-      () => aiReviewService.regenerate(draftId, {
+    await runAction(async () => {
+      await persistDraft();
+      return aiReviewService.regenerate(draftId, {
         target,
         questionIndex: selectedQuestion,
         itemIndex: selectedGameItem,
         count: 3,
-      }),
-      'AI regeneration complete.'
-    );
+      });
+    }, 'AI regeneration complete.');
   }
 
   async function handleTransform() {
     const sectionMap = {
       quiz: 'quiz_description',
-      game: 'game_instructions',
+      game: 'selected_game_item',
       objectives: 'objectives',
       summary: 'summary',
     };
-    await runAction(
-      () => aiReviewService.transform(draftId, {
+    await runAction(async () => {
+      await persistDraft();
+      return aiReviewService.transform(draftId, {
         action: aiAction,
         section: sectionMap[activeKey] || 'summary',
         questionIndex: selectedQuestion,
-      }),
-      'AI writing update applied.'
-    );
+        itemIndex: selectedGameItem,
+      });
+    }, 'AI writing update applied.');
   }
 
   if (!draft) return null;
@@ -399,6 +401,10 @@ export default function AiGeneratedReviewPanel({
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="subtitle1" fontWeight={700} gutterBottom>AI Actions</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Click a game item or question to select it before regenerating or applying a writing action.
+          Generation can take a few minutes on live.
+        </Typography>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} useFlexGap flexWrap="wrap">
           <Button disabled={!canEdit || busy} onClick={() => handleRegenerate('all')}>Regenerate All</Button>
           {draft.quiz ? (

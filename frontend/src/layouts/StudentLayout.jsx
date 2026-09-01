@@ -10,13 +10,13 @@ import QuestMascot from "../components/rewards/QuestMascot";
 const navItems = [
   { label: "Dashboard", path: "/student/dashboard", icon: <DashboardIcon /> },
   { label: "My Subjects", path: "/student/courses", icon: <MenuBookIcon /> },
+  { label: "Quizzes", path: "/student/quizzes", icon: <QuizIcon /> },
+  { label: "Games", path: "/student/games", icon: <SportsEsportsIcon /> },
   {
     label: "Progress Tracking",
     path: "/student/progress",
     icon: <TimelineIcon />,
   },
-  { label: "Quizzes", path: "/student/quizzes", icon: <QuizIcon /> },
-  { label: "Games", path: "/student/games", icon: <SportsEsportsIcon /> },
   {
     label: "Badges & Medals",
     path: "/student/achievements",
