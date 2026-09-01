@@ -160,9 +160,14 @@ const env = {
     maxPromptCharacters: Number(process.env.AI_MAX_PROMPT_CHARACTERS) || 6000,
     // Thinking models count reasoning toward output tokens; keep headroom for JSON.
     maxOutputTokens: Number(process.env.AI_MAX_OUTPUT_TOKENS) || 8192,
-    requestTimeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS) || 90000,
-    // Blocks concurrent / in-flight retries with the same key.
-    idempotencyWindowMs: Number(process.env.AI_IDEMPOTENCY_WINDOW_MS) || 90000,
+    // Live/provider latency can exceed 1–2 minutes for quiz/game generation.
+    requestTimeoutMs:
+      Number(process.env.AI_REQUEST_TIMEOUT_MS) ||
+      (isProduction ? 240000 : 180000),
+    // Keep in-flight lock at least as long as the request timeout.
+    idempotencyWindowMs:
+      Number(process.env.AI_IDEMPOTENCY_WINDOW_MS) ||
+      (isProduction ? 240000 : 180000),
   },
 };
 

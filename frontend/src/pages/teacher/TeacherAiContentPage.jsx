@@ -380,7 +380,7 @@ export default function TeacherAiContentPage() {
             disabled={!canGenerate || loading || extracting}
             onClick={handleGenerate}
           >
-            {loading ? 'Generating...' : 'Generate'}
+            {loading ? 'Generating… this can take a few minutes' : 'Generate'}
           </Button>
         </Stack>
       </Paper>
