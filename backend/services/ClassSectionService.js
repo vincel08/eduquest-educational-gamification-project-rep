@@ -83,7 +83,7 @@ const ClassSectionService = {
 
     const name = normalizeSection(data.name);
     if (!name) {
-      throw new AppError(SECTION_REQUIRED_MESSAGE, 400);
+      throw new AppError("Section name is required.", 400);
     }
     if (!isValidSection(name)) {
       throw new AppError(SECTION_INVALID_MESSAGE, 400);
@@ -144,7 +144,7 @@ const ClassSectionService = {
         ? normalizeSection(data.name)
         : current.name;
     if (!name) {
-      throw new AppError(SECTION_REQUIRED_MESSAGE, 400);
+      throw new AppError("Section name is required.", 400);
     }
     if (!isValidSection(name)) {
       throw new AppError(SECTION_INVALID_MESSAGE, 400);
