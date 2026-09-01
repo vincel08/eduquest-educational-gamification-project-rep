@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Chip,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
@@ -12,10 +13,13 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
@@ -46,10 +50,7 @@ function sourceSubjectKey(item) {
 
 function sourceSubjectLabel(item) {
   return (
-    item?.course_subject ||
-    item?.subject ||
-    item?.course_title ||
-    "Subject"
+    item?.course_subject || item?.subject || item?.course_title || "Subject"
   );
 }
 
@@ -85,8 +86,7 @@ export default function TeacherQuizzesPage() {
     ])
       .then(([quizRes, courseRes]) => {
         setQuizzes(quizRes.data.data || []);
-        const list =
-          courseRes.data.data?.courses || courseRes.data.data || [];
+        const list = courseRes.data.data?.courses || courseRes.data.data || [];
         setCourses(Array.isArray(list) ? list : []);
       })
       .catch((err) => setError(getErrorMessage(err)))
@@ -217,7 +217,7 @@ export default function TeacherQuizzesPage() {
                   <TableCell>Questions</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Source</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -271,36 +271,44 @@ export default function TeacherQuizzesPage() {
                     <TableCell align="right">
                       <Stack
                         direction="row"
-                        spacing={0.5}
+                        spacing={0.25}
                         justifyContent="flex-end"
-                        flexWrap="wrap"
-                        useFlexGap
                       >
-                        <Button
-                          size="small"
-                          startIcon={<ContentCopyIcon />}
-                          disabled={!Number(quiz.question_count)}
-                          onClick={() => {
-                            setReuseError("");
-                            setReuseItem(quiz);
-                          }}
-                        >
-                          Reuse
-                        </Button>
-                        <Button
-                          component={RouterLink}
-                          to={`/teacher/quizzes/${quiz.id}/edit`}
-                          size="small"
-                        >
-                          Open
-                        </Button>
-                        <Button
-                          size="small"
-                          color="error"
-                          onClick={() => setDeleteItem(quiz)}
-                        >
-                          Delete
-                        </Button>
+                        <Tooltip title="Reuse">
+                          <span>
+                            <IconButton
+                              size="small"
+                              aria-label={`Reuse quiz ${quiz.title}`}
+                              disabled={!Number(quiz.question_count)}
+                              onClick={() => {
+                                setReuseError("");
+                                setReuseItem(quiz);
+                              }}
+                            >
+                              <ContentCopyOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title="Open">
+                          <IconButton
+                            component={RouterLink}
+                            to={`/teacher/quizzes/${quiz.id}/edit`}
+                            size="small"
+                            aria-label={`Open quiz ${quiz.title}`}
+                          >
+                            <OpenInNewOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            aria-label={`Delete quiz ${quiz.title}`}
+                            onClick={() => setDeleteItem(quiz)}
+                          >
+                            <DeleteOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       </Stack>
                     </TableCell>
                   </TableRow>

@@ -2,20 +2,36 @@ import { query } from "../config/db.js";
 
 const GamificationModel = {
   async createBadge(data) {
+    const createdBy = data.createdBy ?? null;
+    const ownerKey =
+      data.ownerKey != null
+        ? Number(data.ownerKey)
+        : createdBy != null
+          ? Number(createdBy)
+          : 0;
+
     const result = await query(
       `INSERT INTO badges
-       (name, description, icon, color, criteria_type, criteria_value, xp_bonus, is_active)
+       (name, description, icon, color, criteria_type, criteria_value, difficulty, xp_bonus, is_active, created_by, owner_key)
        VALUES
-       (:name, :description, :icon, :color, :criteriaType, :criteriaValue, :xpBonus, :isActive)`,
+       (:name, :description, :icon, :color, :criteriaType, :criteriaValue, :difficulty, :xpBonus, :isActive, :createdBy, :ownerKey)`,
       {
         name: data.name,
         description: data.description,
         icon: data.icon || "emoji_events",
         color: data.color || "#FFB300",
         criteriaType: data.criteriaType,
-        criteriaValue: data.criteriaValue || 1,
+        criteriaValue: data.criteriaValue ?? 1,
+        difficulty:
+          data.difficulty === null || data.difficulty === ""
+            ? null
+            : ["easy", "medium", "hard"].includes(data.difficulty)
+              ? data.difficulty
+              : null,
         xpBonus: data.xpBonus || 0,
         isActive: data.isActive === false ? 0 : 1,
+        createdBy,
+        ownerKey,
       },
     );
     return this.findBadgeById(result.insertId);
@@ -28,11 +44,53 @@ const GamificationModel = {
     return rows[0] || null;
   },
 
-  async findAllBadges({ activeOnly = false } = {}) {
-    const filter = activeOnly ? "WHERE is_active = 1" : "";
+  async findAllBadges({
+    activeOnly = false,
+    unlockableOnly = false,
+    teacherOnly = false,
+    createdBy = null,
+  } = {}) {
+    const clauses = [];
+    const params = {};
+
+    if (activeOnly) clauses.push("is_active = 1");
+    if (unlockableOnly) {
+      clauses.push("criteria_type <> 'manual'");
+      clauses.push("created_by IS NULL");
+      clauses.push("owner_key = 0");
+    }
+    if (teacherOnly) {
+      clauses.push("criteria_type = 'manual'");
+      clauses.push("created_by IS NOT NULL");
+    }
+    if (createdBy != null) {
+      clauses.push("created_by = :createdBy");
+      params.createdBy = createdBy;
+    }
+
+    const filter = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
     return query(
       `SELECT * FROM badges ${filter} ORDER BY criteria_value ASC, name ASC`,
+      params,
     );
+  },
+
+  async countBadgeAwards(badgeId) {
+    const rows = await query(
+      `SELECT COUNT(*) AS total FROM student_badges WHERE badge_id = :badgeId`,
+      { badgeId },
+    );
+    return Number(rows[0]?.total) || 0;
+  },
+
+  async softDeleteBadge(id) {
+    await query(`UPDATE badges SET is_active = 0 WHERE id = :id`, { id });
+    return this.findBadgeById(id);
+  },
+
+  async hardDeleteBadge(id) {
+    await query(`DELETE FROM badges WHERE id = :id`, { id });
+    return true;
   },
 
   async updateBadge(id, data) {
@@ -43,6 +101,7 @@ const GamificationModel = {
       color: "color",
       criteriaType: "criteria_type",
       criteriaValue: "criteria_value",
+      difficulty: "difficulty",
       xpBonus: "xp_bonus",
       isActive: "is_active",
     };
@@ -74,7 +133,8 @@ const GamificationModel = {
 
   async getStudentBadge(studentId, badgeId) {
     const rows = await query(
-      `SELECT sb.*, b.name, b.description, b.icon, b.color
+      `SELECT sb.*, b.name, b.description, b.icon, b.color, b.criteria_type, b.criteria_value,
+              b.created_by AS badge_created_by
        FROM student_badges sb
        INNER JOIN badges b ON b.id = sb.badge_id
        WHERE sb.student_id = :studentId AND sb.badge_id = :badgeId
@@ -86,7 +146,8 @@ const GamificationModel = {
 
   async getStudentBadges(studentId) {
     return query(
-      `SELECT sb.*, b.name, b.description, b.icon, b.color, b.criteria_type, b.criteria_value
+      `SELECT sb.*, b.name, b.description, b.icon, b.color, b.criteria_type, b.criteria_value,
+              b.created_by AS badge_created_by
        FROM student_badges sb
        INNER JOIN badges b ON b.id = sb.badge_id
        WHERE sb.student_id = :studentId
@@ -121,11 +182,60 @@ const GamificationModel = {
     return rows[0] || null;
   },
 
-  async findAllMedals({ activeOnly = false } = {}) {
-    const filter = activeOnly ? "WHERE is_active = 1" : "";
+  async findAllMedals({ activeOnly = false, unlockableOnly = false } = {}) {
+    const clauses = [];
+    if (activeOnly) clauses.push("is_active = 1");
+    if (unlockableOnly) clauses.push("criteria_type <> 'manual'");
+    const filter = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
     return query(
-      `SELECT * FROM medals ${filter} ORDER BY FIELD(tier, 'bronze', 'silver', 'gold', 'platinum'), name ASC`,
+      `SELECT * FROM medals ${filter}
+       ORDER BY FIELD(tier, 'bronze', 'silver', 'gold', 'platinum', 'diamond', 'legendary'),
+                criteria_value ASC, name ASC`,
     );
+  },
+
+  async updateMedal(id, data) {
+    const mapping = {
+      name: "name",
+      description: "description",
+      tier: "tier",
+      icon: "icon",
+      criteriaType: "criteria_type",
+      criteriaValue: "criteria_value",
+      isActive: "is_active",
+    };
+
+    const sets = [];
+    const params = { id };
+
+    for (const [key, column] of Object.entries(mapping)) {
+      if (data[key] !== undefined) {
+        sets.push(`${column} = :${key}`);
+        params[key] = key === "isActive" ? (data[key] ? 1 : 0) : data[key];
+      }
+    }
+
+    if (!sets.length) return this.findMedalById(id);
+    await query(`UPDATE medals SET ${sets.join(", ")} WHERE id = :id`, params);
+    return this.findMedalById(id);
+  },
+
+  async countMedalAwards(medalId) {
+    const rows = await query(
+      `SELECT COUNT(*) AS total FROM student_medals WHERE medal_id = :medalId`,
+      { medalId },
+    );
+    return Number(rows[0]?.total) || 0;
+  },
+
+  async softDeleteMedal(id) {
+    await query(`UPDATE medals SET is_active = 0 WHERE id = :id`, { id });
+    return this.findMedalById(id);
+  },
+
+  async hardDeleteMedal(id) {
+    await query(`DELETE FROM medals WHERE id = :id`, { id });
+    return true;
   },
 
   async awardMedal({ studentId, medalId, awardedBy = null }) {
@@ -154,7 +264,7 @@ const GamificationModel = {
 
   async getStudentMedal(studentId, medalId) {
     const rows = await query(
-      `SELECT sm.*, m.name, m.description, m.tier, m.icon
+      `SELECT sm.*, m.name, m.description, m.tier, m.icon, m.criteria_type, m.criteria_value
        FROM student_medals sm
        INNER JOIN medals m ON m.id = sm.medal_id
        WHERE sm.student_id = :studentId AND sm.medal_id = :medalId
@@ -166,7 +276,7 @@ const GamificationModel = {
 
   async getStudentMedals(studentId) {
     return query(
-      `SELECT sm.*, m.name, m.description, m.tier, m.icon
+      `SELECT sm.*, m.name, m.description, m.tier, m.icon, m.criteria_type, m.criteria_value
        FROM student_medals sm
        INNER JOIN medals m ON m.id = sm.medal_id
        WHERE sm.student_id = :studentId
@@ -230,6 +340,16 @@ const GamificationModel = {
       { studentId },
     );
     return rows[0].total;
+  },
+
+  async countCompletedGames(studentId) {
+    const rows = await query(
+      `SELECT COUNT(DISTINCT game_id) AS total
+       FROM game_scores
+       WHERE student_id = :studentId`,
+      { studentId },
+    );
+    return Number(rows[0]?.total) || 0;
   },
 };
 

@@ -10,13 +10,16 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  IconButton,
   Stack,
   Switch,
   FormControlLabel,
   MenuItem,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import { Link as RouterLink } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
@@ -162,13 +165,17 @@ export default function TeacherCoursesPage() {
                 </Typography>
                 <ContentTimestamp item={course} dense />
               </CardContent>
-              <CardActions>
-                <Button
-                  component={RouterLink}
-                  to={`/teacher/courses/${course.id}`}
-                >
-                  Manage
-                </Button>
+              <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 1.5 }}>
+                <Tooltip title="Manage subject">
+                  <IconButton
+                    component={RouterLink}
+                    to={`/teacher/courses/${course.id}`}
+                    size="small"
+                    aria-label={`Manage ${course.subject || course.title}`}
+                  >
+                    <SettingsOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </CardActions>
             </Card>
           </Grid>

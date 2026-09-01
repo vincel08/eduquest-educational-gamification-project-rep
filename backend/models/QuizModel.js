@@ -598,6 +598,17 @@ const QuizModel = {
     return rows[0].total;
   },
 
+  async countPerfectQuizzes(studentId) {
+    const rows = await query(
+      `SELECT COUNT(DISTINCT quiz_id) AS total
+       FROM quiz_attempts
+       WHERE student_id = :studentId
+         AND score >= 100`,
+      { studentId },
+    );
+    return Number(rows[0]?.total) || 0;
+  },
+
   async hasPassedQuiz(studentId, quizId) {
     const rows = await query(
       `SELECT id FROM quiz_attempts

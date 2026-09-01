@@ -2,15 +2,19 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import QuizIcon from "@mui/icons-material/Quiz";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
-import LeaderboardIcon from "@mui/icons-material/Leaderboard";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
-import PersonIcon from "@mui/icons-material/Person";
+import TimelineIcon from "@mui/icons-material/Timeline";
 import DashboardLayout from "./DashboardLayout";
 import QuestMascot from "../components/rewards/QuestMascot";
 
 const navItems = [
   { label: "Dashboard", path: "/student/dashboard", icon: <DashboardIcon /> },
   { label: "My Subjects", path: "/student/courses", icon: <MenuBookIcon /> },
+  {
+    label: "Progress Tracking",
+    path: "/student/progress",
+    icon: <TimelineIcon />,
+  },
   { label: "Quizzes", path: "/student/quizzes", icon: <QuizIcon /> },
   { label: "Games", path: "/student/games", icon: <SportsEsportsIcon /> },
   {
@@ -18,18 +22,16 @@ const navItems = [
     path: "/student/achievements",
     icon: <EmojiEventsIcon />,
   },
-  {
-    label: "Leaderboard",
-    path: "/student/leaderboard",
-    icon: <LeaderboardIcon />,
-  },
-  { label: "Profile", path: "/student/profile", icon: <PersonIcon /> },
 ];
 
 export default function StudentLayout() {
   return (
     <>
-      <DashboardLayout title="Learner Quest" navItems={navItems} />
+      <DashboardLayout
+        title="Learner Quest"
+        navItems={navItems}
+        profilePath="/student/profile"
+      />
       <QuestMascot />
     </>
   );

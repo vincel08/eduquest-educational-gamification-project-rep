@@ -203,6 +203,15 @@ async function run() {
     `ALTER TABLE quizzes ADD COLUMN updated_by INT UNSIGNED NULL AFTER created_by`,
     `ALTER TABLE educational_games ADD COLUMN updated_by INT UNSIGNED NULL AFTER created_by`,
     `ALTER TABLE ai_review_drafts ADD COLUMN updated_by INT UNSIGNED NULL AFTER generated_by`,
+    `ALTER TABLE badges ADD COLUMN created_by INT UNSIGNED NULL AFTER is_active`,
+    `ALTER TABLE badges ADD COLUMN owner_key INT UNSIGNED NOT NULL DEFAULT 0 AFTER created_by`,
+    `ALTER TABLE badges ADD COLUMN difficulty ENUM('easy', 'medium', 'hard') NULL DEFAULT NULL AFTER criteria_value`,
+    `ALTER TABLE medals MODIFY COLUMN criteria_type ENUM(
+      'level','leaderboard_rank','perfect_quiz','manual','xp','streak','quizzes_passed','lessons_completed','games_completed'
+    ) NOT NULL`,
+    `ALTER TABLE badges MODIFY COLUMN criteria_type ENUM(
+      'xp','quizzes_passed','lessons_completed','manual','streak','games_completed','level','leaderboard_rank','perfect_quiz'
+    ) NOT NULL`,
   ];
 
   for (const sql of upgrades) {
@@ -588,26 +597,28 @@ async function run() {
   // }
 
   await connection.execute(
-    `INSERT INTO badges (name, description, icon, color, criteria_type, criteria_value, xp_bonus) VALUES
-     ('First Steps', 'Complete your first lesson', 'school', '#42A5F5', 'lessons_completed', 1, 10),
-     ('Quiz Champion', 'Pass 3 quizzes', 'quiz', '#66BB6A', 'quizzes_passed', 3, 20),
-     ('XP Collector', 'Earn 100 XP', 'star', '#FFA726', 'xp', 100, 15),
-     ('Rising Star', 'Reach 500 XP', 'auto_awesome', '#AB47BC', 'xp', 500, 50),
-     ('Master Educator', 'Awarded to outstanding teachers', 'school', '#0F766E', 'manual', 0, 0),
-     ('Creative Teacher', 'Recognized for creative lesson design', 'brush', '#F59E0B', 'manual', 0, 0),
-     ('Quiz Creator', 'Recognized for quality quiz creation', 'quiz', '#3B82F6', 'manual', 0, 0),
-     ('AI Innovator', 'Recognized for AI-powered teaching', 'auto_awesome', '#8B5CF6', 'manual', 0, 0),
-     ('Top Mentor', 'Recognized for exceptional mentoring', 'diversity_3', '#EC4899', 'manual', 0, 0)`,
+    `INSERT INTO badges (name, description, icon, color, criteria_type, criteria_value, difficulty, xp_bonus, created_by, owner_key) VALUES
+     ('First Steps', 'Complete your first lesson', 'school', '#42A5F5', 'lessons_completed', 1, NULL, 10, NULL, 0),
+     ('Quiz Champion', 'Pass 3 quizzes', 'quiz', '#66BB6A', 'quizzes_passed', 3, 'medium', 20, NULL, 0),
+     ('XP Collector', 'Earn 100 XP', 'star', '#FFA726', 'xp', 100, NULL, 15, NULL, 0),
+     ('Rising Star', 'Reach 500 XP', 'auto_awesome', '#AB47BC', 'xp', 500, NULL, 50, NULL, 0),
+     ('Streak Starter', 'Learn 3 days in a row', 'local_fire_department', '#EF4444', 'streak', 3, NULL, 15, NULL, 0)`,
   );
 
   await connection.execute(
     `INSERT INTO medals (name, description, tier, icon, criteria_type, criteria_value) VALUES
-     ('Bronze Climber', 'Reach level 2', 'bronze', 'military_tech', 'level', 2),
-     ('Silver Scholar', 'Reach level 5', 'silver', 'military_tech', 'level', 5),
+     ('Bronze Climber', 'Reach level 5', 'bronze', 'military_tech', 'level', 5),
+     ('Silver Scholar', 'Reach level 8', 'silver', 'military_tech', 'level', 8),
      ('Perfect Score', 'Get a perfect quiz score', 'gold', 'workspace_premium', 'perfect_quiz', 1),
      ('Top Contender', 'Reach top 3 on the leaderboard', 'platinum', 'emoji_events', 'leaderboard_rank', 3),
      ('Diamond Achiever', 'Reach level 10', 'diamond', 'diamond', 'level', 10),
-     ('Legendary Learner', 'Reach level 20', 'legendary', 'workspace_premium', 'level', 20)`,
+     ('Legendary Learner', 'Reach level 20', 'legendary', 'workspace_premium', 'level', 20),
+     ('Campus Champion', 'Reach #1 on the leaderboard', 'legendary', 'emoji_events', 'leaderboard_rank', 1),
+     ('XP Titan', 'Earn 1,000 XP — a major mastery milestone', 'gold', 'star', 'xp', 1000),
+     ('Unstoppable Streak', 'Learn 14 days in a row', 'platinum', 'local_fire_department', 'streak', 14),
+     ('Quiz Master', 'Pass 10 quizzes', 'gold', 'quiz', 'quizzes_passed', 10),
+     ('Lesson Legend', 'Complete 15 lessons', 'platinum', 'school', 'lessons_completed', 15),
+     ('Game Veteran', 'Complete 10 educational games', 'diamond', 'sports_esports', 'games_completed', 10)`,
   );
 
   // await connection.execute(

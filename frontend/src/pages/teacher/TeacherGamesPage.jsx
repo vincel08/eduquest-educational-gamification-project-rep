@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Chip,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
@@ -12,10 +13,13 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
@@ -47,10 +51,7 @@ function sourceSubjectKey(item) {
 
 function sourceSubjectLabel(item) {
   return (
-    item?.course_subject ||
-    item?.subject ||
-    item?.course_title ||
-    "Subject"
+    item?.course_subject || item?.subject || item?.course_title || "Subject"
   );
 }
 
@@ -86,8 +87,7 @@ export default function TeacherGamesPage() {
     ])
       .then(([gameRes, courseRes]) => {
         setGames(gameRes.data.data || []);
-        const list =
-          courseRes.data.data?.courses || courseRes.data.data || [];
+        const list = courseRes.data.data?.courses || courseRes.data.data || [];
         setCourses(Array.isArray(list) ? list : []);
       })
       .catch((err) => setError(getErrorMessage(err)))
@@ -209,7 +209,7 @@ export default function TeacherGamesPage() {
                   <TableCell>Type</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Source</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -267,35 +267,41 @@ export default function TeacherGamesPage() {
                     <TableCell align="right">
                       <Stack
                         direction="row"
-                        spacing={0.5}
+                        spacing={0.25}
                         justifyContent="flex-end"
-                        flexWrap="wrap"
-                        useFlexGap
                       >
-                        <Button
-                          size="small"
-                          startIcon={<ContentCopyIcon />}
-                          onClick={() => {
-                            setReuseError("");
-                            setReuseItem(game);
-                          }}
-                        >
-                          Reuse
-                        </Button>
-                        <Button
-                          component={RouterLink}
-                          to={`/teacher/games/${game.id}/edit`}
-                          size="small"
-                        >
-                          Open
-                        </Button>
-                        <Button
-                          size="small"
-                          color="error"
-                          onClick={() => setDeleteItem(game)}
-                        >
-                          Delete
-                        </Button>
+                        <Tooltip title="Reuse">
+                          <IconButton
+                            size="small"
+                            aria-label={`Reuse game ${game.title}`}
+                            onClick={() => {
+                              setReuseError("");
+                              setReuseItem(game);
+                            }}
+                          >
+                            <ContentCopyOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Open">
+                          <IconButton
+                            component={RouterLink}
+                            to={`/teacher/games/${game.id}/edit`}
+                            size="small"
+                            aria-label={`Open game ${game.title}`}
+                          >
+                            <OpenInNewOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            aria-label={`Delete game ${game.title}`}
+                            onClick={() => setDeleteItem(game)}
+                          >
+                            <DeleteOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       </Stack>
                     </TableCell>
                   </TableRow>

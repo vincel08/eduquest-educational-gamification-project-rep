@@ -260,16 +260,33 @@ CREATE TABLE IF NOT EXISTS quiz_answers (
 
 CREATE TABLE IF NOT EXISTS badges (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(150) NOT NULL UNIQUE,
+  name VARCHAR(150) NOT NULL,
   description TEXT NOT NULL,
   icon VARCHAR(100) NOT NULL DEFAULT 'emoji_events',
   color VARCHAR(20) NOT NULL DEFAULT '#FFB300',
-  criteria_type ENUM('xp', 'quizzes_passed', 'lessons_completed', 'manual', 'streak') NOT NULL,
+  criteria_type ENUM(
+    'xp',
+    'quizzes_passed',
+    'lessons_completed',
+    'manual',
+    'streak',
+    'games_completed',
+    'level',
+    'leaderboard_rank',
+    'perfect_quiz'
+  ) NOT NULL,
   criteria_value INT UNSIGNED NOT NULL DEFAULT 1,
+  difficulty ENUM('easy', 'medium', 'hard') NULL DEFAULT NULL,
   xp_bonus INT UNSIGNED NOT NULL DEFAULT 0,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
+  -- NULL / owner_key 0 = admin system unlockable; teacher id = custom award badge
+  created_by INT UNSIGNED NULL,
+  owner_key INT UNSIGNED NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_badges_owner_name (owner_key, name),
+  INDEX idx_badges_created_by (created_by),
+  CONSTRAINT fk_badges_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS student_badges (
@@ -292,7 +309,17 @@ CREATE TABLE IF NOT EXISTS medals (
   description TEXT NOT NULL,
   tier ENUM('bronze', 'silver', 'gold', 'platinum', 'diamond', 'legendary') NOT NULL DEFAULT 'bronze',
   icon VARCHAR(100) NOT NULL DEFAULT 'military_tech',
-  criteria_type ENUM('level', 'leaderboard_rank', 'perfect_quiz', 'manual') NOT NULL,
+  criteria_type ENUM(
+    'level',
+    'leaderboard_rank',
+    'perfect_quiz',
+    'manual',
+    'xp',
+    'streak',
+    'quizzes_passed',
+    'lessons_completed',
+    'games_completed'
+  ) NOT NULL,
   criteria_value INT UNSIGNED NOT NULL DEFAULT 1,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

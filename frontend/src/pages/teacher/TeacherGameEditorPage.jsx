@@ -4,14 +4,17 @@ import {
   Button,
   Chip,
   FormControlLabel,
+  IconButton,
   Paper,
   Stack,
   Switch,
   Tab,
   Tabs,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
@@ -255,7 +258,7 @@ export default function TeacherGameEditorPage() {
               }
               label="Published for students"
             />
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
               <Button
                 variant="contained"
                 onClick={handleSave}
@@ -263,14 +266,18 @@ export default function TeacherGameEditorPage() {
               >
                 {saving ? "Saving…" : "Save changes"}
               </Button>
-              <Button
-                color="error"
-                variant="outlined"
-                onClick={() => setDeleteOpen(true)}
-                disabled={saving}
-              >
-                Delete game
-              </Button>
+              <Tooltip title="Delete game">
+                <span>
+                  <IconButton
+                    color="error"
+                    aria-label="Delete game"
+                    onClick={() => setDeleteOpen(true)}
+                    disabled={saving}
+                  >
+                    <DeleteOutlinedIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
             </Stack>
           </Stack>
         </Paper>

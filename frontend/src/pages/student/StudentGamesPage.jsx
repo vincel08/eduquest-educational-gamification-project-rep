@@ -7,6 +7,7 @@ import QuestCard from "../../components/common/QuestCard";
 import EmptyState from "../../components/common/EmptyState";
 import ContentTimestampToolbar from "../../components/common/ContentTimestampToolbar";
 import courseService from "../../services/courseService";
+import gameService from "../../services/gameService";
 import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
 import { formatGameTypeLabel } from "../../utils/gameTypes";
@@ -17,6 +18,7 @@ export default function StudentGamesPage() {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState("newest");
   const [filters, setFilters] = useState({});
+  const [submittingId, setSubmittingId] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -46,6 +48,30 @@ export default function StudentGamesPage() {
     () => applyTimestampControls(games, { sort, filters }),
     [games, sort, filters],
   );
+
+  async function handleSubmitGrade(gameId) {
+    setSubmittingId(gameId);
+    setError("");
+    try {
+      await gameService.releaseGrade(gameId);
+      setGames((prev) =>
+        prev.map((game) =>
+          Number(game.id) === Number(gameId)
+            ? {
+                ...game,
+                gradeReleased: true,
+                unavailable: true,
+                outOfAttempts: Boolean(game.outOfAttempts),
+              }
+            : game,
+        ),
+      );
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSubmittingId(null);
+    }
+  }
 
   if (loading) return <LoadingScreen label="Loading games..." showCards />;
 
@@ -105,6 +131,24 @@ export default function StudentGamesPage() {
                 : null,
             ].filter(Boolean);
 
+            const canSubmitEarly =
+              !unavailable &&
+              Boolean(game.hasAttempted) &&
+              Number(game.attemptsRemaining) > 0 &&
+              !game.gradeReleased;
+
+            let actionLabel = "Play Now";
+            if (game.locked) {
+              actionLabel = "Finish lesson first";
+            } else if (game.gradeReleased) {
+              actionLabel = "Submitted";
+            } else if (game.outOfAttempts) {
+              actionLabel = "Unavailable";
+            } else if (game.hasAttempted) {
+              actionLabel =
+                game.attemptsRemaining > 0 ? "Play again" : "Open game";
+            }
+
             return (
               <Grid key={game.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <QuestCard
@@ -125,19 +169,16 @@ export default function StudentGamesPage() {
                   locked={unavailable}
                   unlockMessage={unlockMessage}
                   to={unavailable ? undefined : `/student/games/${game.id}`}
-                  actionLabel={
-                    game.locked
-                      ? "Finish lesson first"
-                      : game.gradeReleased
-                        ? "Submitted"
-                        : game.outOfAttempts
-                          ? "Unavailable"
-                          : game.hasAttempted
-                            ? game.attemptsRemaining > 0
-                              ? "Use another attempt"
-                              : "Open game"
-                            : "Play Now"
+                  actionLabel={actionLabel}
+                  secondaryActionLabel={
+                    canSubmitEarly ? "Submit result" : undefined
                   }
+                  onSecondaryAction={
+                    canSubmitEarly
+                      ? () => handleSubmitGrade(game.id)
+                      : undefined
+                  }
+                  secondaryLoading={Number(submittingId) === Number(game.id)}
                 />
               </Grid>
             );

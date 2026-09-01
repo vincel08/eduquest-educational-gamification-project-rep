@@ -5,8 +5,7 @@ import QuizIcon from "@mui/icons-material/Quiz";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
-import MilitaryTechIcon from "@mui/icons-material/MilitaryTech";
-import PersonIcon from "@mui/icons-material/Person";
+import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import DashboardLayout from "./DashboardLayout";
 import { TeacherFiltersProvider } from "../contexts/TeacherFiltersContext";
 import TeacherSidebarFilters from "../components/teacher/TeacherSidebarFilters";
@@ -25,11 +24,10 @@ const navItems = [
   { label: "AI Quiz", path: "/teacher/ai-quiz", icon: <AutoAwesomeIcon /> },
   { label: "AI Games", path: "/teacher/ai-game", icon: <SportsEsportsIcon /> },
   {
-    label: "Award Badges",
+    label: "Badges",
     path: "/teacher/awards",
-    icon: <MilitaryTechIcon />,
+    icon: <EmojiEventsIcon />,
   },
-  { label: "Profile", path: "/teacher/profile", icon: <PersonIcon /> },
 ];
 
 export default function TeacherLayout() {
@@ -38,6 +36,7 @@ export default function TeacherLayout() {
       <DashboardLayout
         title="Teacher Studio"
         navItems={navItems}
+        profilePath="/teacher/profile"
         sidebarFilters={<TeacherSidebarFilters />}
       />
     </TeacherFiltersProvider>

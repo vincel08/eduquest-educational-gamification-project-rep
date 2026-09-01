@@ -6,6 +6,7 @@ import NotificationModel from "../models/NotificationModel.js";
 import AiService from "./AiService.js";
 import CourseService from "./CourseService.js";
 import GamificationService from "./GamificationService.js";
+import StreakService from "./StreakService.js";
 import AppError from "../utils/AppError.js";
 import {
   ALL_GAME_TYPES,
@@ -447,6 +448,8 @@ const GameService = {
         xpAward = xpResult.xpAward;
         xpEarned = computedXp;
       }
+    } else {
+      await StreakService.recordActivity(studentId);
     }
 
     if (normalizedScore >= QUIZ_REWARD_SCORE_MIN) {

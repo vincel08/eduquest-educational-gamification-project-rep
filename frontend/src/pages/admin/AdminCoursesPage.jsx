@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -6,6 +6,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
@@ -15,30 +16,35 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
-} from '@mui/material';
-import PageHeader from '../../components/common/PageHeader';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import ContentTimestamp from '../../components/common/ContentTimestamp';
-import ContentTimestampToolbar from '../../components/common/ContentTimestampToolbar';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import courseService from '../../services/courseService';
-import userService from '../../services/userService';
-import { getErrorMessage } from '../../services/api';
-import { applyTimestampControls } from '../../utils/contentTimestamps';
-import { useAdminFilters } from '../../contexts/AdminFiltersContext';
+} from "@mui/material";
+import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import PublishIcon from "@mui/icons-material/Publish";
+import UnpublishedOutlinedIcon from "@mui/icons-material/UnpublishedOutlined";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import PageHeader from "../../components/common/PageHeader";
+import LoadingScreen from "../../components/common/LoadingScreen";
+import ContentTimestamp from "../../components/common/ContentTimestamp";
+import ContentTimestampToolbar from "../../components/common/ContentTimestampToolbar";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import courseService from "../../services/courseService";
+import userService from "../../services/userService";
+import { getErrorMessage } from "../../services/api";
+import { applyTimestampControls } from "../../utils/contentTimestamps";
+import { useAdminFilters } from "../../contexts/AdminFiltersContext";
 
 export default function AdminCoursesPage() {
   const { toQueryParams, schoolYear, gradeLevel } = useAdminFilters();
   const [courses, setCourses] = useState([]);
   const [teachers, setTeachers] = useState([]);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState('newest');
+  const [sort, setSort] = useState("newest");
   const [filters, setFilters] = useState({});
   const [reassignTarget, setReassignTarget] = useState(null);
-  const [nextTeacherId, setNextTeacherId] = useState('');
+  const [nextTeacherId, setNextTeacherId] = useState("");
   const [saving, setSaving] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -58,13 +64,15 @@ export default function AdminCoursesPage() {
       }
       const [coursesRes, teachersRes] = await Promise.all([
         courseService.list(params),
-        userService.list({ role: 'teacher', limit: 100 }),
+        userService.list({ role: "teacher", limit: 100 }),
       ]);
       setCourses(coursesRes.data.data.courses || []);
       setTeachers(
-        (teachersRes.data.data.users || []).filter((user) => user.isActive !== false),
+        (teachersRes.data.data.users || []).filter(
+          (user) => user.isActive !== false,
+        ),
       );
-      setError('');
+      setError("");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -84,7 +92,7 @@ export default function AdminCoursesPage() {
   async function confirmTogglePublish() {
     if (!publishTarget) return;
     setPublishing(true);
-    setError('');
+    setError("");
     try {
       await courseService.update(publishTarget.id, {
         isPublished: !publishTarget.is_published,
@@ -92,8 +100,8 @@ export default function AdminCoursesPage() {
       setPublishTarget(null);
       setMessage(
         publishTarget.is_published
-          ? 'Subject unpublished'
-          : 'Subject published',
+          ? "Subject unpublished"
+          : "Subject published",
       );
       await load();
     } catch (err) {
@@ -106,11 +114,11 @@ export default function AdminCoursesPage() {
   async function confirmRemoveCourse() {
     if (!courseToDelete) return;
     setDeleting(true);
-    setError('');
+    setError("");
     try {
       await courseService.remove(courseToDelete.id);
       setCourseToDelete(null);
-      setMessage('Subject deleted');
+      setMessage("Subject deleted");
       await load();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -120,25 +128,23 @@ export default function AdminCoursesPage() {
   }
 
   function openReassign(course) {
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     setReassignTarget(course);
-    setNextTeacherId(
-      course.teacher_id ? String(course.teacher_id) : '',
-    );
+    setNextTeacherId(course.teacher_id ? String(course.teacher_id) : "");
   }
 
   async function handleReassign() {
     if (!reassignTarget || !nextTeacherId) return;
     setSaving(true);
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     try {
       await courseService.update(reassignTarget.id, {
         teacherId: Number(nextTeacherId),
       });
       setReassignTarget(null);
-      setMessage('Teacher reassigned');
+      setMessage("Teacher reassigned");
       await load();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -155,8 +161,16 @@ export default function AdminCoursesPage() {
         title="Subject Management"
         subtitle="Publish, unpublish, reassign teachers, and remove subjects across the platform."
       />
-      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-      {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
+      {message ? (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {message}
+        </Alert>
+      ) : null}
 
       <ContentTimestampToolbar
         sort={sort}
@@ -165,7 +179,7 @@ export default function AdminCoursesPage() {
         onFiltersChange={setFilters}
       />
 
-      <Paper sx={{ p: 2, overflowX: 'auto' }}>
+      <Paper sx={{ p: 2, overflowX: "auto" }}>
         <Table>
           <TableHead>
             <TableRow>
@@ -174,42 +188,67 @@ export default function AdminCoursesPage() {
               <TableCell>Teacher</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Timestamps</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {visibleCourses.map((course) => (
               <TableRow key={course.id}>
                 <TableCell>{course.subject || course.title}</TableCell>
-                <TableCell>{course.grade_level || '—'}</TableCell>
+                <TableCell>{course.grade_level || "—"}</TableCell>
                 <TableCell>
                   {course.teacher_first_name} {course.teacher_last_name}
                 </TableCell>
-                <TableCell>{course.is_published ? 'Published' : 'Draft'}</TableCell>
+                <TableCell>
+                  {course.is_published ? "Published" : "Draft"}
+                </TableCell>
                 <TableCell>
                   <ContentTimestamp item={course} dense />
                 </TableCell>
                 <TableCell align="right">
                   <Stack
                     direction="row"
-                    spacing={0.5}
+                    spacing={0.25}
                     justifyContent="flex-end"
-                    flexWrap="wrap"
-                    useFlexGap
                   >
-                    <Button size="small" onClick={() => openReassign(course)}>
-                      Reassign
-                    </Button>
-                    <Button size="small" onClick={() => setPublishTarget(course)}>
-                      {course.is_published ? 'Unpublish' : 'Publish'}
-                    </Button>
-                    <Button
-                      size="small"
-                      color="error"
-                      onClick={() => setCourseToDelete(course)}
+                    <Tooltip title="Reassign teacher">
+                      <IconButton
+                        size="small"
+                        aria-label={`Reassign ${course.subject || course.title}`}
+                        onClick={() => openReassign(course)}
+                      >
+                        <SwapHorizIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip
+                      title={course.is_published ? "Unpublish" : "Publish"}
                     >
-                      Delete
-                    </Button>
+                      <IconButton
+                        size="small"
+                        aria-label={
+                          course.is_published
+                            ? `Unpublish ${course.subject || course.title}`
+                            : `Publish ${course.subject || course.title}`
+                        }
+                        onClick={() => setPublishTarget(course)}
+                      >
+                        {course.is_published ? (
+                          <UnpublishedOutlinedIcon fontSize="small" />
+                        ) : (
+                          <PublishIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        aria-label={`Delete ${course.subject || course.title}`}
+                        onClick={() => setCourseToDelete(course)}
+                      >
+                        <DeleteOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </Stack>
                 </TableCell>
               </TableRow>
@@ -237,11 +276,14 @@ export default function AdminCoursesPage() {
         <DialogTitle>Reassign teacher</DialogTitle>
         <DialogContent>
           <Typography sx={{ mb: 2 }}>
-            Move{' '}
+            Move{" "}
             <strong>
-              {reassignTarget?.subject || reassignTarget?.title || 'this subject'}
-            </strong>{' '}
-            to another teacher. Lessons, quizzes, and games stay with the subject.
+              {reassignTarget?.subject ||
+                reassignTarget?.title ||
+                "this subject"}
+            </strong>{" "}
+            to another teacher. Lessons, quizzes, and games stay with the
+            subject.
           </Typography>
           <TextField
             select
@@ -251,15 +293,15 @@ export default function AdminCoursesPage() {
             onChange={(event) => setNextTeacherId(event.target.value)}
             helperText={
               teachers.length
-                ? 'Only active teacher accounts are listed'
-                : 'No active teachers found'
+                ? "Only active teacher accounts are listed"
+                : "No active teachers found"
             }
             disabled={!teachers.length}
           >
             {teachers.map((teacher) => (
               <MenuItem key={teacher.id} value={String(teacher.id)}>
                 {teacher.firstName} {teacher.lastName}
-                {teacher.email ? ` · ${teacher.email}` : ''}
+                {teacher.email ? ` · ${teacher.email}` : ""}
               </MenuItem>
             ))}
           </TextField>
@@ -272,12 +314,12 @@ export default function AdminCoursesPage() {
             variant="contained"
             onClick={handleReassign}
             disabled={
-              saving
-              || !nextTeacherId
-              || Number(nextTeacherId) === Number(reassignTarget?.teacher_id)
+              saving ||
+              !nextTeacherId ||
+              Number(nextTeacherId) === Number(reassignTarget?.teacher_id)
             }
           >
-            {saving ? 'Saving…' : 'Reassign'}
+            {saving ? "Saving…" : "Reassign"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -287,9 +329,11 @@ export default function AdminCoursesPage() {
         title="Delete this subject?"
         description={
           <>
-            You’re about to permanently delete{' '}
+            You’re about to permanently delete{" "}
             <strong>
-              {courseToDelete?.subject || courseToDelete?.title || 'this subject'}
+              {courseToDelete?.subject ||
+                courseToDelete?.title ||
+                "this subject"}
             </strong>
             .
           </>
@@ -306,25 +350,27 @@ export default function AdminCoursesPage() {
 
       <ConfirmDialog
         open={Boolean(publishTarget)}
-        title={publishTarget?.is_published ? 'Unpublish subject?' : 'Publish subject?'}
-        description={
+        title={
           publishTarget?.is_published
-            ? (
-              <>
-                <strong>{publishTarget?.subject || publishTarget?.title}</strong> will
-                be hidden from students until you publish it again.
-              </>
-            )
-            : (
-              <>
-                <strong>{publishTarget?.subject || publishTarget?.title}</strong> will
-                become visible to enrolled students.
-              </>
-            )
+            ? "Unpublish subject?"
+            : "Publish subject?"
+        }
+        description={
+          publishTarget?.is_published ? (
+            <>
+              <strong>{publishTarget?.subject || publishTarget?.title}</strong>{" "}
+              will be hidden from students until you publish it again.
+            </>
+          ) : (
+            <>
+              <strong>{publishTarget?.subject || publishTarget?.title}</strong>{" "}
+              will become visible to enrolled students.
+            </>
+          )
         }
         cancelLabel="Cancel"
-        confirmLabel={publishTarget?.is_published ? 'Unpublish' : 'Publish'}
-        confirmColor={publishTarget?.is_published ? 'warning' : 'primary'}
+        confirmLabel={publishTarget?.is_published ? "Unpublish" : "Publish"}
+        confirmColor={publishTarget?.is_published ? "warning" : "primary"}
         loading={publishing}
         loadingLabel="Saving…"
         onClose={() => setPublishTarget(null)}

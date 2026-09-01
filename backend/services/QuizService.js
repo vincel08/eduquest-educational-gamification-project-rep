@@ -6,6 +6,7 @@ import GamificationService from "./GamificationService.js";
 import GamificationModel from "../models/GamificationModel.js";
 import CourseService from "./CourseService.js";
 import AiService from "./AiService.js";
+import StreakService from "./StreakService.js";
 import AppError from "../utils/AppError.js";
 import {
   questionImageApiPath,
@@ -1160,6 +1161,8 @@ const QuizService = {
         xpAward = xpResult.xpAward;
         xpEarned = computedXp;
       }
+    } else if (qualifiesForRewards) {
+      await StreakService.recordActivity(studentId);
     }
 
     const completed = await QuizModel.completeAttempt(attemptId, {
@@ -1198,6 +1201,19 @@ const QuizService = {
         });
         perfectMedal = awarded;
         perfectMedalAwarded = Boolean(awarded?.isNew);
+        if (perfectMedalAwarded && awarded) {
+          const medalsUnlocked = [
+            ...(xpAward?.newlyUnlocked?.medals || []),
+            awarded,
+          ];
+          const newlyUnlocked = {
+            badges: xpAward?.newlyUnlocked?.badges || [],
+            medals: medalsUnlocked,
+          };
+          xpAward = xpAward
+            ? { ...xpAward, newlyUnlocked }
+            : { newlyUnlocked };
+        }
       }
     }
 

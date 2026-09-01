@@ -17,6 +17,7 @@ import StudentQuizPage from "../pages/student/StudentQuizPage";
 import StudentGamesPage from "../pages/student/StudentGamesPage";
 import StudentGamePage from "../pages/student/StudentGamePage";
 import StudentAchievementsPage from "../pages/student/StudentAchievementsPage";
+import StudentProgressPage from "../pages/student/StudentProgressPage";
 import StudentLeaderboardPage from "../pages/student/StudentLeaderboardPage";
 import TeacherDashboard from "../pages/teacher/TeacherDashboard";
 import TeacherCoursesPage from "../pages/teacher/TeacherCoursesPage";
@@ -79,6 +80,7 @@ export default function AppRoutes() {
           <Route path="games" element={<StudentGamesPage />} />
           <Route path="games/:gameId" element={<StudentGamePage />} />
           <Route path="achievements" element={<StudentAchievementsPage />} />
+          <Route path="progress" element={<StudentProgressPage />} />
           <Route path="leaderboard" element={<StudentLeaderboardPage />} />
           <Route path="profile" element={<StudentProfilePage />} />
         </Route>

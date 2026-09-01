@@ -5,8 +5,8 @@ import {
   Button,
   Chip,
   FormControl,
+  IconButton,
   InputLabel,
-  Link,
   MenuItem,
   Paper,
   Select,
@@ -19,9 +19,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import MoreTimeIcon from "@mui/icons-material/MoreTime";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
@@ -54,7 +57,8 @@ function sameId(a, b) {
 
 export default function TeacherGradebookPage() {
   const { courseId } = useParams();
-  const { toQueryParams, schoolYear, gradeLevel, section } = useTeacherFilters();
+  const { toQueryParams, schoolYear, gradeLevel, section } =
+    useTeacherFilters();
   const [gradebook, setGradebook] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -365,10 +369,7 @@ export default function TeacherGradebookPage() {
                                 <TableCell sx={{ fontWeight: 800 }}>
                                   Completed
                                 </TableCell>
-                                <TableCell
-                                  sx={{ fontWeight: 800 }}
-                                  align="right"
-                                >
+                                <TableCell sx={{ fontWeight: 800 }}>
                                   Actions
                                 </TableCell>
                               </TableRow>
@@ -426,39 +427,39 @@ export default function TeacherGradebookPage() {
                                   <TableCell align="right">
                                     <Stack
                                       direction="row"
-                                      spacing={1}
+                                      spacing={0.25}
                                       justifyContent="flex-end"
-                                      flexWrap="wrap"
-                                      useFlexGap
                                     >
                                       {result.attemptId ? (
-                                        <Link
-                                          component="button"
-                                          type="button"
-                                          underline="hover"
-                                          onClick={() =>
-                                            setReviewTarget({
-                                              quizId: selectedQuiz.id,
-                                              attemptId: result.attemptId,
-                                            })
-                                          }
-                                        >
-                                          View answers
-                                        </Link>
+                                        <Tooltip title="View answers">
+                                          <IconButton
+                                            size="small"
+                                            aria-label={`View answers for ${result.firstName} ${result.lastName}`}
+                                            onClick={() =>
+                                              setReviewTarget({
+                                                quizId: selectedQuiz.id,
+                                                attemptId: result.attemptId,
+                                              })
+                                            }
+                                          >
+                                            <VisibilityOutlinedIcon fontSize="small" />
+                                          </IconButton>
+                                        </Tooltip>
                                       ) : null}
-                                      <Link
-                                        component="button"
-                                        type="button"
-                                        underline="hover"
-                                        onClick={() => {
-                                          setExtendStudentId(
-                                            String(result.studentId),
-                                          );
-                                          setExtendOpen(true);
-                                        }}
-                                      >
-                                        Extend
-                                      </Link>
+                                      <Tooltip title="Extend attempts">
+                                        <IconButton
+                                          size="small"
+                                          aria-label={`Extend attempts for ${result.firstName} ${result.lastName}`}
+                                          onClick={() => {
+                                            setExtendStudentId(
+                                              String(result.studentId),
+                                            );
+                                            setExtendOpen(true);
+                                          }}
+                                        >
+                                          <MoreTimeIcon fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
                                     </Stack>
                                   </TableCell>
                                 </TableRow>
@@ -618,13 +619,9 @@ export default function TeacherGradebookPage() {
                                     <TableCell align="center">
                                       <Chip
                                         size="small"
-                                        label={
-                                          passed ? "Passed" : "Not passed"
-                                        }
+                                        label={passed ? "Passed" : "Not passed"}
                                         color={passed ? "success" : "default"}
-                                        variant={
-                                          passed ? "filled" : "outlined"
-                                        }
+                                        variant={passed ? "filled" : "outlined"}
                                       />
                                     </TableCell>
                                     <TableCell>
@@ -633,39 +630,39 @@ export default function TeacherGradebookPage() {
                                     <TableCell align="right">
                                       <Stack
                                         direction="row"
-                                        spacing={1}
+                                        spacing={0.25}
                                         justifyContent="flex-end"
-                                        flexWrap="wrap"
-                                        useFlexGap
                                       >
                                         {result.scoreId ? (
-                                          <Link
-                                            component="button"
-                                            type="button"
-                                            underline="hover"
-                                            onClick={() =>
-                                              setGameReviewTarget({
-                                                gameId: selectedGame.id,
-                                                scoreId: result.scoreId,
-                                              })
-                                            }
-                                          >
-                                            View answers
-                                          </Link>
+                                          <Tooltip title="View answers">
+                                            <IconButton
+                                              size="small"
+                                              aria-label={`View answers for ${result.firstName} ${result.lastName}`}
+                                              onClick={() =>
+                                                setGameReviewTarget({
+                                                  gameId: selectedGame.id,
+                                                  scoreId: result.scoreId,
+                                                })
+                                              }
+                                            >
+                                              <VisibilityOutlinedIcon fontSize="small" />
+                                            </IconButton>
+                                          </Tooltip>
                                         ) : null}
-                                        <Link
-                                          component="button"
-                                          type="button"
-                                          underline="hover"
-                                          onClick={() => {
-                                            setGameExtendStudentId(
-                                              String(result.studentId),
-                                            );
-                                            setGameExtendOpen(true);
-                                          }}
-                                        >
-                                          Extend
-                                        </Link>
+                                        <Tooltip title="Extend plays">
+                                          <IconButton
+                                            size="small"
+                                            aria-label={`Extend plays for ${result.firstName} ${result.lastName}`}
+                                            onClick={() => {
+                                              setGameExtendStudentId(
+                                                String(result.studentId),
+                                              );
+                                              setGameExtendOpen(true);
+                                            }}
+                                          >
+                                            <MoreTimeIcon fontSize="small" />
+                                          </IconButton>
+                                        </Tooltip>
                                       </Stack>
                                     </TableCell>
                                   </TableRow>

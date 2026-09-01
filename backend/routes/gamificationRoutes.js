@@ -13,13 +13,18 @@ router.get("/medals", GamificationController.listMedals);
 
 router.post(
   "/badges",
-  authorize("administrator"),
+  authorize("administrator", "teacher"),
   GamificationController.createBadge,
 );
 router.put(
   "/badges/:id",
-  authorize("administrator"),
+  authorize("administrator", "teacher"),
   GamificationController.updateBadge,
+);
+router.delete(
+  "/badges/:id",
+  authorize("administrator", "teacher"),
+  GamificationController.deleteBadge,
 );
 router.post(
   "/badges/award",
@@ -31,6 +36,16 @@ router.post(
   "/medals",
   authorize("administrator"),
   GamificationController.createMedal,
+);
+router.put(
+  "/medals/:id",
+  authorize("administrator"),
+  GamificationController.updateMedal,
+);
+router.delete(
+  "/medals/:id",
+  authorize("administrator"),
+  GamificationController.deleteMedal,
 );
 router.post(
   "/medals/award",

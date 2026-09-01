@@ -7,6 +7,7 @@ import QuestCard from "../../components/common/QuestCard";
 import EmptyState from "../../components/common/EmptyState";
 import ContentTimestampToolbar from "../../components/common/ContentTimestampToolbar";
 import courseService from "../../services/courseService";
+import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
 
@@ -16,6 +17,7 @@ export default function StudentQuizzesPage() {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState("newest");
   const [filters, setFilters] = useState({});
+  const [submittingId, setSubmittingId] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -45,6 +47,29 @@ export default function StudentQuizzesPage() {
     () => applyTimestampControls(quizzes, { sort, filters }),
     [quizzes, sort, filters],
   );
+
+  async function handleSubmitGrade(quizId) {
+    setSubmittingId(quizId);
+    setError("");
+    try {
+      await quizService.releaseGrade(quizId);
+      setQuizzes((prev) =>
+        prev.map((quiz) =>
+          Number(quiz.id) === Number(quizId)
+            ? {
+                ...quiz,
+                gradeReleased: true,
+                unavailable: true,
+              }
+            : quiz,
+        ),
+      );
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSubmittingId(null);
+    }
+  }
 
   if (loading) return <LoadingScreen label="Loading quizzes..." showCards />;
 
@@ -115,6 +140,28 @@ export default function StudentQuizzesPage() {
                 : null,
             ].filter(Boolean);
 
+            const canSubmitEarly =
+              !unavailable &&
+              Boolean(quiz.hasAttempted) &&
+              Number(quiz.attemptsRemaining) > 0 &&
+              !quiz.gradeReleased;
+
+            let actionLabel = "Start Challenge";
+            if (quiz.hasOverride && !unavailable) {
+              actionLabel = "Continue (extended)";
+            } else if (quiz.locked) {
+              actionLabel = "Finish lesson first";
+            } else if (quiz.gradeReleased) {
+              actionLabel = "Submitted";
+            } else if (quiz.isClosed || quiz.outOfAttempts) {
+              actionLabel = "Unavailable";
+            } else if (quiz.hasAttempted) {
+              actionLabel =
+                quiz.attemptsRemaining > 0
+                  ? "Use another attempt"
+                  : "Open quiz";
+            }
+
             return (
               <Grid key={quiz.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <QuestCard
@@ -135,21 +182,16 @@ export default function StudentQuizzesPage() {
                   to={
                     unavailable ? undefined : `/student/quizzes/${quiz.id}`
                   }
-                  actionLabel={
-                    quiz.hasOverride && !unavailable
-                      ? "Continue (extended)"
-                      : quiz.locked
-                        ? "Finish lesson first"
-                        : quiz.gradeReleased
-                          ? "Submitted"
-                          : quiz.isClosed || quiz.outOfAttempts
-                            ? "Unavailable"
-                            : quiz.hasAttempted
-                              ? quiz.attemptsRemaining > 0
-                                ? "Use another attempt"
-                                : "Open quiz"
-                              : "Start Challenge"
+                  actionLabel={actionLabel}
+                  secondaryActionLabel={
+                    canSubmitEarly ? "Submit result" : undefined
                   }
+                  onSecondaryAction={
+                    canSubmitEarly
+                      ? () => handleSubmitGrade(quiz.id)
+                      : undefined
+                  }
+                  secondaryLoading={Number(submittingId) === Number(quiz.id)}
                 />
               </Grid>
             );

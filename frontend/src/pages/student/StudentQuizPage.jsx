@@ -577,7 +577,7 @@ export default function StudentQuizPage() {
             !attemptMeta.isClosed &&
             !result.releasedToGradebook ? (
               <Button
-                variant="contained"
+                variant="outlined"
                 color={result.isPassed ? "secondary" : "primary"}
                 disabled={releasingGrade}
                 onClick={() => {
@@ -600,11 +600,8 @@ export default function StudentQuizPage() {
               </Button>
             ) : null}
             <Button
-              variant={
-                attemptMeta.attemptsRemaining > 0 && !attemptMeta.isClosed
-                  ? "outlined"
-                  : "contained"
-              }
+              variant="contained"
+              color="secondary"
               disabled={releasingGrade}
               onClick={handleKeepScore}
             >
@@ -612,9 +609,7 @@ export default function StudentQuizPage() {
                 ? "Submitting…"
                 : result.releasedToGradebook
                   ? "Back to quizzes"
-                  : result.isPassed
-                    ? "Submit grade to teacher"
-                    : "Submit this score to teacher"}
+                  : "Submit result"}
             </Button>
           </Stack>
         </Paper>

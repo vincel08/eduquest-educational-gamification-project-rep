@@ -4,22 +4,19 @@ import {
   Avatar,
   Button,
   Grid,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
-import CancelRoundedIcon from "@mui/icons-material/CancelRounded";
+import NoPhotographyOutlinedIcon from "@mui/icons-material/NoPhotographyOutlined";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
-import XpBar from "../../components/gamification/XpBar";
-import BadgeCard from "../../components/gamification/BadgeCard";
-import MedalCard from "../../components/gamification/MedalCard";
 import gamificationService from "../../services/gamificationService";
-import analyticsService from "../../services/analyticsService";
-import courseService from "../../services/courseService";
 import authService from "../../services/authService";
 import classSectionService from "../../services/classSectionService";
 import { getErrorMessage } from "../../services/api";
@@ -51,7 +48,6 @@ export default function StudentProfilePage() {
   const sectionsRevision = useClassSectionsRevision();
   const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [data, setData] = useState(null);
-  const [courses, setCourses] = useState([]);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -88,7 +84,6 @@ export default function StudentProfilePage() {
           if (matched) {
             return matched === prev.section ? prev : { ...prev, section: matched };
           }
-          // Stale section for this grade/SY — force a new choice.
           return { ...prev, section: "" };
         });
       })
@@ -105,22 +100,16 @@ export default function StudentProfilePage() {
     let active = true;
     async function load() {
       try {
-        const [meRes, analyticsRes, coursesRes] = await Promise.all([
-          gamificationService.me(),
-          analyticsService.student(),
-          courseService.myCourses(),
-        ]);
+        const meRes = await gamificationService.me();
         if (!active) return;
         const gamification = meRes.data.data;
-        setData({ gamification, analytics: analyticsRes.data.data });
+        setData({ gamification });
         updateProfile(gamification.profile);
-        setCourses(coursesRes.data.data?.courses || coursesRes.data.data || []);
         const existingGrade = gamification.profile?.grade_level || "";
         const existingSection = gamification.profile?.section || "";
         setForm({
           firstName: user?.firstName || "",
           lastName: user?.lastName || "",
-          // Keep unknown/legacy values editable as empty so the student can pick a supported grade.
           gradeLevel: isValidGradeLevel(existingGrade) ? existingGrade : "",
           schoolName: gamification.profile?.school_name || "",
           section: existingSection,
@@ -139,7 +128,6 @@ export default function StudentProfilePage() {
     return () => {
       active = false;
     };
-    // Load once per signed-in student; do not re-run when auth helpers/profile sync.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount/id load
   }, [user?.id]);
 
@@ -149,7 +137,6 @@ export default function StudentProfilePage() {
     setError("");
     setMessage("");
     try {
-      // Avatar is updated only via upload/remove endpoints — never send display URLs here.
       const response = await authService.updateProfile({
         ...form,
       });
@@ -226,13 +213,12 @@ export default function StudentProfilePage() {
   if (error && !data) return <Alert severity="error">{error}</Alert>;
 
   const studentProfile = data.gamification.profile;
-  const analytics = data.analytics;
 
   return (
     <>
       <PageHeader
         title="My Profile"
-        subtitle="Photo, progress, achievements, and rank"
+        subtitle="Photo, name, and class details"
       />
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -260,25 +246,32 @@ export default function StudentProfilePage() {
             >
               {(form.firstName || "S")[0]}
             </Avatar>
-            <Stack spacing={1} sx={{ mb: 2 }}>
-              <Button
-                variant="contained"
-                startIcon={<PhotoCameraIcon />}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingAvatar}
-              >
-                {uploadingAvatar ? "Uploading..." : "Upload photo"}
-              </Button>
+            <Stack direction="row" spacing={1} justifyContent="center" sx={{ mb: 2 }}>
+              <Tooltip title={uploadingAvatar ? "Uploading…" : "Upload photo"}>
+                <span>
+                  <IconButton
+                    color="primary"
+                    aria-label="Upload photo"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                  >
+                    <PhotoCameraIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
               {avatarUrl ? (
-                <Button
-                  variant="outlined"
-                  color="inherit"
-                  startIcon={<CancelRoundedIcon />}
-                  onClick={handleRemoveAvatar}
-                  disabled={uploadingAvatar}
-                >
-                  Remove photo
-                </Button>
+                <Tooltip title="Remove photo">
+                  <span>
+                    <IconButton
+                      color="error"
+                      aria-label="Remove photo"
+                      onClick={handleRemoveAvatar}
+                      disabled={uploadingAvatar}
+                    >
+                      <NoPhotographyOutlinedIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               ) : null}
               <input
                 ref={fileInputRef}
@@ -287,10 +280,10 @@ export default function StudentProfilePage() {
                 hidden
                 onChange={handleAvatarChange}
               />
-              <Typography variant="caption" color="text.secondary">
-                PNG, JPG, or WEBP up to 5MB
-              </Typography>
             </Stack>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+              PNG, JPG, or WEBP up to 5MB
+            </Typography>
             <Typography variant="h5">
               {form.firstName} {form.lastName}
             </Typography>
@@ -311,17 +304,14 @@ export default function StudentProfilePage() {
                 ? `SY ${studentProfile.school_year}`
                 : "—"}
             </Typography>
-            <Typography>Rank: #{studentProfile.rank || "—"}</Typography>
-            <Typography>XP: {studentProfile.xp}</Typography>
-            <Typography>
-              Streak: {studentProfile.current_streak || 0} days (best{" "}
-              {studentProfile.longest_streak || 0})
-            </Typography>
+            {studentProfile.school_name ? (
+              <Typography>School: {studentProfile.school_name}</Typography>
+            ) : null}
           </Paper>
         </Grid>
 
         <Grid size={{ xs: 12, md: 8 }}>
-          <Paper sx={{ p: 3, mb: 2 }} component="form" onSubmit={handleSave}>
+          <Paper sx={{ p: 3 }} component="form" onSubmit={handleSave}>
             <Typography variant="h6" gutterBottom>
               Edit Profile
             </Typography>
@@ -440,42 +430,6 @@ export default function StudentProfilePage() {
               </Button>
             </Stack>
           </Paper>
-
-          <Paper sx={{ p: 3, mb: 2 }}>
-            <XpBar xp={studentProfile.xp} />
-            <Typography sx={{ mt: 2 }}>
-              Progress: {analytics.averageProgress}% · Completed subjects:{" "}
-              {
-                (courses || []).filter((c) => Number(c.progress_percent) >= 100)
-                  .length
-              }
-            </Typography>
-            <Typography>
-              Badges: {analytics.badges} · Medals: {analytics.medals}
-            </Typography>
-          </Paper>
-
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Badges
-          </Typography>
-          <Grid container spacing={1} sx={{ mb: 2 }}>
-            {(data.gamification.badges || []).map((badge) => (
-              <Grid key={badge.id || badge.badge_id} size={{ xs: 12, sm: 6 }}>
-                <BadgeCard badge={badge} />
-              </Grid>
-            ))}
-          </Grid>
-
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Medals
-          </Typography>
-          <Grid container spacing={1}>
-            {(data.gamification.medals || []).map((medal) => (
-              <Grid key={medal.id || medal.medal_id} size={{ xs: 12, sm: 6 }}>
-                <MedalCard medal={medal} />
-              </Grid>
-            ))}
-          </Grid>
         </Grid>
       </Grid>
     </>

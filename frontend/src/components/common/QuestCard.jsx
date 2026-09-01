@@ -36,6 +36,9 @@ export default function QuestCard({
   to,
   actionLabel = "Open",
   onAction,
+  secondaryActionLabel,
+  onSecondaryAction,
+  secondaryLoading = false,
   showTimestamp = false,
   item,
   timestampVariant = "date",
@@ -45,6 +48,8 @@ export default function QuestCard({
 }) {
   const isBlocked = Boolean(locked || disabled);
   const canOpen = !isBlocked && Boolean(to || onAction);
+  const showSecondary =
+    !isBlocked && Boolean(secondaryActionLabel && onSecondaryAction);
 
   return (
     <Card
@@ -194,16 +199,45 @@ export default function QuestCard({
           </Button>
         </CardActions>
       ) : to || onAction ? (
-        <CardActions sx={{ px: 2, pb: 2 }}>
+        <CardActions
+          sx={{
+            px: 2,
+            pb: 2,
+            pt: 0,
+            flexDirection: showSecondary ? "column" : "row",
+            alignItems: "stretch",
+            gap: showSecondary ? 1 : 0,
+            // MUI CardActions adds margin-left on siblings — reset so stacked buttons align.
+            "& > :not(style) ~ :not(style)": {
+              marginLeft: 0,
+            },
+            "& .MuiButton-root": {
+              width: "100%",
+              alignSelf: "stretch",
+            },
+          }}
+        >
           <Button
             fullWidth
             variant="contained"
             component={to ? RouterLink : "button"}
             to={to}
             onClick={onAction}
+            disabled={secondaryLoading}
           >
             {actionLabel}
           </Button>
+          {showSecondary ? (
+            <Button
+              fullWidth
+              variant="outlined"
+              color="secondary"
+              onClick={onSecondaryAction}
+              disabled={secondaryLoading}
+            >
+              {secondaryLoading ? "Submitting…" : secondaryActionLabel}
+            </Button>
+          ) : null}
         </CardActions>
       ) : null}
     </Card>
