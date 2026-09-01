@@ -25,6 +25,7 @@ import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ResponsiveTableContainer from "../../components/common/ResponsiveTableContainer";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import ContentTimestamp from "../../components/common/ContentTimestamp";
 import ReuseContentDialog from "../../components/teacher/ReuseContentDialog";
 import quizService from "../../services/quizService";
 import courseService from "../../services/courseService";
@@ -208,15 +209,17 @@ export default function TeacherQuizzesPage() {
           </Stack>
         ) : (
           <ResponsiveTableContainer>
-            <Table size="small" sx={{ minWidth: 780 }}>
+            <Table size="small" sx={{ minWidth: 980 }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Title</TableCell>
                   <TableCell>Subject</TableCell>
+                  <TableCell>Grade</TableCell>
                   <TableCell>School year</TableCell>
                   <TableCell>Questions</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Source</TableCell>
+                  <TableCell>Created</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -227,11 +230,20 @@ export default function TeacherQuizzesPage() {
                       <Typography fontWeight={700}>{quiz.title}</Typography>
                       <Typography variant="caption" color="text.secondary">
                         {quiz.xp_reward} XP · Pass {quiz.passing_score}%
+                        {quiz.time_limit_minutes
+                          ? ` · ${quiz.time_limit_minutes} min`
+                          : ""}
+                        {quiz.difficulty
+                          ? ` · ${String(quiz.difficulty).replace(/^\w/, (c) =>
+                              c.toUpperCase(),
+                            )}`
+                          : ""}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       {quiz.course_title || `Subject #${quiz.course_id}`}
                     </TableCell>
+                    <TableCell>{quiz.grade_level || "—"}</TableCell>
                     <TableCell>
                       {quiz.school_year ? (
                         <Chip
@@ -267,6 +279,9 @@ export default function TeacherQuizzesPage() {
                       ) : (
                         <Chip size="small" variant="outlined" label="Manual" />
                       )}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 150 }}>
+                      <ContentTimestamp item={quiz} dense sx={{ mt: 0 }} />
                     </TableCell>
                     <TableCell align="right">
                       <Stack

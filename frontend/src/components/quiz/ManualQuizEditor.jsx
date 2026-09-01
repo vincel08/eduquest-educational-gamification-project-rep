@@ -270,11 +270,17 @@ export default function ManualQuizEditor({
               label="Due date (optional)"
               type="datetime-local"
               fullWidth
-              InputLabelProps={{ shrink: true }}
               value={form.dueAt || ""}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, dueAt: e.target.value }))
               }
+              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: {
+                  "aria-label": "Due date (optional)",
+                },
+              }}
               helperText="After this time, students cannot start new attempts"
             />
           </Stack>
