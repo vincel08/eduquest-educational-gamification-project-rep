@@ -7,6 +7,7 @@ import GamificationModel from "../models/GamificationModel.js";
 import CourseService from "./CourseService.js";
 import AiService from "./AiService.js";
 import StreakService from "./StreakService.js";
+import NotificationService from "./NotificationService.js";
 import AppError from "../utils/AppError.js";
 import {
   questionImageApiPath,
@@ -1222,6 +1223,17 @@ const QuizService = {
     if (meta.outOfAttempts || meta.attemptsRemaining <= 0) {
       await QuizModel.releaseCompletedAttempts(quiz.id, studentId);
       releasedToGradebook = true;
+      const best = await QuizModel.findBestCompletedAttempt(quiz.id, studentId);
+      const gradeScore = best != null ? Number(best.score) : Number(score);
+      await NotificationService.notifyTeacherOfStudentActivity({
+        teacherId: quiz.teacher_id,
+        studentId,
+        title: "Quiz grade submitted",
+        type: "quiz",
+        link: `/teacher/courses/${quiz.course_id}/scores`,
+        buildMessage: (studentName) =>
+          `${studentName} submitted their grade for "${quiz.title}" (${gradeScore.toFixed(0)}%).`,
+      });
     }
 
     const reviewItems = !isPassed
@@ -1262,9 +1274,23 @@ const QuizService = {
       throw new AppError("Complete at least one attempt before submitting your grade", 400);
     }
 
+    const alreadyReleased = await QuizModel.hasReleasedAttempt(quizId, studentId);
     await QuizModel.releaseCompletedAttempts(quizId, studentId);
     const best = await QuizModel.findBestCompletedAttempt(quizId, studentId);
     const { meta } = await resolveStudentQuizAccess(quiz, studentId);
+
+    if (!alreadyReleased) {
+      const gradeScore = best != null ? Number(best.score) : 0;
+      await NotificationService.notifyTeacherOfStudentActivity({
+        teacherId: quiz.teacher_id,
+        studentId,
+        title: "Quiz grade submitted",
+        type: "quiz",
+        link: `/teacher/courses/${quiz.course_id}/scores`,
+        buildMessage: (studentName) =>
+          `${studentName} submitted their grade for "${quiz.title}" (${gradeScore.toFixed(0)}%).`,
+      });
+    }
 
     return {
       quizId: Number(quizId),

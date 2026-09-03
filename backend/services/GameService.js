@@ -6,6 +6,7 @@ import NotificationModel from "../models/NotificationModel.js";
 import AiService from "./AiService.js";
 import CourseService from "./CourseService.js";
 import GamificationService from "./GamificationService.js";
+import NotificationService from "./NotificationService.js";
 import StreakService from "./StreakService.js";
 import AppError from "../utils/AppError.js";
 import {
@@ -481,6 +482,18 @@ const GameService = {
     if (nextMeta.outOfAttempts || nextMeta.attemptsRemaining <= 0) {
       await GameModel.releaseStudentScores(gameId, studentId);
       releasedToGradebook = true;
+      const best = await GameModel.findBestScore(gameId, studentId);
+      const gradeScore =
+        best != null ? Number(best.score) : Number(normalizedScore);
+      await NotificationService.notifyTeacherOfStudentActivity({
+        teacherId: game.teacher_id,
+        studentId,
+        title: "Game grade submitted",
+        type: "info",
+        link: `/teacher/courses/${game.course_id}/scores`,
+        buildMessage: (studentName) =>
+          `${studentName} submitted their grade for "${game.title}" (${gradeScore.toFixed(0)}%).`,
+      });
     }
 
     return {
@@ -510,10 +523,24 @@ const GameService = {
       throw new AppError("Play at least once before submitting your grade", 400);
     }
 
+    const alreadyReleased = await GameModel.hasReleasedScore(gameId, studentId);
     await GameModel.releaseStudentScores(gameId, studentId);
     const best = await GameModel.findBestScore(gameId, studentId);
     const extraAttempts = await getStudentExtraAttempts(gameId, studentId);
     const attemptMeta = buildGameAttemptMeta({ attemptsUsed, extraAttempts });
+
+    if (!alreadyReleased) {
+      const gradeScore = best != null ? Number(best.score) : 0;
+      await NotificationService.notifyTeacherOfStudentActivity({
+        teacherId: game.teacher_id,
+        studentId,
+        title: "Game grade submitted",
+        type: "info",
+        link: `/teacher/courses/${game.course_id}/scores`,
+        buildMessage: (studentName) =>
+          `${studentName} submitted their grade for "${game.title}" (${gradeScore.toFixed(0)}%).`,
+      });
+    }
 
     return {
       gameId: Number(gameId),

@@ -50,6 +50,30 @@ const GRADE_MATCH_SQL = `
   AND TRIM(sp.grade_level) <> ''
 `;
 
+async function countClassSections(filters = {}) {
+  const clauses = [];
+  const params = {};
+  const schoolYear = normalizeRosterFilterValue(filters.schoolYear);
+  const gradeLevel = normalizeRosterFilterValue(filters.gradeLevel);
+  // Section count is only meaningful when section filter is "all";
+  // still scope by school year and grade when those are set.
+  if (schoolYear) {
+    clauses.push("cs.school_year = :sectionSchoolYear");
+    params.sectionSchoolYear = schoolYear;
+  }
+  if (gradeLevel) {
+    clauses.push("cs.grade_level = :sectionGradeLevel");
+    params.sectionGradeLevel = gradeLevel;
+  }
+
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const rows = await query(
+    `SELECT COUNT(*) AS total FROM class_sections cs ${where}`,
+    params,
+  );
+  return Number(rows[0]?.total) || 0;
+}
+
 const AnalyticsService = {
   async getAdminOverview(filters = {}) {
     const rosterActive = hasRosterFilters(filters);
@@ -218,7 +242,7 @@ const AnalyticsService = {
       );
     }
 
-    const [topStudents, recentQuizzes, recentGames, gamesCount] =
+    const [topStudents, recentQuizzes, recentGames, gamesCount, totalSections] =
       await Promise.all([
         query(
           `SELECT u.first_name, u.last_name, sp.xp, sp.level
@@ -256,6 +280,7 @@ const AnalyticsService = {
            ${courseJoinWhere}`,
           courseParams,
         ),
+        countClassSections(filters),
       ]);
 
     return {
@@ -263,6 +288,7 @@ const AnalyticsService = {
       totalCourses: courses[0].total,
       totalQuizzes: quizzes[0].total,
       totalGames: gamesCount[0].total,
+      totalSections,
       quizAttempts: attempts[0].total,
       averageQuizScore: Number(
         Number(attempts[0].average_score || 0).toFixed(2),
@@ -291,12 +317,14 @@ const AnalyticsService = {
 
     const courses = await CourseModel.findAll(courseFilters);
     const courseIds = courses.courses.map((course) => course.id);
+    const totalSections = await countClassSections(rosterFilters);
 
     if (!courseIds.length) {
       return {
         totalCourses: 0,
         totalStudents: 0,
         totalGames: 0,
+        totalSections,
         averageProgress: 0,
         quizStats: [],
         courses: [],
@@ -440,6 +468,7 @@ const AnalyticsService = {
       totalCourses: courses.total,
       totalStudents: studentStats[0].total_students,
       totalGames: Number(gamesCount[0].total) || 0,
+      totalSections,
       averageProgress: Number(
         Number(studentStats[0].average_progress || 0).toFixed(2),
       ),

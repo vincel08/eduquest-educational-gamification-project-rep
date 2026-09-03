@@ -15,6 +15,7 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import QuizIcon from '@mui/icons-material/Quiz';
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import PersonIcon from '@mui/icons-material/Person';
+import GroupsIcon from '@mui/icons-material/Groups';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -81,6 +82,10 @@ export default function AdminDashboard() {
   if (error) return <Alert severity="error">{error}</Alert>;
 
   const totalUsers = Object.values(roleCounts).reduce((sum, n) => sum + n, 0);
+  const showSectionsStat = !section || section === 'all';
+  const contentStatSize = showSectionsStat
+    ? { xs: 12, sm: 6, md: 3 }
+    : { xs: 12, sm: 6, md: 4 };
   const chartData = {
     labels: (data.engagement || []).map((item) => formatChartDay(item.day)),
     datasets: [
@@ -141,7 +146,7 @@ export default function AdminDashboard() {
       </Grid>
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid size={contentStatSize}>
           <StatCard
             label="Subjects"
             value={data.totalCourses}
@@ -150,10 +155,21 @@ export default function AdminDashboard() {
             to="/admin/courses"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        {showSectionsStat ? (
+          <Grid size={contentStatSize}>
+            <StatCard
+              label="Sections"
+              value={data.totalSections || 0}
+              icon={<GroupsIcon />}
+              color="#0EA5E9"
+              to="/admin/sections"
+            />
+          </Grid>
+        ) : null}
+        <Grid size={contentStatSize}>
           <StatCard label="Quizzes" value={data.totalQuizzes} icon={<QuizIcon />} color="#F59E0B" />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid size={contentStatSize}>
           <StatCard label="Games" value={data.totalGames || 0} icon={<SportsEsportsIcon />} color="#8B5CF6" />
         </Grid>
       </Grid>

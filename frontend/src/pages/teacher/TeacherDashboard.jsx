@@ -16,6 +16,7 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import QuizIcon from "@mui/icons-material/Quiz";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
+import ClassIcon from "@mui/icons-material/Class";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -171,6 +172,10 @@ export default function TeacherDashboard() {
   if (error) return <Alert severity="error">{error}</Alert>;
 
   const chartHeight = Math.max(220, quizRows.length * 48 + 72);
+  const showSectionsStat = !section || section === "all";
+  const topStatSize = showSectionsStat
+    ? { xs: 12, sm: 6, md: 4 }
+    : { xs: 12, sm: 6, md: 3 };
 
   return (
     <PageContainer>
@@ -208,7 +213,7 @@ export default function TeacherDashboard() {
       />
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={topStatSize}>
           <StatCard
             label="Subjects"
             value={data.totalCourses}
@@ -216,7 +221,7 @@ export default function TeacherDashboard() {
             to="/teacher/courses"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={topStatSize}>
           <StatCard
             label="Students"
             value={data.totalStudents}
@@ -225,7 +230,18 @@ export default function TeacherDashboard() {
             to="/teacher/students"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        {showSectionsStat ? (
+          <Grid size={topStatSize}>
+            <StatCard
+              label="Sections"
+              value={data.totalSections || 0}
+              icon={<ClassIcon />}
+              color="#0EA5E9"
+              to="/teacher/sections"
+            />
+          </Grid>
+        ) : null}
+        <Grid size={showSectionsStat ? { xs: 12, sm: 6, md: 6 } : topStatSize}>
           <StatCard
             label="Quizzes"
             value={data.quizStats.length}
@@ -234,7 +250,7 @@ export default function TeacherDashboard() {
             to="/teacher/quizzes"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={showSectionsStat ? { xs: 12, sm: 6, md: 6 } : topStatSize}>
           <StatCard
             label="Games"
             value={data.totalGames || 0}
