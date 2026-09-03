@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Box,
   Chip,
   Grid,
   Paper,
@@ -11,6 +12,7 @@ import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import MilitaryTechIcon from "@mui/icons-material/MilitaryTech";
 import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
 import PageHeader from "../../components/common/PageHeader";
+import PageContainer from "../../components/common/PageContainer";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import EmptyState from "../../components/common/EmptyState";
 import BadgeCard from "../../components/gamification/BadgeCard";
@@ -117,34 +119,44 @@ export default function StudentAchievementsPage() {
     teacherAwardedBadges.length + teacherAwardedMedals.length;
 
   return (
-    <>
+    <PageContainer>
       <PageHeader
         title="Trophy Room"
         subtitle="Unlock badges by learning — teacher awards show up separately."
       />
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 }, mb: 3, overflow: "hidden", maxWidth: "100%" }}>
         <XpBar xp={data.profile.xp} />
-        <Stack
-          direction="row"
-          spacing={1}
-          flexWrap="wrap"
-          useFlexGap
-          sx={{ mt: 2 }}
+        <Box
+          sx={{
+            mt: 2,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 1,
+            width: "100%",
+            maxWidth: "100%",
+            "& .MuiChip-root": {
+              maxWidth: "100%",
+            },
+            "& .MuiChip-label": {
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            },
+          }}
         >
           <Chip
             icon={<EmojiEventsIcon />}
-            label={`${unlockedBadges} / ${badgeCollection.length} unlocked`}
+            label={`${unlockedBadges}/${badgeCollection.length} badges`}
             sx={{ fontWeight: 800 }}
           />
           <Chip
             icon={<MilitaryTechIcon />}
-            label={`${unlockedMedals} / ${medalCollection.length} medals`}
+            label={`${unlockedMedals}/${medalCollection.length} medals`}
             sx={{ fontWeight: 800 }}
           />
           <Chip
             icon={<VolunteerActivismIcon />}
-            label={`${teacherAwardCount} teacher award${teacherAwardCount === 1 ? "" : "s"}`}
+            label={`${teacherAwardCount} teacher`}
             sx={{ fontWeight: 800 }}
           />
           <Chip
@@ -152,7 +164,7 @@ export default function StudentAchievementsPage() {
             variant="outlined"
             sx={{ fontWeight: 800 }}
           />
-        </Stack>
+        </Box>
       </Paper>
 
       <Typography variant="h6" sx={{ mb: 1 }}>
@@ -274,6 +286,6 @@ export default function StudentAchievementsPage() {
           </Typography>
         )}
       </Paper>
-    </>
+    </PageContainer>
   );
 }

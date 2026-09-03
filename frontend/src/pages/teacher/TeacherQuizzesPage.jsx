@@ -19,7 +19,6 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
-import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
@@ -225,7 +224,12 @@ export default function TeacherQuizzesPage() {
               </TableHead>
               <TableBody>
                 {quizzes.map((quiz) => (
-                  <TableRow key={quiz.id} hover>
+                  <TableRow
+                    key={quiz.id}
+                    hover
+                    onClick={() => navigate(`/teacher/quizzes/${quiz.id}/edit`)}
+                    sx={{ cursor: "pointer" }}
+                  >
                     <TableCell>
                       <Typography fontWeight={700}>{quiz.title}</Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -283,7 +287,10 @@ export default function TeacherQuizzesPage() {
                     <TableCell sx={{ minWidth: 150 }}>
                       <ContentTimestamp item={quiz} dense sx={{ mt: 0 }} />
                     </TableCell>
-                    <TableCell align="right">
+                    <TableCell
+                      align="right"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <Stack
                         direction="row"
                         spacing={0.25}
@@ -303,16 +310,6 @@ export default function TeacherQuizzesPage() {
                               <ContentCopyOutlinedIcon fontSize="small" />
                             </IconButton>
                           </span>
-                        </Tooltip>
-                        <Tooltip title="Open">
-                          <IconButton
-                            component={RouterLink}
-                            to={`/teacher/quizzes/${quiz.id}/edit`}
-                            size="small"
-                            aria-label={`Open quiz ${quiz.title}`}
-                          >
-                            <OpenInNewOutlinedIcon fontSize="small" />
-                          </IconButton>
                         </Tooltip>
                         <Tooltip title="Delete">
                           <IconButton

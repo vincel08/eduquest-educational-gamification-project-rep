@@ -34,6 +34,11 @@ import courseService from "../../services/courseService";
 import aiReviewService from "../../services/aiReviewService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
+import {
+  clampGameItemCountInput,
+  getMaxItemsForGameType,
+  getMinItemsForGameType,
+} from "../../utils/gameItemLimits";
 
 const GAME_TYPE_OPTIONS = [
   {
@@ -127,6 +132,7 @@ export default function TeacherAiGamePage() {
     topic: "",
     lessonContent: "",
     gameType: "auto",
+    itemCount: 6,
   });
   const [draft, setDraft] = useState(null);
   const [error, setError] = useState("");
@@ -195,6 +201,7 @@ export default function TeacherAiGamePage() {
         lessonContent:
           form.lessonContent.trim() || form.topic.trim() || undefined,
         gameType: form.gameType,
+        itemCount: Number(form.itemCount) || 6,
         requestId:
           typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
@@ -233,6 +240,8 @@ export default function TeacherAiGamePage() {
   const freeText = `${form.topic} ${form.lessonContent}`.trim();
   const canGenerate =
     Boolean(form.courseId) && (Boolean(form.lessonId) || freeText.length >= 3);
+  const itemMin = getMinItemsForGameType(form.gameType);
+  const itemMax = getMaxItemsForGameType(form.gameType);
 
   return (
     <PageContainer>
@@ -272,7 +281,16 @@ export default function TeacherAiGamePage() {
               >
                 <CardActionArea
                   onClick={() =>
-                    setForm((prev) => ({ ...prev, gameType: option.value }))
+                    setForm((prev) => ({
+                      ...prev,
+                      gameType: option.value,
+                      itemCount: clampGameItemCountInput(
+                        prev.itemCount === ""
+                          ? getMinItemsForGameType(option.value)
+                          : prev.itemCount,
+                        option.value,
+                      ),
+                    }))
                   }
                   sx={{ height: "100%" }}
                 >
@@ -362,6 +380,25 @@ export default function TeacherAiGamePage() {
               </MenuItem>
             ))}
           </TextField>
+
+          <TextField
+            label="Number of items"
+            type="number"
+            value={form.itemCount}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") {
+                setForm((p) => ({ ...p, itemCount: "" }));
+                return;
+              }
+              setForm((p) => ({
+                ...p,
+                itemCount: clampGameItemCountInput(raw, p.gameType),
+              }));
+            }}
+            inputProps={{ min: itemMin, max: itemMax, step: 1 }}
+            helperText={`Terms, questions, stages, words, or clues for this game type (${itemMin}–${itemMax}).`}
+          />
 
           <Button
             type="submit"

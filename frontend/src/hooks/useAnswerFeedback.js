@@ -20,7 +20,11 @@ export default function useAnswerFeedback({ autoAdvanceMs = DEFAULT_AUTO_MS } = 
       correctAnswer: payload.correctAnswer ?? null,
       userAnswer: payload.userAnswer ?? null,
       explanation: payload.explanation ?? null,
-      xpEarned: isCorrect ? (Number(payload.xpEarned) || 0) : 0,
+      // Preserve explicit XP (e.g. partial credit on Check Matches / crossword).
+      xpEarned:
+        payload.xpEarned !== undefined && payload.xpEarned !== null
+          ? Number(payload.xpEarned) || 0
+          : 0,
       score: Number(payload.score) || 0,
       progress: Math.max(0, Math.min(1, Number(payload.progress) || 0)),
       message: pickFeedbackMessage(isCorrect, payload.message),

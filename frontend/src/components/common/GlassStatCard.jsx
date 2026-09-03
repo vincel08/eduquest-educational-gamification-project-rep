@@ -43,9 +43,14 @@ export default function GlassStatCard({
         },
       }}
     >
-      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
-          <Box sx={{ minWidth: 0 }}>
+      <CardContent
+        sx={{
+          p: { xs: 1.5, sm: 2.5 },
+          "&:last-child": { pb: { xs: 1.5, sm: 2.5 } },
+        }}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography
               variant="body2"
               sx={{
@@ -53,6 +58,7 @@ export default function GlassStatCard({
                 opacity: accent ? 0.92 : 1,
                 color: accent ? '#fff' : 'text.secondary',
                 mb: 0.5,
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
               }}
             >
               {label}
@@ -60,7 +66,12 @@ export default function GlassStatCard({
             <Typography
               variant="h4"
               fontWeight={800}
-              sx={{ lineHeight: 1.15, color: accent ? '#fff' : 'text.primary' }}
+              sx={{
+                lineHeight: 1.15,
+                color: accent ? '#fff' : 'text.primary',
+                fontSize: { xs: '1.35rem', sm: '2.125rem' },
+                wordBreak: 'break-word',
+              }}
             >
               {value}
             </Typography>
@@ -73,6 +84,8 @@ export default function GlassStatCard({
                   opacity: accent ? 0.92 : 0.8,
                   fontWeight: 600,
                   color: accent ? '#fff' : 'text.secondary',
+                  fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                  lineHeight: 1.3,
                 }}
               >
                 {subtitle}
@@ -82,14 +95,17 @@ export default function GlassStatCard({
           {icon ? (
             <Box
               sx={{
-                width: 48,
-                height: 48,
+                width: { xs: 36, sm: 48 },
+                height: { xs: 36, sm: 48 },
                 borderRadius: 3,
                 display: 'grid',
                 placeItems: 'center',
                 flexShrink: 0,
                 bgcolor: accent ? 'rgba(255,255,255,0.2)' : 'rgba(99,102,241,0.12)',
                 color: accent ? '#fff' : 'secondary.main',
+                '& .MuiSvgIcon-root': {
+                  fontSize: { xs: 20, sm: 24 },
+                },
               }}
             >
               {icon}

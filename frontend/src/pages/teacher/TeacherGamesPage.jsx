@@ -17,7 +17,6 @@ import {
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
-import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
@@ -194,7 +193,12 @@ export default function TeacherGamesPage() {
               </TableHead>
               <TableBody>
                 {games.map((game) => (
-                  <TableRow key={game.id} hover>
+                  <TableRow
+                    key={game.id}
+                    hover
+                    onClick={() => navigate(`/teacher/games/${game.id}/edit`)}
+                    sx={{ cursor: "pointer" }}
+                  >
                     <TableCell>
                       <Typography fontWeight={700}>{game.title}</Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -256,7 +260,10 @@ export default function TeacherGamesPage() {
                     <TableCell sx={{ minWidth: 150 }}>
                       <ContentTimestamp item={game} dense sx={{ mt: 0 }} />
                     </TableCell>
-                    <TableCell align="right">
+                    <TableCell
+                      align="right"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <Stack
                         direction="row"
                         spacing={0.25}
@@ -272,16 +279,6 @@ export default function TeacherGamesPage() {
                             }}
                           >
                             <ContentCopyOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Open">
-                          <IconButton
-                            component={RouterLink}
-                            to={`/teacher/games/${game.id}/edit`}
-                            size="small"
-                            aria-label={`Open game ${game.title}`}
-                          >
-                            <OpenInNewOutlinedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Delete">

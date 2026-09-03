@@ -60,7 +60,7 @@ export const generateQuizValidation = [
   body("difficulty").optional().isIn(["easy", "medium", "hard"]),
   body("questionCount")
     .optional()
-    .isInt({ min: 3, max: 50 })
+    .isInt({ min: 1, max: 100 })
     .withMessage("Question count is invalid"),
   body("questionType").optional().isIn(QUESTION_TYPES),
 ];

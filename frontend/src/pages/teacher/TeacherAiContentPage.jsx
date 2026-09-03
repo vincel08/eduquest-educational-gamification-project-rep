@@ -23,6 +23,11 @@ import aiContentService from '../../services/aiContentService';
 import aiReviewService from '../../services/aiReviewService';
 import { getErrorMessage } from '../../services/api';
 import { useTeacherFilters } from '../../contexts/TeacherFiltersContext';
+import {
+  clampGameItemCountInput,
+  getMaxItemsForGameType,
+  getMinItemsForGameType,
+} from '../../utils/gameItemLimits';
 
 const GAME_TYPE_OPTIONS = [
   { value: 'auto', label: 'Auto Select Best Game' },
@@ -55,6 +60,7 @@ export default function TeacherAiContentPage() {
     gameType: 'auto',
     difficulty: 'medium',
     questionCount: 5,
+    itemCount: 6,
   });
   const [lessonText, setLessonText] = useState('');
   const [uploadMeta, setUploadMeta] = useState(null);
@@ -152,6 +158,7 @@ export default function TeacherAiContentPage() {
         contentType,
         difficulty: form.difficulty,
         questionCount: Number(form.questionCount),
+        itemCount: Number(form.itemCount),
         gameType: form.gameType,
       };
 
@@ -366,24 +373,69 @@ export default function TeacherAiContentPage() {
                 label="Question Count"
                 type="number"
                 value={form.questionCount}
-                onChange={(e) => setForm((p) => ({ ...p, questionCount: e.target.value }))}
-                inputProps={{ min: 3, max: 15 }}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setForm((p) => ({ ...p, questionCount: "" }));
+                    return;
+                  }
+                  const next = Math.min(100, Math.max(1, Math.trunc(Number(raw)) || 1));
+                  setForm((p) => ({ ...p, questionCount: next }));
+                }}
+                inputProps={{ min: 1, max: 100, step: 1 }}
+                helperText="1–100 questions"
                 sx={{ minWidth: 160 }}
               />
             </Stack>
           ) : null}
 
           {contentType === 'game' || contentType === 'all' ? (
-            <TextField
-              select
-              label="Game Selector"
-              value={form.gameType}
-              onChange={(e) => setForm((p) => ({ ...p, gameType: e.target.value }))}
-            >
-              {GAME_TYPE_OPTIONS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-              ))}
-            </TextField>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                select
+                label="Game Selector"
+                value={form.gameType}
+                onChange={(e) => {
+                  const gameType = e.target.value;
+                  setForm((p) => ({
+                    ...p,
+                    gameType,
+                    itemCount: clampGameItemCountInput(
+                      p.itemCount === '' ? getMinItemsForGameType(gameType) : p.itemCount,
+                      gameType,
+                    ),
+                  }));
+                }}
+                sx={{ flex: 1, minWidth: 180 }}
+              >
+                {GAME_TYPE_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Number of items"
+                type="number"
+                value={form.itemCount}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setForm((p) => ({ ...p, itemCount: "" }));
+                    return;
+                  }
+                  setForm((p) => ({
+                    ...p,
+                    itemCount: clampGameItemCountInput(raw, p.gameType),
+                  }));
+                }}
+                inputProps={{
+                  min: getMinItemsForGameType(form.gameType),
+                  max: getMaxItemsForGameType(form.gameType),
+                  step: 1,
+                }}
+                helperText={`${getMinItemsForGameType(form.gameType)}–${getMaxItemsForGameType(form.gameType)} for this game type`}
+                sx={{ minWidth: 160 }}
+              />
+            </Stack>
           ) : null}
 
           <Button

@@ -72,15 +72,15 @@ export default function QuestMascot() {
     <Box
       sx={{
         position: 'fixed',
-        right: { xs: 12, md: 20 },
-        bottom: { xs: 16, md: 24 },
+        right: { xs: 10, md: 20 },
+        bottom: { xs: 12, md: 24 },
         zIndex: 1100,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-end',
-        gap: 1.25,
-        width: 'max-content',
-        maxWidth: { xs: 'calc(100vw - 24px)', sm: 300 },
+        gap: 1,
+        width: { xs: 'auto', sm: 'max-content' },
+        maxWidth: { xs: 'min(200px, calc(100vw - 72px))', sm: 280 },
         pointerEvents: 'none',
         overflow: 'visible',
       }}
@@ -91,16 +91,16 @@ export default function QuestMascot() {
           elevation={0}
           sx={{
             position: 'relative',
-            px: 2,
-            py: 1.5,
-            pr: 5,
+            px: 1.5,
+            py: 1.25,
+            pr: 4.5,
             borderRadius: 3,
             border: '1px solid rgba(59,130,246,0.2)',
             bgcolor: 'background.paper',
             boxShadow: '0 12px 28px rgba(59,130,246,0.18)',
             pointerEvents: 'auto',
-            overflow: 'visible',
-            width: 'max-content',
+            overflow: 'hidden',
+            width: '100%',
             maxWidth: '100%',
           }}
         >
@@ -110,8 +110,8 @@ export default function QuestMascot() {
             onClick={() => setBubbleOpen(false)}
             sx={{
               position: 'absolute',
-              top: 6,
-              right: 6,
+              top: 4,
+              right: 4,
               p: 0.5,
             }}
           >
@@ -123,11 +123,11 @@ export default function QuestMascot() {
             sx={{
               opacity: textVisible ? 1 : 0,
               transition: 'opacity 0.16s ease',
-              whiteSpace: 'nowrap',
-              lineHeight: 1.4,
-              '@media (max-width: 380px)': {
-                whiteSpace: 'normal',
-              },
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              lineHeight: 1.35,
+              fontSize: { xs: '0.8rem', sm: '0.875rem' },
+              pr: 0.5,
             }}
           >
             {message}
@@ -135,7 +135,6 @@ export default function QuestMascot() {
         </Paper>
       ) : null}
 
-      {/* Extra padding box so float animation + shadow are never clipped */}
       <Box
         sx={{
           p: '6px',
@@ -157,8 +156,8 @@ export default function QuestMascot() {
           }}
           title="Click for tips · Right-click to hide mascot"
           sx={{
-            width: 56,
-            height: 56,
+            width: { xs: 48, sm: 56 },
+            height: { xs: 48, sm: 56 },
             border: 0,
             borderRadius: '16px',
             display: 'grid',
@@ -171,7 +170,7 @@ export default function QuestMascot() {
             flexShrink: 0,
           }}
         >
-          <SmartToyIcon sx={{ fontSize: 28 }} />
+          <SmartToyIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />
         </Box>
       </Box>
     </Box>

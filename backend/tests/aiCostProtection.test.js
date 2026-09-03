@@ -46,10 +46,13 @@ async function createTeacher() {
 
 describe('AI input and quantity limits', () => {
   it('TEST 3: rejects excessive question counts', () => {
-    assert.throws(() => assertQuestionCount(1000), /between 3 and/i);
-    assert.throws(() => assertQuestionCount(0), /between 3 and/i);
+    assert.throws(() => assertQuestionCount(1000), /between 1 and/i);
+    assert.throws(() => assertQuestionCount(0), /between 1 and/i);
+    assert.throws(() => assertQuestionCount(-1), /between 1 and/i);
     assert.equal(assertQuestionCount(5), 5);
+    assert.equal(assertQuestionCount(1), 1);
     assert.equal(clampQuestionCount(1000), env.aiLimits.maxQuestions);
+    assert.equal(clampQuestionCount(-5), env.aiLimits.minQuestions);
   });
 
   it('TEST 4: rejects oversized upload file metadata', () => {
