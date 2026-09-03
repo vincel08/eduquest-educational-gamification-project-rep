@@ -4,10 +4,12 @@ import env from '../config/env.js';
 import AppError from '../utils/AppError.js';
 import { GAME_TYPES, normalizeGameType } from '../utils/gameTypes.js';
 import { assertGameDataMatchesType } from '../utils/gameDataValidation.js';
-import { coerceGameDataToType } from '../utils/gameDataCoercion.js';
+import { coerceGameDataToType, applyGameItemCountLimit } from '../utils/gameDataCoercion.js';
 import { ensureWordSearchData } from '../utils/wordSearchGrid.js';
+import { getMaxItemsForGameType } from '../utils/gameItemLimits.js';
 import {
   clampQuestionCount,
+  clampGameItemRequestCount,
   sanitizeAiError,
   withTimeout,
 } from '../utils/aiLimits.js';
@@ -433,13 +435,13 @@ function normalizeGeneratedQuestions(rawQuestions, selectedType) {
     .filter((question) => Array.isArray(question.options) && question.options.length > 0);
 }
 
-function limitGameCollection(list) {
+function limitGameCollection(list, maxItems = env.aiLimits.maxGameItems) {
   if (!Array.isArray(list)) return list;
-  const max = env.aiLimits.maxGameItems;
+  const max = Math.max(1, Number(maxItems) || env.aiLimits.maxGameItems);
   return list.slice(0, max);
 }
 
-function normalizeGeneratedGame(raw, requestedType) {
+function normalizeGeneratedGame(raw, requestedType, itemCount = null) {
   // When the teacher selected a concrete type, never let the model silently switch types.
   const forcedType = requestedType && requestedType !== 'auto'
     ? (normalizeGameType(requestedType) || requestedType)
@@ -448,6 +450,11 @@ function normalizeGeneratedGame(raw, requestedType) {
     || normalizeGameType(raw.gameType)
     || normalizeGameType(requestedType)
     || 'flashcards';
+
+  const typeMax = getMaxItemsForGameType(resolvedType);
+  const maxItems = itemCount != null
+    ? Math.min(Number(itemCount) || typeMax, typeMax)
+    : typeMax;
 
   let gameData = raw.gameData || raw.game_data || {};
   const items = raw.items || gameData.items || gameData.pairs || gameData.clues || null;
@@ -473,23 +480,23 @@ function normalizeGeneratedGame(raw, requestedType) {
     };
   }
 
-  if (Array.isArray(gameData.items)) gameData.items = limitGameCollection(gameData.items);
-  if (Array.isArray(gameData.pairs)) gameData.pairs = limitGameCollection(gameData.pairs);
-  if (Array.isArray(gameData.rounds)) gameData.rounds = limitGameCollection(gameData.rounds);
-  if (Array.isArray(gameData.words)) gameData.words = limitGameCollection(gameData.words);
-  if (Array.isArray(gameData.stages)) gameData.stages = limitGameCollection(gameData.stages);
-  if (Array.isArray(gameData.missions)) gameData.missions = limitGameCollection(gameData.missions);
-  if (Array.isArray(gameData.categories)) {
-    gameData.categories = gameData.categories.slice(0, 3).map((category) => ({
-      ...category,
-      clues: limitGameCollection(category.clues || []),
-    }));
-  }
+  if (Array.isArray(gameData.items)) gameData.items = limitGameCollection(gameData.items, maxItems);
+  if (Array.isArray(gameData.pairs)) gameData.pairs = limitGameCollection(gameData.pairs, maxItems);
+  if (Array.isArray(gameData.rounds)) gameData.rounds = limitGameCollection(gameData.rounds, maxItems);
+  if (Array.isArray(gameData.words)) gameData.words = limitGameCollection(gameData.words, maxItems);
+  if (Array.isArray(gameData.stages)) gameData.stages = limitGameCollection(gameData.stages, maxItems);
+  if (Array.isArray(gameData.missions)) gameData.missions = limitGameCollection(gameData.missions, maxItems);
+  // Soft pre-trim only — Jeopardy total is finalized in applyGameItemCountLimit.
 
   gameData = coerceGameDataToType(resolvedType, gameData);
 
   if (resolvedType === 'word_search' || resolvedType === 'word_scramble') {
     gameData = ensureWordSearchData(gameData);
+  }
+
+  // Final type-aware trim so request count cannot break per-game schemas.
+  if (itemCount != null) {
+    gameData = applyGameItemCountLimit(resolvedType, gameData, maxItems);
   }
 
   return {
@@ -643,12 +650,14 @@ ${contentSnippet}`
     gameType = 'auto',
     gradeLevel = "junior high school",
     lessonContent = '',
+    itemCount,
   }) {
     const requestedType = gameType === 'auto' ? 'auto' : (normalizeGameType(gameType) || gameType);
     if (requestedType !== 'auto' && !GAME_TYPES.includes(requestedType) && !normalizeGameType(requestedType)) {
       throw new AppError('Unsupported game type', 400);
     }
 
+    const count = clampGameItemRequestCount(itemCount, requestedType);
     const contentSnippet = String(lessonContent || topic || '').slice(0, env.aiLimits.maxPromptCharacters);
     assertAiConfigured();
 
@@ -662,7 +671,8 @@ Set "gameType" to that value and fill gameData using ONLY that type's schema bel
         `You are an educational game designer for junior high school students.
 Analyze the lesson and generate one educational game.
 ${typeInstruction}
-Keep game items at or below ${env.aiLimits.maxGameItems}.
+Generate exactly ${count} playable items (terms, questions, stages, words, clues, or missions as appropriate for this gameType).
+Do not generate more than ${count} items.
 
 Return ONLY valid JSON with this shape:
 {
@@ -675,28 +685,29 @@ Return ONLY valid JSON with this shape:
   "gameData": {}
 }
 
-gameData requirements by gameType:
-- flashcards / memory_match / drag_drop: gameData.items [{term, definition}] (at least 4)
-- crossword: gameData.items or gameData.clues [{clue, answer, direction, row, col}] (at least 4 short answers)
-- word_search: gameData.words string[] and gameData.gridSize number (8-12)
-- quiz_show: gameData.items or gameData.rounds [{question, choices[4], correctIndex}] (at least 4)
-- jeopardy: gameData.categories [{name, clues:[{points, clue, answer}]}] (1-3 categories)
-- spin_wheel: gameData.items [{label, question, choices[4], correctIndex}] (at least 4)
-- millionaire: gameData.items [{question, choices[4], correctIndex, difficulty}] (at least 5)
-- escape_room: gameData.stages [{name, clue, answer, hint}] (at least 3 stages)
-- mission_adventure: gameData.missions [{title, prompt, choices[3], correctIndex, xp}] (at least 3)
-- puzzle_challenge: gameData.items [{prompt, answer, hint}] (at least 4 short answers)
+gameData requirements by gameType (use exactly ${count} items unless noted):
+- flashcards / memory_match / drag_drop: gameData.items [{term, definition}] (exactly ${count})
+- crossword: gameData.items or gameData.clues [{clue, answer, direction, row, col}] (exactly ${count} short answers)
+- word_search: gameData.words string[] (exactly ${count}) and gameData.gridSize number (8-12)
+- quiz_show: gameData.items or gameData.rounds [{question, choices[4], correctIndex}] (exactly ${count})
+- jeopardy: gameData.categories [{name, clues:[{points, clue, answer}]}] (1-3 categories; about ${count} clues total)
+- spin_wheel: gameData.items [{label, question, choices[4], correctIndex}] (exactly ${count})
+- millionaire: gameData.items [{question, choices[4], correctIndex, difficulty}] (exactly ${count})
+- escape_room: gameData.stages [{name, clue, answer, hint}] (exactly ${count} stages)
+- mission_adventure: gameData.missions [{title, prompt, choices[3], correctIndex, xp}] (exactly ${count})
+- puzzle_challenge: gameData.items [{prompt, answer, hint}] (exactly ${count} short answers)
 
 Do not include markdown. Do not explain anything.`,
         `Grade level: ${gradeLevel}
 Topic: ${topic || 'Lesson topic'}
 Requested game type: ${requestedType}
+Requested item count: ${count}
 Lesson content:
 ${contentSnippet}`
       );
 
       // Pass 'auto' through so the model-chosen gameType is kept; only concrete picks are forced.
-      const normalized = normalizeGeneratedGame(data, requestedType);
+      const normalized = normalizeGeneratedGame(data, requestedType, count);
       if (!normalized.title || !normalized.gameData) {
         throw new AppError('AI returned invalid content. Please try generating again.', 502);
       }

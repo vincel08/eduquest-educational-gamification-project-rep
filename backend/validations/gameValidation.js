@@ -1,5 +1,9 @@
 import { body, param } from 'express-validator';
 import { ALL_GAME_TYPES, GAME_TYPES, isDeprecatedGameType } from '../utils/gameTypes.js';
+import {
+  getMaxItemsForGameType,
+  getMinItemsForGameType,
+} from '../utils/gameItemLimits.js';
 
 export const createGameValidation = [
   body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
@@ -43,6 +47,18 @@ export const generateGameValidation = [
     })
     .withMessage('Invalid game type'),
   body('gradeLevel').optional().isString(),
+  body('itemCount')
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .custom((value, { req }) => {
+      const gameType = req.body?.gameType || 'auto';
+      const max = getMaxItemsForGameType(gameType);
+      const min = getMinItemsForGameType(gameType);
+      if (Number(value) < min || Number(value) > max) {
+        throw new Error(`Item count must be between ${min} and ${max} for this game type.`);
+      }
+      return true;
+    }),
 ];
 
 export const submitGameScoreValidation = [

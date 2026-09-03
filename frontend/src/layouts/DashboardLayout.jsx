@@ -277,6 +277,10 @@ export default function DashboardLayout({
         sx={{
           flexGrow: 1,
           p: { xs: 1.25, sm: 2, md: 3 },
+          // Leave room for the student quest mascot FAB on small screens.
+          pb: user?.role === "student"
+            ? { xs: 12, sm: 10, md: 4 }
+            : { xs: 1.25, sm: 2, md: 3 },
           width: isMobile ? "100%" : `calc(100% - ${drawerWidth}px)`,
           mt: { xs: 7, sm: 8, md: 8.5 },
           minWidth: 0,

@@ -1,6 +1,10 @@
 import env from '../config/env.js';
 import AppError from './AppError.js';
 import crypto from 'crypto';
+import {
+  getMaxItemsForGameType,
+  getMinItemsForGameType,
+} from './gameItemLimits.js';
 
 export function getAiLimits() {
   return env.aiLimits;
@@ -23,6 +27,32 @@ export function assertQuestionCount(value) {
     throw new AppError(
       `Question count must be between ${minQuestions} and ${maxQuestions}.`,
       400
+    );
+  }
+  return n;
+}
+
+/** Requested playable items for AI game generation (terms, questions, stages, etc.). */
+export function clampGameItemRequestCount(value, gameType = 'auto') {
+  const min = getMinItemsForGameType(gameType);
+  const max = getMaxItemsForGameType(gameType);
+  const n = Number(value);
+  if (!Number.isFinite(n)) return Math.min(6, max);
+  return Math.min(Math.max(Math.trunc(n), min), max);
+}
+
+export function assertGameItemRequestCount(value, gameType = 'auto') {
+  const min = getMinItemsForGameType(gameType);
+  const max = getMaxItemsForGameType(gameType);
+  if (value === undefined || value === null || value === '') {
+    return clampGameItemRequestCount(6, gameType);
+  }
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < min || n > max) {
+    const label = gameType && gameType !== 'auto' ? ` for ${gameType}` : '';
+    throw new AppError(
+      `Item count must be between ${min} and ${max}${label}.`,
+      400,
     );
   }
   return n;

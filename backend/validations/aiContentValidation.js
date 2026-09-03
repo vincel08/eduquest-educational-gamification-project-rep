@@ -1,6 +1,10 @@
 import { body } from 'express-validator';
 import env from '../config/env.js';
 import { GAME_TYPES } from '../utils/gameTypes.js';
+import {
+  getMaxItemsForGameType,
+  getMinItemsForGameType,
+} from '../utils/gameItemLimits.js';
 
 export const generateAiContentValidation = [
   body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
@@ -26,10 +30,10 @@ export const generateAiContentValidation = [
   body('difficulty').optional().isIn(['easy', 'medium', 'hard', 'Easy', 'Medium', 'Hard']),
   body('questionCount')
     .optional()
-    .isInt({ min: 3, max: 50 })
+    .isInt({ min: 1, max: 100 })
     .custom((value) => {
-      if (Number(value) > env.aiLimits.maxQuestions) {
-        throw new Error(`Question count must be between 3 and ${env.aiLimits.maxQuestions}.`);
+      if (Number(value) < 1 || Number(value) > env.aiLimits.maxQuestions) {
+        throw new Error(`Question count must be between 1 and ${env.aiLimits.maxQuestions}.`);
       }
       return true;
     }),
@@ -37,6 +41,18 @@ export const generateAiContentValidation = [
     .optional()
     .custom((value) => value === 'auto' || GAME_TYPES.includes(value))
     .withMessage('Invalid game type'),
+  body('itemCount')
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .custom((value, { req }) => {
+      const gameType = req.body?.gameType || 'auto';
+      const max = getMaxItemsForGameType(gameType);
+      const min = getMinItemsForGameType(gameType);
+      if (Number(value) < min || Number(value) > max) {
+        throw new Error(`Item count must be between ${min} and ${max} for this game type.`);
+      }
+      return true;
+    }),
   body('gradeLevel').optional().isString(),
 ];
 

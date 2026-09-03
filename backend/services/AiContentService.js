@@ -14,6 +14,7 @@ import { resolveUploadPath, uploadExists } from '../utils/uploadPaths.js';
 import {
   assertInputTextSize,
   assertQuestionCount,
+  assertGameItemRequestCount,
   buildIdempotencyKey,
 } from '../utils/aiLimits.js';
 
@@ -77,6 +78,9 @@ const AiContentService = {
     let lessonId = payload.lessonId || null;
     const questionCount = contentType === 'quiz'
       ? assertQuestionCount(payload.questionCount ?? 5)
+      : null;
+    const itemCount = contentType === 'game'
+      ? assertGameItemRequestCount(payload.itemCount ?? 6, payload.gameType || 'auto')
       : null;
 
     if (sourceType === 'lesson') {
@@ -144,6 +148,7 @@ const AiContentService = {
         sourceType,
         lessonId,
         questionCount,
+        itemCount,
         payload.gameType || '',
         textFingerprint,
         payload.requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -155,7 +160,7 @@ const AiContentService = {
         userId: user.id,
         operationType: contentType === 'quiz' ? 'content_quiz' : 'content_game',
         inputChars: extractedText.length,
-        requestedQuantity: questionCount,
+        requestedQuantity: questionCount ?? itemCount,
         idempotencyKey,
       });
     }
@@ -194,6 +199,7 @@ const AiContentService = {
           gameType: requestedType,
           gradeLevel: payload.gradeLevel || course.grade_level || "junior high school",
           lessonContent: extractedText,
+          itemCount,
         });
 
         generatedJson = {

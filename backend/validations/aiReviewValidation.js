@@ -1,9 +1,23 @@
 import { body, param } from 'express-validator';
 import env from '../config/env.js';
 import { GAME_TYPES } from '../utils/gameTypes.js';
+import {
+  getMaxItemsForGameType,
+  getMinItemsForGameType,
+} from '../utils/gameItemLimits.js';
 
 const maxQuestions = () => env.aiLimits.maxQuestions;
 const maxInput = () => env.aiLimits.maxInputCharacters;
+
+function itemCountForGameType(value, req) {
+  const gameType = req.body?.gameType || 'auto';
+  const max = getMaxItemsForGameType(gameType);
+  const min = getMinItemsForGameType(gameType);
+  if (Number(value) < min || Number(value) > max) {
+    throw new Error(`Item count must be between ${min} and ${max} for this game type.`);
+  }
+  return true;
+}
 
 export const createFromQuizReviewValidation = [
   body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
@@ -11,10 +25,10 @@ export const createFromQuizReviewValidation = [
   body('difficulty').optional().isIn(['easy', 'medium', 'hard', 'Easy', 'Medium', 'Hard']),
   body('questionCount')
     .optional()
-    .isInt({ min: 3, max: 50 })
+    .isInt({ min: 1, max: 100 })
     .custom((value) => {
-      if (Number(value) > maxQuestions()) {
-        throw new Error(`Question count must be between 3 and ${maxQuestions()}.`);
+      if (Number(value) < 1 || Number(value) > maxQuestions()) {
+        throw new Error(`Question count must be between 1 and ${maxQuestions()}.`);
       }
       return true;
     }),
@@ -41,6 +55,10 @@ export const createFromGameReviewValidation = [
     .optional()
     .custom((value) => value === 'auto' || GAME_TYPES.includes(value) || !value)
     .withMessage('Invalid game type'),
+  body('itemCount')
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .custom((value, { req }) => itemCountForGameType(value, req)),
   body('requestId').optional({ nullable: true }).isString().isLength({ max: 80 }),
   body().custom((_, { req }) => {
     const hasLesson = Boolean(req.body?.lessonId);
@@ -78,13 +96,17 @@ export const createFromContentReviewValidation = [
     .isLength({ max: 100000 }),
   body('questionCount')
     .optional()
-    .isInt({ min: 3, max: 50 })
+    .isInt({ min: 1, max: 100 })
     .custom((value) => {
-      if (Number(value) > maxQuestions()) {
-        throw new Error(`Question count must be between 3 and ${maxQuestions()}.`);
+      if (Number(value) < 1 || Number(value) > maxQuestions()) {
+        throw new Error(`Question count must be between 1 and ${maxQuestions()}.`);
       }
       return true;
     }),
+  body('itemCount')
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .custom((value, { req }) => itemCountForGameType(value, req)),
   body('gameType')
     .optional()
     .custom((value) => value === 'auto' || GAME_TYPES.includes(value) || !value),
@@ -95,12 +117,12 @@ export const regenerateReviewValidation = [
   body('target').optional().isString(),
   body('questionCount')
     .optional()
-    .isInt({ min: 3, max: 50 })
+    .isInt({ min: 1, max: 100 })
     .custom((value) => {
-      if (Number(value) > maxQuestions()) {
-        throw new Error(`Question count must be between 3 and ${maxQuestions()}.`);
+      if (Number(value) < 1 || Number(value) > maxQuestions()) {
+        throw new Error(`Question count must be between 1 and ${maxQuestions()}.`);
       }
       return true;
     }),
-  body('count').optional().isInt({ min: 1, max: 15 }),
+  body('count').optional().isInt({ min: 1, max: 50 }),
 ];

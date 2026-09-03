@@ -133,7 +133,7 @@ export default function AnswerFeedback({
                 </Typography>
               ) : null}
 
-              {isCorrect && xpEarned > 0 ? (
+              {xpEarned > 0 ? (
                 <Typography variant="body2" fontWeight={700} sx={{ color: themeColor }}>
                   +{xpEarned} XP earned
                 </Typography>

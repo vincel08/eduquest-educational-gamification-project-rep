@@ -192,8 +192,17 @@ export default function TeacherAiQuizPage() {
             label="Question count"
             type="number"
             value={form.questionCount}
-            onChange={(e) => setForm((p) => ({ ...p, questionCount: e.target.value }))}
-            inputProps={{ min: 3, max: 15 }}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") {
+                setForm((p) => ({ ...p, questionCount: "" }));
+                return;
+              }
+              const next = Math.min(100, Math.max(1, Math.trunc(Number(raw)) || 1));
+              setForm((p) => ({ ...p, questionCount: next }));
+            }}
+            inputProps={{ min: 1, max: 100, step: 1 }}
+            helperText="1–100 questions"
           />
           <Button type="submit" variant="contained" disabled={loading || !form.courseId || !form.topic.trim()}>
             {loading ? 'Generating… this can take a few minutes' : 'Generate Quiz'}

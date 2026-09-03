@@ -235,9 +235,23 @@ export default function StudentProgressPage() {
               to={quickStart.path}
               variant="contained"
               startIcon={<RocketLaunchIcon />}
+              sx={{
+                maxWidth: "100%",
+                "& .MuiButton-startIcon": { flexShrink: 0 },
+              }}
             >
-              {quickStart.label || "Continue"}
-              {quickStart.title ? `: ${quickStart.title}` : ""}
+              <Box
+                component="span"
+                sx={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: { xs: "12rem", sm: "18rem", md: "none" },
+                }}
+              >
+                {quickStart.label || "Continue"}
+                {quickStart.title ? `: ${quickStart.title}` : ""}
+              </Box>
             </Button>
           ) : null
         }
@@ -245,10 +259,12 @@ export default function StudentProgressPage() {
 
       <Paper
         sx={{
-          p: { xs: 2, md: 2.5 },
+          p: { xs: 1.75, md: 2.5 },
           mb: 3,
           background:
             "linear-gradient(160deg, rgba(59,130,246,0.12), rgba(139,92,246,0.08))",
+          overflow: "hidden",
+          maxWidth: "100%",
         }}
       >
         <Stack
@@ -256,27 +272,54 @@ export default function StudentProgressPage() {
           spacing={2}
           alignItems={{ md: "center" }}
           justifyContent="space-between"
+          sx={{ minWidth: 0 }}
         >
-          <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography fontWeight={900} variant="h6">
-              All lessons
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              {totalLessons
-                ? `You finished ${completedLessons} of ${totalLessons} lessons.`
-                : "Join a subject and finish lessons to see your progress here."}
-            </Typography>
+          <Box sx={{ minWidth: 0, flex: 1, width: "100%" }}>
+            <Stack
+              direction="row"
+              spacing={1.5}
+              alignItems="flex-start"
+              justifyContent="space-between"
+              sx={{ mb: 1 }}
+            >
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography fontWeight={900} variant="h6">
+                  All lessons
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {totalLessons
+                    ? `You finished ${completedLessons} of ${totalLessons} lessons.`
+                    : "Join a subject and finish lessons to see your progress here."}
+                </Typography>
+              </Box>
+              <Typography
+                variant="h4"
+                fontWeight={900}
+                color="primary.main"
+                sx={{
+                  flexShrink: 0,
+                  fontSize: { xs: "1.75rem", md: "2.5rem" },
+                  lineHeight: 1,
+                  display: { xs: "block", md: "none" },
+                }}
+              >
+                {overallPercent}%
+              </Typography>
+            </Stack>
             <LinearProgress
               variant="determinate"
               value={Math.min(100, Math.max(0, overallPercent))}
               sx={{ height: 12, borderRadius: 999 }}
             />
-            <Stack
-              direction="row"
-              spacing={1}
-              flexWrap="wrap"
-              useFlexGap
-              sx={{ mt: 1.25 }}
+            <Box
+              sx={{
+                mt: 1.25,
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 0.75,
+                width: "100%",
+                maxWidth: "100%",
+              }}
             >
               <Chip
                 size="small"
@@ -296,15 +339,18 @@ export default function StudentProgressPage() {
               <Chip
                 size="small"
                 variant="outlined"
-                label={`${completedCourses} subjects finished`}
+                label={`${completedCourses} subjects`}
               />
-            </Stack>
+            </Box>
           </Box>
           <Typography
             variant="h3"
             fontWeight={900}
             color="primary.main"
-            sx={{ flexShrink: 0 }}
+            sx={{
+              flexShrink: 0,
+              display: { xs: "none", md: "block" },
+            }}
           >
             {overallPercent}%
           </Typography>

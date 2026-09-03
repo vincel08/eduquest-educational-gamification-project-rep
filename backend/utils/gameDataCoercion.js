@@ -1,5 +1,9 @@
 import { normalizeGameType } from './gameTypes.js';
 import { ensureWordSearchData } from './wordSearchGrid.js';
+import {
+  getMaxItemsForGameType,
+  getMinItemsForGameType,
+} from './gameItemLimits.js';
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
@@ -265,10 +269,100 @@ export function coerceGameDataToType(gameType, gameData = {}) {
       ]
         .map((word) => text(word).toUpperCase().replace(/[^A-Z]/g, ''))
         .filter((word) => word.length >= 3);
+      // Soft cap only — final request count is applied in applyGameItemCountLimit.
       return ensureWordSearchData({
         ...data,
-        words: [...new Set(words)].slice(0, 12),
+        words: [...new Set(words)].slice(0, 20),
         gridSize: data.gridSize || 10,
+      });
+    }
+    default:
+      return data;
+  }
+}
+
+/**
+ * Enforce requested AI item count per game type without breaking playability.
+ * Call after coerceGameDataToType. Rebuilds word-search grids after trimming.
+ */
+export function applyGameItemCountLimit(gameType, gameData = {}, itemCount) {
+  const type = normalizeGameType(gameType) || gameType;
+  const data = gameData && typeof gameData === 'object' ? { ...gameData } : {};
+  const typeMax = getMaxItemsForGameType(type);
+  const typeMin = getMinItemsForGameType(type);
+  const requested = Math.trunc(Number(itemCount) || 0);
+  const n = Math.min(typeMax, Math.max(typeMin, Number.isFinite(requested) ? requested : typeMin));
+  if (!Number.isFinite(n) || n < 1) return data;
+
+  switch (type) {
+    case 'flashcards':
+    case 'drag_drop': {
+      if (Array.isArray(data.items)) data.items = data.items.slice(0, n);
+      if (Array.isArray(data.pairs)) data.pairs = data.pairs.slice(0, n);
+      return data;
+    }
+    case 'memory_match': {
+      // Memory needs at least 2 pairs to play.
+      const limit = Math.max(2, n);
+      const pairs = asArray(data.pairs?.length ? data.pairs : data.items).slice(0, limit);
+      data.items = pairs;
+      data.pairs = pairs;
+      return data;
+    }
+    case 'quiz_show':
+    case 'quiz_rush': {
+      const list = asArray(data.rounds?.length ? data.rounds : data.items).slice(0, n);
+      data.items = list;
+      data.rounds = list.map((item) => ({
+        prompt: item.prompt || item.question || item.label,
+        choices: item.choices || item.options || [],
+        correctIndex: item.correctIndex ?? item.correct_index ?? 0,
+        timeLimitSeconds: item.timeLimitSeconds || 20,
+      }));
+      return data;
+    }
+    case 'spin_wheel':
+    case 'millionaire': {
+      if (Array.isArray(data.items)) data.items = data.items.slice(0, n);
+      if (Array.isArray(data.rounds)) data.rounds = data.rounds.slice(0, n);
+      return data;
+    }
+    case 'mission_adventure': {
+      if (Array.isArray(data.missions)) data.missions = data.missions.slice(0, n);
+      return data;
+    }
+    case 'escape_room': {
+      if (Array.isArray(data.stages)) data.stages = data.stages.slice(0, n);
+      return data;
+    }
+    case 'crossword':
+    case 'puzzle_challenge': {
+      if (Array.isArray(data.items)) data.items = data.items.slice(0, n);
+      if (Array.isArray(data.clues)) data.clues = data.clues.slice(0, n);
+      return data;
+    }
+    case 'jeopardy': {
+      let remaining = n;
+      const categories = [];
+      for (const category of asArray(data.categories)) {
+        if (remaining <= 0) break;
+        const clues = asArray(category?.clues).slice(0, remaining);
+        if (!clues.length) continue;
+        remaining -= clues.length;
+        categories.push({ ...category, clues });
+      }
+      data.categories = categories;
+      return data;
+    }
+    case 'word_search':
+    case 'word_scramble': {
+      const words = asArray(data.words).slice(0, n);
+      // Drop stale grid so placements match the trimmed word list.
+      return ensureWordSearchData({
+        ...data,
+        words,
+        grid: undefined,
+        placements: undefined,
       });
     }
     default:

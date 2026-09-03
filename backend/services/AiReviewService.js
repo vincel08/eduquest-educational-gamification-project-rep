@@ -13,6 +13,7 @@ import {
   assertInputTextSize,
   assertQuestionCount,
   assertGameItemCount,
+  assertGameItemRequestCount,
   buildIdempotencyKey,
 } from '../utils/aiLimits.js';
 
@@ -574,17 +575,23 @@ const AiReviewService = {
     }
     assertInputTextSize(sourceText, { label: 'Lesson content' });
 
+    const itemCount = assertGameItemRequestCount(
+      payload.itemCount ?? 6,
+      payload.gameType || 'auto',
+    );
+
     const usageEvent = await AiUsageService.beginOperation({
       userId: user.id,
       operationType: 'review_game',
       inputChars: String(sourceText || '').length,
-      requestedQuantity: null,
+      requestedQuantity: itemCount,
       idempotencyKey: buildIdempotencyKey([
         'from-game',
         user.id,
         payload.courseId,
         payload.lessonId || 'none',
         payload.gameType || 'auto',
+        itemCount,
         crypto.createHash('sha256').update(String(sourceText || '')).digest('hex').slice(0, 16),
         // Unique per Generate click so intentional retries are never treated as duplicates.
         payload.requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -595,6 +602,7 @@ const AiReviewService = {
       const generated = await GameService.generateAiGame(
         {
           ...payload,
+          itemCount,
           topic: payload.topic || course.title,
           lessonContent: sourceText,
         },
@@ -667,6 +675,9 @@ const AiReviewService = {
     const questionCount = ['quiz', 'all'].includes(contentType)
       ? assertQuestionCount(payload.questionCount ?? 5)
       : null;
+    const itemCount = ['game', 'all'].includes(contentType)
+      ? assertGameItemRequestCount(payload.itemCount ?? 6, payload.gameType || 'auto')
+      : null;
 
     if (sourceType === 'lesson' || sourceType === 'text') {
       // Prefer pasted lesson text; optional lessonId only links the published result.
@@ -732,7 +743,7 @@ const AiReviewService = {
       userId: user.id,
       operationType: 'review_content',
       inputChars: sourceText.length,
-      requestedQuantity: questionCount,
+      requestedQuantity: questionCount ?? itemCount,
       idempotencyKey: buildIdempotencyKey([
         'from-content',
         user.id,
@@ -741,6 +752,7 @@ const AiReviewService = {
         payload.sourceType,
         lessonId,
         questionCount,
+        itemCount,
         payload.gameType || '',
         textFingerprint,
         payload.requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -769,6 +781,7 @@ const AiReviewService = {
       const gameGenerated = await AiContentService.generate({
         ...payload,
         contentType: 'game',
+        itemCount,
         extractedText: sourceText,
         lessonId,
         topic,
@@ -1148,6 +1161,7 @@ const AiReviewService = {
         gameType: current.gameType || 'flashcards',
         gradeLevel: course.grade_level || "junior high school",
         lessonContent: sourceText || draft.game.title,
+        itemCount: addCount,
       });
       const extra = getGameItemCollection(normalizeGame(generated)).items
         .slice(0, addCount)

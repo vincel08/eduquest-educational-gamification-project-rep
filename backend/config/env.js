@@ -149,9 +149,10 @@ const env = {
       Number(process.env.AI_DAILY_REQUEST_LIMIT) || (isProduction ? 60 : 200),
     hourlyRequestLimit:
       Number(process.env.AI_HOURLY_REQUEST_LIMIT) || (isProduction ? 25 : 100),
-    minQuestions: 3,
-    maxQuestions: Number(process.env.AI_MAX_QUESTIONS) || 15,
-    maxGameItems: Number(process.env.AI_MAX_GAME_ITEMS) || 20,
+    minQuestions: Number(process.env.AI_MIN_QUESTIONS) || 1,
+    maxQuestions: Number(process.env.AI_MAX_QUESTIONS) || 100,
+    minGameItems: Number(process.env.AI_MIN_GAME_ITEMS) || 1,
+    maxGameItems: Number(process.env.AI_MAX_GAME_ITEMS) || 50,
     maxInputCharacters: Number(process.env.AI_MAX_INPUT_CHARACTERS) || 20000,
     maxFileSizeMb:
       Number(

@@ -230,6 +230,7 @@ const GameService = {
       gameType: requestedType,
       gradeLevel: payload.gradeLevel || course.grade_level || "junior high school",
       lessonContent,
+      itemCount: payload.itemCount,
     });
 
     return {
