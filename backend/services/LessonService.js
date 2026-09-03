@@ -4,6 +4,7 @@ import GamificationService from "./GamificationService.js";
 import StreakService from "./StreakService.js";
 import AiService from "./AiService.js";
 import CourseService from "./CourseService.js";
+import NotificationService from "./NotificationService.js";
 import AppError from "../utils/AppError.js";
 import {
   materialFileApiPath,
@@ -215,6 +216,16 @@ const LessonService = {
     );
 
     const streak = await StreakService.recordActivity(studentId);
+
+    await NotificationService.notifyTeacherOfStudentActivity({
+      teacherId: lesson.teacher_id,
+      studentId,
+      title: "Lesson completed",
+      type: "course",
+      link: `/teacher/courses/${lesson.course_id}`,
+      buildMessage: (studentName) =>
+        `${studentName} finished the lesson "${lesson.title}".`,
+    });
 
     return {
       progress,

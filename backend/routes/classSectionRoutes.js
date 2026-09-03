@@ -13,10 +13,24 @@ const router = Router();
 // Public options for registration selects (catalog + profile fallback).
 router.get("/options", ClassSectionController.options);
 
-router.use(authenticate, authorize("administrator"));
+router.use(authenticate);
 
-router.get("/", ClassSectionController.list);
-router.get("/:id", classSectionIdParam, validate, ClassSectionController.getById);
+// Teachers can browse the section catalog (read-only).
+router.get(
+  "/",
+  authorize("administrator", "teacher"),
+  ClassSectionController.list,
+);
+router.get(
+  "/:id",
+  authorize("administrator", "teacher"),
+  classSectionIdParam,
+  validate,
+  ClassSectionController.getById,
+);
+
+router.use(authorize("administrator"));
+
 router.post(
   "/",
   createClassSectionValidation,
