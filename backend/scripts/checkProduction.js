@@ -84,7 +84,7 @@ async function main() {
   } else if (weakSecrets.has(jwtSecret.toLowerCase())) {
     fail('JWT configuration', 'JWT_SECRET is too weak');
   } else {
-    pass('JWT configuration', `JWT_SECRET length ${jwtSecret.length}; expires ${process.env.JWT_EXPIRES_IN || '1d (default)'}`);
+    pass('JWT configuration', `JWT_SECRET length ${jwtSecret.length}; access ${process.env.JWT_EXPIRES_IN || '10m'}; refresh ${process.env.JWT_REFRESH_EXPIRES_IN || '1d'}`);
   }
 
   // CLIENT_URL / CORS

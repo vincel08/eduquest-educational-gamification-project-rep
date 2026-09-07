@@ -5,6 +5,7 @@ import env from "../config/env.js";
 import UserModel from "../models/UserModel.js";
 import StudentProfileModel from "../models/StudentProfileModel.js";
 import PasswordResetTokenModel from "../models/PasswordResetTokenModel.js";
+import RefreshTokenModel from "../models/RefreshTokenModel.js";
 import EmailService from "./EmailService.js";
 import AppError from "../utils/AppError.js";
 import { query } from "../config/db.js";
@@ -55,8 +56,18 @@ const INVALID_RESET_TOKEN_MESSAGE =
 
 const INVALID_LOGIN_MESSAGE = "Invalid username/email or password";
 
-function hashResetToken(rawToken) {
+const INVALID_REFRESH_MESSAGE = "Session expired. Please sign in again.";
+
+function hashOpaqueToken(rawToken) {
   return crypto.createHash("sha256").update(String(rawToken)).digest("hex");
+}
+
+function createOpaqueToken() {
+  return crypto.randomBytes(48).toString("base64url");
+}
+
+function hashResetToken(rawToken) {
+  return hashOpaqueToken(rawToken);
 }
 
 function createResetToken() {
@@ -89,7 +100,7 @@ function sanitizeUser(user) {
   };
 }
 
-function signToken(user) {
+function signAccessToken(user) {
   return jwt.sign(
     {
       id: user.id,
@@ -102,13 +113,32 @@ function signToken(user) {
   );
 }
 
+function sessionMeta() {
+  return {
+    accessExpiresIn: env.jwt.expiresIn,
+    accessExpiresMs: env.jwt.accessExpiresMs,
+    idleTimeoutMs: env.session.idleTimeoutMs,
+  };
+}
+
+async function issueRefreshToken(userId) {
+  const rawToken = createOpaqueToken();
+  const tokenHash = hashOpaqueToken(rawToken);
+  const expiresAt = new Date(Date.now() + env.jwt.refreshExpiresMs);
+  await RefreshTokenModel.create({ userId, tokenHash, expiresAt });
+  return rawToken;
+}
+
 async function buildAuthPayload(user, extras = {}) {
   let profile = null;
   if (user.role === "student") {
     profile = await StudentProfileModel.findByUserId(user.id);
   }
+  const refreshToken = await issueRefreshToken(user.id);
   return {
-    token: signToken(user),
+    token: signAccessToken(user),
+    refreshToken,
+    session: sessionMeta(),
     user: sanitizeUser(user),
     profile,
     ...extras,
@@ -390,7 +420,43 @@ const AuthService = {
     return {
       user: sanitizeUser(user),
       profile,
+      session: sessionMeta(),
     };
+  },
+
+  async refresh({ refreshToken }) {
+    await RefreshTokenModel.deleteExpiredOrRevoked();
+
+    const rawToken = String(refreshToken || "").trim();
+    if (!rawToken || rawToken.length < 20) {
+      throw new AppError(INVALID_REFRESH_MESSAGE, 401);
+    }
+
+    const tokenHash = hashOpaqueToken(rawToken);
+    const record = await RefreshTokenModel.findValidByTokenHash(tokenHash);
+    if (!record) {
+      throw new AppError(INVALID_REFRESH_MESSAGE, 401);
+    }
+
+    // Rotate: revoke current refresh token before issuing a new pair.
+    await RefreshTokenModel.revoke(record.id);
+
+    const user = await UserModel.findById(record.user_id);
+    if (!user || !user.is_active) {
+      throw new AppError(INVALID_REFRESH_MESSAGE, 401);
+    }
+
+    return buildAuthPayload(user);
+  },
+
+  async logout({ refreshToken, userId = null }) {
+    const rawToken = String(refreshToken || "").trim();
+    if (rawToken) {
+      await RefreshTokenModel.revokeByTokenHash(hashOpaqueToken(rawToken));
+    } else if (userId) {
+      await RefreshTokenModel.revokeAllForUser(userId);
+    }
+    return { success: true };
   },
 
   /**
@@ -491,6 +557,7 @@ const AuthService = {
     await UserModel.update(user.id, { password_hash: passwordHash });
     await PasswordResetTokenModel.markUsed(resetRecord.id);
     await PasswordResetTokenModel.invalidateActiveForUser(user.id);
+    await RefreshTokenModel.revokeAllForUser(user.id);
 
     return {
       message: "Your password has been reset successfully.",

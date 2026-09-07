@@ -7,6 +7,8 @@ import { authRateLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
   forgotPasswordValidation,
   loginValidation,
+  logoutValidation,
+  refreshTokenValidation,
   registerValidation,
   resetPasswordValidation,
   updateProfileValidation,
@@ -27,6 +29,19 @@ router.post(
   loginValidation,
   validate,
   AuthController.login
+);
+router.post(
+  '/refresh',
+  authRateLimiter,
+  refreshTokenValidation,
+  validate,
+  AuthController.refresh
+);
+router.post(
+  '/logout',
+  logoutValidation,
+  validate,
+  AuthController.logout
 );
 router.post(
   '/forgot-password',

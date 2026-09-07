@@ -105,7 +105,9 @@ Serve the `frontend/dist/` directory from any static host. Set CORS `CLIENT_URL`
 | Variable                                | Notes                                |
 | --------------------------------------- | ------------------------------------ |
 | `UPLOAD_DIR`                            | Absolute persistent path for uploads |
-| `JWT_EXPIRES_IN`                        | Default `1d` in production           |
+| `JWT_EXPIRES_IN`                        | Access JWT lifetime (default `10m`)  |
+| `JWT_REFRESH_EXPIRES_IN`                | Refresh token lifetime (`1d` prod / `7d` dev) |
+| `SESSION_IDLE_TIMEOUT_MS`               | Client idle logout (default `600000` = 10 min) |
 | `GEMINI_API_KEY` / `OPENAI_API_KEY`     | Optional AI                          |
 | `AI_REQUEST_TIMEOUT_MS`                 | Default `240000` (4 min) in production; raise if live AI still times out |
 | `MAIL_HOST` (+ port/user/password/from) | Optional SMTP                        |
