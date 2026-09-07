@@ -44,6 +44,7 @@ const MIGRATION_FILES = [
   "029_badge_difficulty_quiz_only.sql",
   "030_medal_major_criteria.sql",
   "031_badge_more_criteria.sql",
+  "032_refresh_tokens.sql",
 ];
 
 async function main() {

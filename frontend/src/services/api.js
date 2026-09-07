@@ -4,6 +4,55 @@ import { resolveApiBaseUrl } from '../utils/apiBase';
 /** Client wait for AI generate/regenerate — slightly above server timeout. */
 export const AI_REQUEST_TIMEOUT_MS = 270000;
 
+const TOKEN_KEY = 'eduwow_token';
+const REFRESH_KEY = 'eduwow_refresh_token';
+const USER_KEY = 'eduwow_user';
+const SESSION_KEY = 'eduwow_session';
+
+const AUTH_PUBLIC_PATHS = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+];
+
+export function getStoredAccessToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getStoredRefreshToken() {
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+export function getStoredSessionMeta() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function persistAuthSession({ token, refreshToken, user, session } = {}) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
+  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+export function clearAuthStorage() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function redirectToLogin() {
+  const path = window.location.pathname;
+  if (AUTH_PUBLIC_PATHS.some((prefix) => path.startsWith(prefix))) return;
+  window.location.href = '/login';
+}
+
 const api = axios.create({
   baseURL: resolveApiBaseUrl(),
   headers: {
@@ -11,8 +60,45 @@ const api = axios.create({
   },
 });
 
+let refreshPromise = null;
+
+async function refreshAccessToken() {
+  const refreshToken = getStoredRefreshToken();
+  if (!refreshToken) {
+    throw new Error('Missing refresh token');
+  }
+
+  const response = await axios.post(
+    `${resolveApiBaseUrl()}/auth/refresh`,
+    { refreshToken },
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+  const data = response.data?.data || {};
+  if (!data.token || !data.refreshToken) {
+    throw new Error('Invalid refresh response');
+  }
+
+  persistAuthSession({
+    token: data.token,
+    refreshToken: data.refreshToken,
+    user: data.user,
+    session: data.session,
+  });
+
+  return data.token;
+}
+
+export function refreshSession() {
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('eduwow_token');
+  const token = getStoredAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -21,19 +107,38 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('eduwow_token');
-      localStorage.removeItem('eduwow_user');
-      if (!window.location.pathname.startsWith('/login')
-        && !window.location.pathname.startsWith('/register')
-        && !window.location.pathname.startsWith('/forgot-password')
-        && !window.location.pathname.startsWith('/reset-password')) {
-        window.location.href = '/login';
+  async (error) => {
+    const original = error.config;
+    const status = error.response?.status;
+    const requestUrl = String(original?.url || '');
+    const isAuthEndpoint =
+      requestUrl.includes('/auth/login')
+      || requestUrl.includes('/auth/register')
+      || requestUrl.includes('/auth/refresh')
+      || requestUrl.includes('/auth/forgot-password')
+      || requestUrl.includes('/auth/reset-password');
+
+    if (status === 401 && original && !original._retry && !isAuthEndpoint) {
+      original._retry = true;
+      try {
+        const nextToken = await refreshSession();
+        original.headers = original.headers || {};
+        original.headers.Authorization = `Bearer ${nextToken}`;
+        return api(original);
+      } catch {
+        clearAuthStorage();
+        redirectToLogin();
+        return Promise.reject(error);
       }
     }
+
+    if (status === 401 && isAuthEndpoint && requestUrl.includes('/auth/refresh')) {
+      clearAuthStorage();
+      redirectToLogin();
+    }
+
     return Promise.reject(error);
-  }
+  },
 );
 
 export function getErrorMessage(error, fallback = 'Something went wrong') {
@@ -45,14 +150,14 @@ export function getErrorMessage(error, fallback = 'Something went wrong') {
   const apiMessage = error.response?.data?.message;
   if (apiMessage) return apiMessage;
 
-  const status = error.response?.status;
-  if (status === 403) return "You don't have permission to access this content.";
-  if (status === 404) return 'The requested content was not found.';
-  if (status === 429) return 'AI generation limit reached. Please try again later.';
-  if (status === 504) {
+  const statusCode = error.response?.status;
+  if (statusCode === 403) return "You don't have permission to access this content.";
+  if (statusCode === 404) return 'The requested content was not found.';
+  if (statusCode === 429) return 'AI generation limit reached. Please try again later.';
+  if (statusCode === 504) {
     return 'AI generation timed out. Live generation can take a few minutes — please try again.';
   }
-  if (status >= 500) return 'The server is temporarily unavailable. Please try again.';
+  if (statusCode >= 500) return 'The server is temporarily unavailable. Please try again.';
   if (error.code === 'ECONNABORTED') {
     return 'AI generation timed out. Live generation can take a few minutes — please try again.';
   }

@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { parseDurationMs } from "../utils/duration.js";
 
 dotenv.config();
 
@@ -106,7 +107,21 @@ const env = {
   },
   jwt: {
     secret: jwtSecret,
-    expiresIn: process.env.JWT_EXPIRES_IN || (isProduction ? "1d" : "7d"),
+    // Short-lived access token; refreshed via opaque refresh token.
+    expiresIn: process.env.JWT_EXPIRES_IN || "10m",
+    refreshExpiresIn:
+      process.env.JWT_REFRESH_EXPIRES_IN || (isProduction ? "1d" : "7d"),
+    get accessExpiresMs() {
+      return parseDurationMs(this.expiresIn, 10 * 60 * 1000);
+    },
+    get refreshExpiresMs() {
+      return parseDurationMs(this.refreshExpiresIn, 7 * 24 * 60 * 60 * 1000);
+    },
+  },
+  session: {
+    // Client idle logout; keep aligned with short access tokens for school shared PCs.
+    idleTimeoutMs:
+      Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 10 * 60 * 1000,
   },
   openai: {
     apiKey: (process.env.OPENAI_API_KEY || "").trim(),

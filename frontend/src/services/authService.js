@@ -17,6 +17,12 @@ const authService = {
     }
     return api.post('/auth/login', body);
   },
+  refresh(refreshToken) {
+    return api.post('/auth/refresh', { refreshToken });
+  },
+  logout(refreshToken) {
+    return api.post('/auth/logout', { refreshToken: refreshToken || undefined });
+  },
   forgotPassword(payload) {
     return api.post('/auth/forgot-password', payload);
   },

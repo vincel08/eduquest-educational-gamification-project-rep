@@ -76,6 +76,27 @@ const AuthController = {
       return next(error);
     }
   },
+
+  async refresh(req, res, next) {
+    try {
+      const data = await AuthService.refresh(req.body);
+      return successResponse(res, 'Session refreshed', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async logout(req, res, next) {
+    try {
+      const data = await AuthService.logout({
+        refreshToken: req.body?.refreshToken,
+        userId: req.user?.id || null,
+      });
+      return successResponse(res, 'Logged out', data);
+    } catch (error) {
+      return next(error);
+    }
+  },
 };
 
 export default AuthController;

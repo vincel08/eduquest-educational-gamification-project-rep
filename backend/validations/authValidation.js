@@ -184,6 +184,23 @@ export const resetPasswordValidation = [
     }),
 ];
 
+export const refreshTokenValidation = [
+  body("refreshToken")
+    .trim()
+    .notEmpty()
+    .withMessage("Refresh token is required")
+    .isLength({ min: 20, max: 512 })
+    .withMessage("Refresh token is invalid"),
+];
+
+export const logoutValidation = [
+  body("refreshToken")
+    .optional({ nullable: true })
+    .isString()
+    .isLength({ max: 512 })
+    .withMessage("Refresh token is invalid"),
+];
+
 export const setStudentPasswordValidation = [
   body("password").custom((value) => {
     const error = validateNewPassword(value);

@@ -227,6 +227,7 @@ async function run() {
   await connection.query("SET FOREIGN_KEY_CHECKS = 0");
   const tables = [
     "password_reset_tokens",
+    "refresh_tokens",
     "ai_review_drafts",
     "ai_content_generations",
     "xp_transactions",
