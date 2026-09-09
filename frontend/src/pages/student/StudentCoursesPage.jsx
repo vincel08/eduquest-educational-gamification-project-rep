@@ -44,6 +44,7 @@ export default function StudentCoursesPage() {
   if (loading) return <LoadingScreen label="Loading subjects..." showCards />;
 
   const enrolledIds = new Set(enrolled.map((course) => course.id));
+  const availableCatalog = catalog.filter((course) => !enrolledIds.has(course.id));
 
   return (
     <>
@@ -109,8 +110,8 @@ export default function StudentCoursesPage() {
         icon={<MenuBookIcon color="secondary" />}
       />
       <Grid container spacing={2}>
-        {catalog.length ? (
-          catalog.map((course) => {
+        {availableCatalog.length ? (
+          availableCatalog.map((course) => {
             const adviser = courseAdviserName(course);
             return (
               <Grid key={course.id} size={{ xs: 12, sm: 6, md: 4 }}>
@@ -119,18 +120,14 @@ export default function StudentCoursesPage() {
                   description={course.description || "Subject overview"}
                   meta={adviser ? `Adviser: ${adviser}` : undefined}
                   icon={<MenuBookIcon />}
-                  accent={enrolledIds.has(course.id) ? "green" : "purple"}
+                  accent="purple"
                   difficulty={course.grade_level}
-                  status={enrolledIds.has(course.id) ? "Enrolled" : "Available"}
-                  statusColor={
-                    enrolledIds.has(course.id) ? "success" : "secondary"
-                  }
+                  status="Available"
+                  statusColor="secondary"
                   showTimestamp
                   item={course}
                   to={`/student/courses/${course.id}`}
-                  actionLabel={
-                    enrolledIds.has(course.id) ? "Open" : "View Subject"
-                  }
+                  actionLabel="View Subject"
                 />
               </Grid>
             );
@@ -138,7 +135,9 @@ export default function StudentCoursesPage() {
         ) : (
           <Grid size={12}>
             <Typography color="text.secondary">
-              No subjects published yet.
+              {enrolled.length
+                ? "You're enrolled in every available subject."
+                : "No subjects published yet."}
             </Typography>
           </Grid>
         )}
