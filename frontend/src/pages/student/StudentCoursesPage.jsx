@@ -11,7 +11,8 @@ import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 
 function courseAdviserName(course) {
-  const name = `${course?.teacher_first_name || ""} ${course?.teacher_last_name || ""}`.trim();
+  const name =
+    `${course?.teacher_first_name || ""} ${course?.teacher_last_name || ""}`.trim();
   return name || null;
 }
 
@@ -44,7 +45,9 @@ export default function StudentCoursesPage() {
   if (loading) return <LoadingScreen label="Loading subjects..." showCards />;
 
   const enrolledIds = new Set(enrolled.map((course) => course.id));
-  const availableCatalog = catalog.filter((course) => !enrolledIds.has(course.id));
+  const availableCatalog = catalog.filter(
+    (course) => !enrolledIds.has(course.id),
+  );
 
   return (
     <>
@@ -75,7 +78,7 @@ export default function StudentCoursesPage() {
                     `${course.grade_level || ""}${course.description ? ` · ${course.description}` : ""}`.trim() ||
                     "Subject overview"
                   }
-                  meta={adviser ? `Adviser: ${adviser}` : undefined}
+                  meta={adviser ? `Teacher: ${adviser}` : undefined}
                   icon={<SchoolIcon />}
                   accent="blue"
                   status={`${Number(course.progress_percent || 0)}% lessons`}
