@@ -8,6 +8,7 @@ import CourseService from "./CourseService.js";
 import GamificationService from "./GamificationService.js";
 import NotificationService from "./NotificationService.js";
 import StreakService from "./StreakService.js";
+import ActivityLogService from "./ActivityLogService.js";
 import AppError from "../utils/AppError.js";
 import {
   ALL_GAME_TYPES,
@@ -102,7 +103,7 @@ const GameService = {
       }
     }
 
-    return GameModel.create({
+    const game = await GameModel.create({
       courseId: data.courseId,
       lessonId: data.lessonId || null,
       title: data.title,
@@ -116,6 +117,23 @@ const GameService = {
       isPublished: Boolean(data.isPublished),
       createdBy: user.id,
     });
+
+    await ActivityLogService.log({
+      actorId: user?.id || null,
+      action: "game.created",
+      entityType: "game",
+      entityId: game.id,
+      summary: `Created game "${game.title || data.title}"`,
+      metadata: {
+        courseId: Number(game.course_id || data.courseId),
+        lessonId: game.lesson_id || data.lessonId || null,
+        gameType: game.game_type || gameType,
+        isAiGenerated: Boolean(game.is_ai_generated || data.isAiGenerated),
+        isPublished: Boolean(game.is_published || data.isPublished),
+      },
+    });
+
+    return game;
   },
 
   /**

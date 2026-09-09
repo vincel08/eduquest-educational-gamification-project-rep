@@ -7,6 +7,8 @@ export const GRADE_LEVELS = ["Grade 7", "Grade 8", "Grade 9", "Grade 10"];
 
 export const GRADE_LEVEL_REQUIRED_MESSAGE = "Please select your grade level.";
 export const GRADE_LEVEL_INVALID_MESSAGE = "Please select a valid grade level.";
+export const GRADE_LEVEL_LOCKED_MESSAGE =
+  "Grade level is locked. Ask an administrator to change it.";
 export const GRADE_LEVEL_PLACEHOLDER = "Select your grade level";
 
 export function isValidGradeLevel(value) {

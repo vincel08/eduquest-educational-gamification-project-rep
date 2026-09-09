@@ -112,6 +112,32 @@ const ClassSectionModel = {
     return rows.map((row) => row.name).filter(Boolean);
   },
 
+  async listByAdviserIds(adviserIds = []) {
+    const ids = [
+      ...new Set(
+        (adviserIds || [])
+          .map((id) => Number(id))
+          .filter((id) => Number.isInteger(id) && id > 0),
+      ),
+    ];
+    if (!ids.length) return [];
+
+    const params = {};
+    const placeholders = ids.map((id, index) => {
+      const key = `adviserId${index}`;
+      params[key] = id;
+      return `:${key}`;
+    });
+
+    return query(
+      `SELECT adviser_id, school_year, grade_level, name
+       FROM class_sections
+       WHERE adviser_id IN (${placeholders.join(", ")})
+       ORDER BY school_year DESC, grade_level ASC, name ASC`,
+      params,
+    );
+  },
+
   async update(id, { schoolYear, gradeLevel, name, adviserId }) {
     const sets = [];
     const params = { id };

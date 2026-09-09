@@ -24,14 +24,20 @@ import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   GRADE_LEVELS,
+  GRADE_LEVEL_LOCKED_MESSAGE,
   GRADE_LEVEL_PLACEHOLDER,
   isValidGradeLevel,
 } from "../../utils/gradeLevels";
 import {
-  defaultSchoolYearValue,
+  isValidSchoolYearLabel,
   listSchoolYearOptions,
 } from "../../utils/schoolYears";
-import { SECTION_PLACEHOLDER } from "../../utils/classSections";
+import {
+  SECTION_LOCKED_MESSAGE,
+  SECTION_PLACEHOLDER,
+  SCHOOL_YEAR_LOCKED_MESSAGE,
+  isValidSection,
+} from "../../utils/classSections";
 import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
 
 function resolveAvatarUrl(url) {
@@ -54,7 +60,7 @@ export default function StudentProfilePage() {
     gradeLevel: "",
     schoolName: "",
     section: "",
-    schoolYear: defaultSchoolYearValue(),
+    schoolYear: "",
   });
   const [avatarUrl, setAvatarUrl] = useState("");
   const [error, setError] = useState("");
@@ -78,6 +84,17 @@ export default function StudentProfilePage() {
         setSectionOptions(options);
         setForm((prev) => {
           if (!prev.section) return prev;
+          // Never wipe a locked/saved section just because catalog options changed.
+          if (isValidSection(prev.section)) {
+            const matched = options.find(
+              (item) =>
+                item.toLowerCase() === String(prev.section).toLowerCase(),
+            );
+            if (matched && matched !== prev.section) {
+              return { ...prev, section: matched };
+            }
+            return prev;
+          }
           const matched = options.find(
             (item) => item.toLowerCase() === String(prev.section).toLowerCase(),
           );
@@ -114,7 +131,7 @@ export default function StudentProfilePage() {
           schoolName: gamification.profile?.school_name || "",
           section: existingSection,
           schoolYear:
-            gamification.profile?.school_year || defaultSchoolYearValue(),
+            gamification.profile?.school_year || "",
         });
         setAvatarUrl(user?.avatarUrl || "");
       } catch (err) {
@@ -137,8 +154,23 @@ export default function StudentProfilePage() {
     setError("");
     setMessage("");
     try {
+      const profile = data?.gamification?.profile;
+      const gradeAlreadySet = isValidGradeLevel(profile?.grade_level);
+      const schoolYearAlreadySet = isValidSchoolYearLabel(profile?.school_year);
+      const sectionAlreadySet = isValidSection(profile?.section);
       const response = await authService.updateProfile({
-        ...form,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        schoolName: form.schoolName,
+        ...(gradeAlreadySet || !form.gradeLevel
+          ? {}
+          : { gradeLevel: form.gradeLevel }),
+        ...(schoolYearAlreadySet || !form.schoolYear
+          ? {}
+          : { schoolYear: form.schoolYear }),
+        ...(sectionAlreadySet || !form.section
+          ? {}
+          : { section: form.section }),
       });
       updateProfile(response.data.data.profile, response.data.data.user);
       setAvatarUrl(response.data.data.user?.avatarUrl || "");
@@ -213,6 +245,9 @@ export default function StudentProfilePage() {
   if (error && !data) return <Alert severity="error">{error}</Alert>;
 
   const studentProfile = data.gamification.profile;
+  const gradeLocked = isValidGradeLevel(studentProfile.grade_level);
+  const schoolYearLocked = isValidSchoolYearLabel(studentProfile.school_year);
+  const sectionLocked = isValidSection(studentProfile.section);
 
   return (
     <>
@@ -340,6 +375,7 @@ export default function StudentProfilePage() {
                 label="Grade Level"
                 fullWidth
                 value={form.gradeLevel}
+                disabled={gradeLocked}
                 onChange={(e) =>
                   setForm((p) => ({
                     ...p,
@@ -348,7 +384,11 @@ export default function StudentProfilePage() {
                   }))
                 }
                 helperText={
-                  form.gradeLevel ? undefined : GRADE_LEVEL_PLACEHOLDER
+                  gradeLocked
+                    ? GRADE_LEVEL_LOCKED_MESSAGE
+                    : form.gradeLevel
+                      ? undefined
+                      : GRADE_LEVEL_PLACEHOLDER
                 }
                 SelectProps={{
                   displayEmpty: true,
@@ -360,7 +400,9 @@ export default function StudentProfilePage() {
                   },
                 }}
               >
-                <MenuItem value="">{GRADE_LEVEL_PLACEHOLDER}</MenuItem>
+                <MenuItem value="" disabled={gradeLocked}>
+                  {GRADE_LEVEL_PLACEHOLDER}
+                </MenuItem>
                 {GRADE_LEVELS.map((grade) => (
                   <MenuItem key={grade} value={grade}>
                     {grade}
@@ -372,14 +414,31 @@ export default function StudentProfilePage() {
                 label="School Year"
                 fullWidth
                 value={form.schoolYear}
+                disabled={schoolYearLocked}
                 onChange={(e) =>
                   setForm((p) => ({
                     ...p,
                     schoolYear: e.target.value,
-                    section: "",
+                    section: sectionLocked ? p.section : "",
                   }))
                 }
+                helperText={
+                  schoolYearLocked ? SCHOOL_YEAR_LOCKED_MESSAGE : undefined
+                }
+                SelectProps={{
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    if (!selected) return "Select school year";
+                    const match = schoolYearOptions.find(
+                      (option) => option.value === selected,
+                    );
+                    return match?.label || selected;
+                  },
+                }}
               >
+                <MenuItem value="" disabled={schoolYearLocked}>
+                  Select school year
+                </MenuItem>
                 {schoolYearOptions.map((option) => (
                   <MenuItem key={option.value} value={option.value}>
                     {option.label}
@@ -394,13 +453,22 @@ export default function StudentProfilePage() {
                   setForm((p) => ({ ...p, section: e.target.value }))
                 }
                 helperText={
-                  !form.gradeLevel
-                    ? "Select a grade level first"
-                    : sectionOptions.length
-                      ? "Sections for this grade and school year"
-                      : "No sections yet for this grade — ask an admin to add one"
+                  sectionLocked
+                    ? SECTION_LOCKED_MESSAGE
+                    : !form.gradeLevel
+                      ? "Select a grade level first"
+                      : !form.schoolYear
+                        ? "Select a school year first"
+                        : sectionOptions.length
+                          ? "Sections for this grade and school year"
+                          : "No sections yet for this grade — ask an admin to add one"
                 }
-                disabled={!form.gradeLevel || !sectionOptions.length}
+                disabled={
+                  sectionLocked ||
+                  !form.gradeLevel ||
+                  !form.schoolYear ||
+                  !sectionOptions.length
+                }
                 SelectProps={{
                   displayEmpty: true,
                   renderValue: (selected) => {
