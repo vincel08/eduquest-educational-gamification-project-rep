@@ -26,9 +26,13 @@ const QuizModel = {
 
   async findById(id) {
     const rows = await query(
-      `SELECT q.*, c.title AS course_title, c.teacher_id
+      `SELECT q.*, c.title AS course_title, c.teacher_id,
+              COALESCE(creator.first_name, teacher.first_name) AS creator_first_name,
+              COALESCE(creator.last_name, teacher.last_name) AS creator_last_name
        FROM quizzes q
        INNER JOIN courses c ON c.id = q.course_id
+       LEFT JOIN users creator ON creator.id = q.created_by
+       LEFT JOIN users teacher ON teacher.id = c.teacher_id
        WHERE q.id = :id
        LIMIT 1`,
       { id },
@@ -40,8 +44,13 @@ const QuizModel = {
     const publishedFilter = publishedOnly ? "AND q.is_published = 1" : "";
     return query(
       `SELECT q.*,
-              (SELECT COUNT(*) FROM quiz_questions qq WHERE qq.quiz_id = q.id) AS question_count
+              (SELECT COUNT(*) FROM quiz_questions qq WHERE qq.quiz_id = q.id) AS question_count,
+              COALESCE(creator.first_name, teacher.first_name) AS creator_first_name,
+              COALESCE(creator.last_name, teacher.last_name) AS creator_last_name
        FROM quizzes q
+       INNER JOIN courses c ON c.id = q.course_id
+       LEFT JOIN users creator ON creator.id = q.created_by
+       LEFT JOIN users teacher ON teacher.id = c.teacher_id
        WHERE q.course_id = :courseId ${publishedFilter}
        ORDER BY q.created_at DESC`,
       { courseId },

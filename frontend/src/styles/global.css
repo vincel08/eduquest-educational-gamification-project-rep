@@ -19,6 +19,8 @@
     8px 10px 22px var(--eq-clay-dark),
     -6px -6px 16px var(--eq-clay-light),
     inset 1px 1px 1px rgba(255, 255, 255, 0.7);
+  --eq-glass-border: rgba(15, 23, 42, 0.14);
+  --eq-achievement-border: rgba(245, 158, 11, 0.55);
 }
 
 * {
@@ -64,6 +66,8 @@ body[data-theme="dark"] {
   --eq-clay-shadow:
     8px 10px 22px var(--eq-clay-dark),
     -6px -6px 16px var(--eq-clay-light);
+  --eq-glass-border: rgba(148, 163, 184, 0.28);
+  --eq-achievement-border: rgba(250, 204, 21, 0.45);
   background:
     radial-gradient(
       circle at 6% -4%,
@@ -113,7 +117,7 @@ img {
 /* Soft glass (student stats / badges) */
 .glass-panel {
   background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--eq-glass-border) !important;
   box-shadow: var(--eq-clay-shadow);
   border-radius: 22px;
   backdrop-filter: blur(14px);
@@ -122,7 +126,7 @@ img {
 
 body[data-theme="dark"] .glass-panel {
   background: rgba(21, 30, 50, 0.82);
-  border-color: rgba(148, 163, 184, 0.16);
+  border-color: var(--eq-glass-border) !important;
 }
 
 .glass-accent {
@@ -438,12 +442,14 @@ body[data-theme="dark"] .quest-card {
     box-shadow:
       8px 10px 22px var(--eq-clay-dark),
       -6px -6px 16px var(--eq-clay-light),
+      0 0 0 1px var(--eq-achievement-border),
       0 0 0 0 rgba(250, 204, 21, 0.35);
   }
   50% {
     box-shadow:
       8px 10px 22px var(--eq-clay-dark),
       -6px -6px 16px var(--eq-clay-light),
+      0 0 0 1px var(--eq-achievement-border),
       0 0 0 10px rgba(250, 204, 21, 0);
   }
 }
@@ -465,6 +471,10 @@ body[data-theme="dark"] .quest-card {
 
 .eq-achievement-glow {
   animation: eq-pulse-glow 2s ease-in-out infinite;
+  border-color: var(--eq-achievement-border) !important;
+  box-shadow:
+    var(--eq-clay-shadow),
+    0 0 0 1px var(--eq-achievement-border);
 }
 
 .eq-fade-in {
