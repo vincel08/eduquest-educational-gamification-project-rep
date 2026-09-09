@@ -8,6 +8,7 @@ import CourseService from "./CourseService.js";
 import AiService from "./AiService.js";
 import StreakService from "./StreakService.js";
 import NotificationService from "./NotificationService.js";
+import ActivityLogService from "./ActivityLogService.js";
 import AppError from "../utils/AppError.js";
 import {
   questionImageApiPath,
@@ -614,6 +615,21 @@ const QuizService = {
     const questions = withSecureQuestionImages(
       await QuizModel.getQuestions(quiz.id, { includeCorrect: true }),
     );
+
+    await ActivityLogService.log({
+      actorId: user?.id || null,
+      action: "quiz.created",
+      entityType: "quiz",
+      entityId: quiz.id,
+      summary: `Created quiz "${quiz.title || data.title}"`,
+      metadata: {
+        courseId: Number(quiz.course_id || data.courseId),
+        lessonId: quiz.lesson_id || data.lessonId || null,
+        isAiGenerated: Boolean(quiz.is_ai_generated || data.isAiGenerated),
+        isPublished: Boolean(quiz.is_published),
+      },
+    });
+
     return { ...quiz, questions };
   },
 

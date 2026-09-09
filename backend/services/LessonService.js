@@ -5,6 +5,7 @@ import StreakService from "./StreakService.js";
 import AiService from "./AiService.js";
 import CourseService from "./CourseService.js";
 import NotificationService from "./NotificationService.js";
+import ActivityLogService from "./ActivityLogService.js";
 import AppError from "../utils/AppError.js";
 import {
   materialFileApiPath,
@@ -43,7 +44,7 @@ const LessonService = {
     const competency =
       data.competency != null ? String(data.competency).trim() || null : null;
 
-    return LessonModel.create({
+    const lesson = await LessonModel.create({
       ...data,
       courseId,
       summary,
@@ -52,6 +53,20 @@ const LessonService = {
       createdBy: user.id,
       updatedBy: user.id,
     });
+
+    await ActivityLogService.log({
+      actorId: user?.id || null,
+      action: "lesson.created",
+      entityType: "lesson",
+      entityId: lesson.id,
+      summary: `Created lesson "${lesson.title || data.title}"`,
+      metadata: {
+        courseId: Number(lesson.course_id || courseId),
+        isPublished: Boolean(lesson.is_published),
+      },
+    });
+
+    return lesson;
   },
 
   async getLessonsByCourse(courseId, user) {
@@ -254,6 +269,23 @@ const LessonService = {
       fileSize: file.size,
       filePath: file.path,
       uploadedBy: user.id,
+    });
+
+    const fileLabel =
+      material.original_name || material.file_name || file.originalname || "file";
+
+    await ActivityLogService.log({
+      actorId: user?.id || null,
+      action: "material.uploaded",
+      entityType: "lesson_material",
+      entityId: material.id,
+      summary: `Uploaded material "${fileLabel}" to lesson "${lesson.title}"`,
+      metadata: {
+        lessonId: Number(lessonId),
+        courseId: Number(lesson.course_id) || null,
+        originalName: fileLabel,
+        fileType: material.file_type || file.mimetype || null,
+      },
     });
 
     return {

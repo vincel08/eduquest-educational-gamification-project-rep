@@ -27,6 +27,18 @@ export function isValidSchoolYearLabel(label) {
   return Boolean(parseSchoolYearLabel(label));
 }
 
+export const SCHOOL_YEAR_MISMATCH_MESSAGE =
+  "This subject is for a different school year.";
+export const SCHOOL_YEAR_REQUIRED_FOR_ACCESS_MESSAGE =
+  "Set your school year in your profile before accessing subjects.";
+
+export function schoolYearsMatch(studentSchoolYear, courseSchoolYear) {
+  const a = String(studentSchoolYear || "").trim();
+  const b = String(courseSchoolYear || "").trim();
+  if (!a || !b) return false;
+  return a === b;
+}
+
 export function parseSchoolYearLabel(label) {
   if (!label || label === "all") return null;
   const match = String(label).trim().match(/^(\d{4})-(\d{4})$/);

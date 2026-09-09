@@ -4,9 +4,13 @@
 
 export const SECTION_REQUIRED_MESSAGE = "Please select your class section.";
 export const SECTION_INVALID_MESSAGE = "Section must be 1–50 characters.";
+export const SECTION_LOCKED_MESSAGE =
+  "Section is locked. Ask an administrator to change it.";
 export const SECTION_PLACEHOLDER = "Select your section";
 export const SCHOOL_YEAR_REQUIRED_MESSAGE = "Please select your school year.";
 export const SCHOOL_YEAR_INVALID_MESSAGE = "Please select a valid school year.";
+export const SCHOOL_YEAR_LOCKED_MESSAGE =
+  "School year is locked. Ask an administrator to change it.";
 
 function stripLeadingNumberPrefix(value) {
   return String(value).replace(/^\d+\s*[-–—]\s*/, "").trim();

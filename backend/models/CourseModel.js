@@ -161,6 +161,58 @@ const CourseModel = {
     return Number(result?.affectedRows) > 0;
   },
 
+  /**
+   * Remove enrollments that no longer match the student's grade and/or school year.
+   * Returns the removed course rows (for notifications).
+   */
+  async unenrollWherePlacementMismatch(
+    studentId,
+    { gradeLevel, schoolYear } = {},
+  ) {
+    const filters = ["ce.student_id = :studentId"];
+    const params = { studentId };
+
+    if (gradeLevel) {
+      filters.push(
+        "(c.grade_level IS NULL OR TRIM(c.grade_level) = '' OR c.grade_level <> :gradeLevel)",
+      );
+      params.gradeLevel = gradeLevel;
+    }
+    if (schoolYear) {
+      filters.push(
+        "(c.school_year IS NULL OR TRIM(c.school_year) = '' OR c.school_year <> :schoolYear)",
+      );
+      params.schoolYear = schoolYear;
+    }
+    if (!gradeLevel && !schoolYear) {
+      return [];
+    }
+
+    // Match if ANY provided placement axis is mismatched.
+    const mismatchSql = filters.slice(1).join(" OR ");
+    const whereSql = `ce.student_id = :studentId AND (${mismatchSql})`;
+
+    const rows = await query(
+      `SELECT c.id, c.title, c.subject, c.grade_level, c.school_year
+       FROM course_enrollments ce
+       INNER JOIN courses c ON c.id = ce.course_id
+       WHERE ${whereSql}`,
+      params,
+    );
+
+    if (!rows.length) return [];
+
+    await query(
+      `DELETE ce
+       FROM course_enrollments ce
+       INNER JOIN courses c ON c.id = ce.course_id
+       WHERE ${whereSql}`,
+      params,
+    );
+
+    return rows;
+  },
+
   async getEnrollments(courseId, rosterFilters = {}) {
     const filters = ["ce.course_id = :courseId"];
     const params = { courseId };
@@ -208,12 +260,19 @@ const CourseModel = {
     return rows.map((row) => row.section).filter(Boolean);
   },
 
-  async getStudentCourses(studentId, { gradeLevel = null } = {}) {
+  async getStudentCourses(
+    studentId,
+    { gradeLevel = null, schoolYear = null } = {},
+  ) {
     const params = { studentId };
-    let gradeFilter = "";
+    const filters = ["ce.student_id = :studentId"];
     if (gradeLevel) {
-      gradeFilter = "AND c.grade_level = :gradeLevel";
+      filters.push("c.grade_level = :gradeLevel");
       params.gradeLevel = gradeLevel;
+    }
+    if (schoolYear) {
+      filters.push("c.school_year = :schoolYear");
+      params.schoolYear = schoolYear;
     }
     return query(
       `SELECT c.*, ce.progress_percent, ce.enrolled_at,
@@ -221,8 +280,7 @@ const CourseModel = {
        FROM course_enrollments ce
        INNER JOIN courses c ON c.id = ce.course_id
        INNER JOIN users u ON u.id = c.teacher_id
-       WHERE ce.student_id = :studentId
-         ${gradeFilter}
+       WHERE ${filters.join(" AND ")}
        ORDER BY ce.enrolled_at DESC`,
       params,
     );

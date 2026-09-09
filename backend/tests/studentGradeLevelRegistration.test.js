@@ -8,8 +8,13 @@ import AuthController from "../controllers/AuthController.js";
 import { errorHandler } from "../middleware/errorMiddleware.js";
 import {
   GRADE_LEVEL_INVALID_MESSAGE,
+  GRADE_LEVEL_LOCKED_MESSAGE,
   GRADE_LEVEL_REQUIRED_MESSAGE,
 } from "../utils/gradeLevels.js";
+import {
+  SECTION_LOCKED_MESSAGE,
+  SCHOOL_YEAR_LOCKED_MESSAGE,
+} from "../utils/classSections.js";
 
 const createdUserIds = [];
 
@@ -236,6 +241,64 @@ describe("student grade level registration", () => {
       schoolName: "EduWow High",
     });
     assert.equal(updated.profile.grade_level, "Grade 9");
+
+    await assert.rejects(
+      () =>
+        AuthService.updateProfile(user.id, {
+          firstName: "Legacy",
+          lastName: "Student",
+          gradeLevel: "Grade 10",
+        }),
+      (error) => {
+        assert.equal(error.statusCode, 403);
+        assert.equal(error.message, GRADE_LEVEL_LOCKED_MESSAGE);
+        return true;
+      },
+    );
+
+    const unchanged = await AuthService.getMe(user.id);
+    assert.equal(unchanged.profile.grade_level, "Grade 9");
+
+    await assert.rejects(
+      () =>
+        AuthService.updateProfile(user.id, {
+          firstName: "Legacy",
+          lastName: "Student",
+          schoolYear: "2026-2027",
+        }),
+      (error) => {
+        assert.equal(error.statusCode, 403);
+        assert.equal(error.message, SCHOOL_YEAR_LOCKED_MESSAGE);
+        return true;
+      },
+    );
+
+    await assert.rejects(
+      () =>
+        AuthService.updateProfile(user.id, {
+          firstName: "Legacy",
+          lastName: "Student",
+          section: "B",
+        }),
+      (error) => {
+        assert.equal(error.statusCode, 403);
+        assert.equal(error.message, SECTION_LOCKED_MESSAGE);
+        return true;
+      },
+    );
+
+    // Same values are allowed (no-op) and name-only updates still work.
+    const samePlacement = await AuthService.updateProfile(user.id, {
+      firstName: "Legacy",
+      lastName: "Updated",
+      gradeLevel: "Grade 9",
+      schoolYear: "2025-2026",
+      section: "A",
+    });
+    assert.equal(samePlacement.profile.grade_level, "Grade 9");
+    assert.equal(samePlacement.profile.school_year, "2025-2026");
+    assert.equal(samePlacement.profile.section, "A");
+    assert.equal(samePlacement.user.lastName, "Updated");
   });
 
   it("teacher account creation remains functional without grade level", async () => {

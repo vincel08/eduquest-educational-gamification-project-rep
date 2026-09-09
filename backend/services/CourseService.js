@@ -18,13 +18,20 @@ import {
 import {
   getSchoolYearBounds,
   isValidSchoolYearLabel,
+  schoolYearsMatch,
+  SCHOOL_YEAR_MISMATCH_MESSAGE,
+  SCHOOL_YEAR_REQUIRED_FOR_ACCESS_MESSAGE,
 } from "../utils/schoolYears.js";
 import ClassSectionService from "./ClassSectionService.js";
 import ActivityLogService from "./ActivityLogService.js";
 
-async function getStudentGradeLevel(studentId) {
+async function getStudentPlacement(studentId) {
   const profile = await StudentProfileModel.findByUserId(studentId);
-  return normalizeGradeLevel(profile?.grade_level);
+  return {
+    gradeLevel: normalizeGradeLevel(profile?.grade_level),
+    schoolYear: String(profile?.school_year || "").trim() || null,
+    section: profile?.section || null,
+  };
 }
 
 function resolveScheduleFields(data = {}) {
@@ -88,12 +95,13 @@ const CourseService = {
   async listCourses(filters = {}, user = null) {
     const nextFilters = { ...filters };
     if (user?.role === "student") {
-      const gradeLevel = await getStudentGradeLevel(user.id);
-      // No grade → empty catalog (do not show all-level / other grades).
-      if (!gradeLevel) {
+      const placement = await getStudentPlacement(user.id);
+      // Incomplete placement → empty catalog.
+      if (!placement.gradeLevel || !isValidSchoolYearLabel(placement.schoolYear)) {
         return { courses: [], total: 0 };
       }
-      nextFilters.gradeLevel = gradeLevel;
+      nextFilters.gradeLevel = placement.gradeLevel;
+      nextFilters.schoolYear = placement.schoolYear;
       nextFilters.publishedOnly = true;
     }
     const result = await CourseModel.findAll(nextFilters);
@@ -221,12 +229,18 @@ const CourseService = {
       throw new AppError("Course not available for enrollment", 404);
     }
 
-    const gradeLevel = await getStudentGradeLevel(studentId);
-    if (!gradeLevel) {
+    const placement = await getStudentPlacement(studentId);
+    if (!placement.gradeLevel) {
       throw new AppError(GRADE_LEVEL_REQUIRED_FOR_ENROLL_MESSAGE, 400);
     }
-    if (!gradesMatch(gradeLevel, course.grade_level)) {
+    if (!isValidSchoolYearLabel(placement.schoolYear)) {
+      throw new AppError(SCHOOL_YEAR_REQUIRED_FOR_ACCESS_MESSAGE, 400);
+    }
+    if (!gradesMatch(placement.gradeLevel, course.grade_level)) {
       throw new AppError(GRADE_LEVEL_MISMATCH_MESSAGE, 403);
+    }
+    if (!schoolYearsMatch(placement.schoolYear, course.school_year)) {
+      throw new AppError(SCHOOL_YEAR_MISMATCH_MESSAGE, 403);
     }
 
     await CourseModel.enroll(courseId, studentId);
@@ -289,12 +303,16 @@ const CourseService = {
   },
 
   async getStudentCourses(studentId) {
-    const gradeLevel = await getStudentGradeLevel(studentId);
-    if (!gradeLevel) {
+    const placement = await getStudentPlacement(studentId);
+    if (
+      !placement.gradeLevel ||
+      !isValidSchoolYearLabel(placement.schoolYear)
+    ) {
       return [];
     }
     const courses = await CourseModel.getStudentCourses(studentId, {
-      gradeLevel,
+      gradeLevel: placement.gradeLevel,
+      schoolYear: placement.schoolYear,
     });
     const visible = [];
     for (const course of courses) {
@@ -307,10 +325,10 @@ const CourseService = {
   },
 
   /**
-   * Student may use course content only when the subject matches their grade.
-   * Enrollment alone is not enough (blocks legacy cross-grade enrollments).
+   * Student may use course content only when the subject matches their
+   * grade level and school year. Enrollment alone is not enough.
    */
-  async assertStudentCourseAccess(courseId, studentId) {
+  async assertStudentCourseAccess(courseId, studentId, { requireEnrollment = false } = {}) {
     let course = await CourseModel.findById(courseId);
     if (!course) {
       throw new AppError("Course not found", 404);
@@ -323,15 +341,85 @@ const CourseService = {
       throw new AppError("Course not found", 404);
     }
 
-    const gradeLevel = await getStudentGradeLevel(studentId);
-    if (!gradeLevel) {
+    const placement = await getStudentPlacement(studentId);
+    if (!placement.gradeLevel) {
       throw new AppError(GRADE_LEVEL_REQUIRED_FOR_ENROLL_MESSAGE, 400);
     }
-    if (!gradesMatch(gradeLevel, course.grade_level)) {
+    if (!isValidSchoolYearLabel(placement.schoolYear)) {
+      throw new AppError(SCHOOL_YEAR_REQUIRED_FOR_ACCESS_MESSAGE, 400);
+    }
+    if (!gradesMatch(placement.gradeLevel, course.grade_level)) {
       throw new AppError(GRADE_LEVEL_MISMATCH_MESSAGE, 403);
+    }
+    if (!schoolYearsMatch(placement.schoolYear, course.school_year)) {
+      throw new AppError(SCHOOL_YEAR_MISMATCH_MESSAGE, 403);
+    }
+
+    if (requireEnrollment) {
+      const enrolled = await CourseModel.isEnrolled(courseId, studentId);
+      if (!enrolled) {
+        throw new AppError("Course not found", 404);
+      }
     }
 
     return course;
+  },
+
+  /**
+   * After grade / school year / section changes, drop enrollments that no longer
+   * match the student's placement so teacher rosters and student access stay aligned.
+   * Quiz/game history is retained; only course_enrollments rows are removed.
+   */
+  async alignStudentAccessAfterPlacementChange(studentId, actorId = null) {
+    const placement = await getStudentPlacement(studentId);
+    if (
+      !placement.gradeLevel ||
+      !isValidSchoolYearLabel(placement.schoolYear)
+    ) {
+      return { removed: [] };
+    }
+
+    const removed = await CourseModel.unenrollWherePlacementMismatch(
+      studentId,
+      {
+        gradeLevel: placement.gradeLevel,
+        schoolYear: placement.schoolYear,
+      },
+    );
+
+    if (removed.length) {
+      const subjectNames = removed
+        .map((row) => row.subject || row.title)
+        .filter(Boolean);
+      const preview = subjectNames.slice(0, 3).join(", ");
+      const extra =
+        subjectNames.length > 3 ? ` and ${subjectNames.length - 3} more` : "";
+
+      await NotificationModel.create({
+        userId: studentId,
+        title: "Subjects updated",
+        message: `Your class placement changed. You were removed from ${preview}${extra}. Browse subjects for your current grade and school year to enroll again.`,
+        type: "course",
+        link: "/student/courses",
+      });
+
+      await ActivityLogService.log({
+        actorId: actorId || null,
+        action: "course.student_placement_aligned",
+        entityType: "user",
+        entityId: Number(studentId),
+        summary: `Aligned subject access for student #${studentId} after class placement change`,
+        metadata: {
+          studentId: Number(studentId),
+          gradeLevel: placement.gradeLevel,
+          schoolYear: placement.schoolYear,
+          section: placement.section,
+          removedCourseIds: removed.map((row) => Number(row.id)),
+        },
+      });
+    }
+
+    return { removed };
   },
 
   async getEnrollments(courseId, user, rosterFilters = {}) {

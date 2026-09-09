@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, Fragment } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -27,6 +28,7 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import PersonOffOutlinedIcon from '@mui/icons-material/PersonOffOutlined';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PageHeader from '../../components/common/PageHeader';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -83,6 +85,14 @@ export default function AdminUsersPage() {
   const [newPassword, setNewPassword] = useState('');
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [showSetPassword, setShowSetPassword] = useState(false);
+  const [gradeTarget, setGradeTarget] = useState(null);
+  const [gradeForm, setGradeForm] = useState({
+    gradeLevel: 'Grade 10',
+    schoolYear: defaultSchoolYearValue(),
+    section: '',
+  });
+  const [gradeSectionOptions, setGradeSectionOptions] = useState([]);
+  const [savingGrade, setSavingGrade] = useState(false);
   const [roleFilter, setRoleFilter] = useState(() => roleFromSearchParams(searchParams));
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -138,6 +148,41 @@ export default function AdminUsersPage() {
       active = false;
     };
   }, [form.schoolYear, form.gradeLevel, form.role, sectionsRevision]);
+
+  useEffect(() => {
+    let active = true;
+    if (!gradeTarget || !gradeForm.schoolYear || !gradeForm.gradeLevel) {
+      setGradeSectionOptions([]);
+      return undefined;
+    }
+    classSectionService
+      .options({
+        schoolYear: gradeForm.schoolYear,
+        gradeLevel: gradeForm.gradeLevel,
+      })
+      .then((response) => {
+        if (!active) return;
+        const options = response.data.data || [];
+        setGradeSectionOptions(options);
+        setGradeForm((prev) =>
+          prev.section && !options.includes(prev.section)
+            ? { ...prev, section: '' }
+            : prev,
+        );
+      })
+      .catch(() => {
+        if (!active) return;
+        setGradeSectionOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    gradeTarget,
+    gradeForm.schoolYear,
+    gradeForm.gradeLevel,
+    sectionsRevision,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -231,6 +276,40 @@ export default function AdminUsersPage() {
     }
   }
 
+  function openGradeEditor(user) {
+    setError('');
+    setMessage('');
+    setGradeTarget(user);
+    setGradeForm({
+      gradeLevel: user.gradeLevel || 'Grade 10',
+      schoolYear: user.schoolYear || defaultSchoolYearValue(),
+      section: user.section || '',
+    });
+  }
+
+  async function handleSaveGrade() {
+    if (!gradeTarget) return;
+    setError('');
+    setMessage('');
+    setSavingGrade(true);
+    try {
+      await userService.update(gradeTarget.id, {
+        gradeLevel: gradeForm.gradeLevel,
+        schoolYear: gradeForm.schoolYear,
+        section: gradeForm.section,
+      });
+      setMessage(
+        `Class details updated for ${gradeTarget.firstName} ${gradeTarget.lastName}`,
+      );
+      setGradeTarget(null);
+      await reloadUsers();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSavingGrade(false);
+    }
+  }
+
   function canDeleteUser(user) {
     if (!user) return false;
     if (user.role === 'administrator') return false;
@@ -269,6 +348,127 @@ export default function AdminUsersPage() {
     });
     return groups.filter((group) => group.users.length > 0);
   }, [users]);
+
+  function renderUserActions(user) {
+    return (
+      <Stack direction="row" spacing={0.25} justifyContent="flex-end">
+        <Tooltip title={user.isActive ? 'Deactivate' : 'Activate'}>
+          <IconButton
+            size="small"
+            aria-label={
+              user.isActive
+                ? `Deactivate ${user.firstName} ${user.lastName}`
+                : `Activate ${user.firstName} ${user.lastName}`
+            }
+            onClick={() => toggleActive(user)}
+          >
+            {user.isActive ? (
+              <PersonOffOutlinedIcon fontSize="small" />
+            ) : (
+              <HowToRegOutlinedIcon fontSize="small" />
+            )}
+          </IconButton>
+        </Tooltip>
+        {user.role === 'student' ? (
+          <Tooltip title="Edit grade / section">
+            <IconButton
+              size="small"
+              aria-label={`Edit grade for ${user.firstName} ${user.lastName}`}
+              onClick={() => openGradeEditor(user)}
+            >
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+        {user.role === 'student' ? (
+          <Tooltip title="Set password">
+            <IconButton
+              size="small"
+              aria-label={`Set password for ${user.firstName} ${user.lastName}`}
+              onClick={() => {
+                setPasswordTarget(user);
+                setNewPassword('');
+              }}
+            >
+              <LockResetIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+        {canDeleteUser(user) ? (
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              color="error"
+              aria-label={`Delete ${user.firstName} ${user.lastName}`}
+              onClick={() => setUserToDelete(user)}
+            >
+              <DeleteOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+      </Stack>
+    );
+  }
+
+  function renderAdvisedSections(user) {
+    const sections = Array.isArray(user.advisedSections) ? user.advisedSections : [];
+    if (!sections.length) {
+      return (
+        <Typography variant="body2" color="text.secondary">
+          None
+        </Typography>
+      );
+    }
+
+    const summary =
+      sections.length === 1
+        ? sections[0].label
+        : `${sections.length} sections`;
+
+    return (
+      <TextField
+        select
+        size="small"
+        fullWidth
+        value="__summary__"
+        onChange={() => {}}
+        aria-label={`Advised sections for ${user.firstName} ${user.lastName}`}
+        slotProps={{
+          select: {
+            displayEmpty: true,
+            renderValue: () => summary,
+            MenuProps: {
+              PaperProps: {
+                sx: { maxHeight: 280 },
+              },
+            },
+          },
+        }}
+        sx={{
+          minWidth: 160,
+          maxWidth: 260,
+          '& .MuiInputBase-root': { bgcolor: 'transparent' },
+        }}
+      >
+        <MenuItem value="__summary__" sx={{ display: 'none' }} />
+        {sections.map((item) => (
+          <MenuItem
+            key={`${item.schoolYear || ''}-${item.label}`}
+            value={`${item.schoolYear || ''}|${item.label}`}
+          >
+            <Stack spacing={0} sx={{ py: 0.25 }}>
+              <Typography variant="body2">{item.label}</Typography>
+              {item.schoolYear ? (
+                <Typography variant="caption" color="text.secondary">
+                  SY {item.schoolYear}
+                </Typography>
+              ) : null}
+            </Stack>
+          </MenuItem>
+        ))}
+      </TextField>
+    );
+  }
 
   if (loading && !users.length) return <LoadingScreen />;
 
@@ -310,128 +510,127 @@ export default function AdminUsersPage() {
         </TextField>
       </Stack>
 
-      <Paper sx={{ overflow: 'hidden' }}>
-        <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table size="small" sx={{ minWidth: 1100 }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Username</TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>Email</TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 100 }}>Role</TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 90 }}>Grade</TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Section</TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>School Year</TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 180 }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {userGroups.map((group) => (
-                <Fragment key={group.key}>
-                  <TableRow>
-                    <TableCell
-                      colSpan={9}
-                      sx={{
-                        bgcolor: 'action.hover',
-                        py: 1,
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                      }}
-                    >
-                      <Typography variant="subtitle2" fontWeight={800}>
-                        {group.label} ({group.users.length})
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                  {group.users.map((user) => (
-                    <TableRow key={user.id} hover>
-                      <TableCell sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {user.firstName} {user.lastName}
-                      </TableCell>
-                      <TableCell sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {user.username || '—'}
-                      </TableCell>
-                      <TableCell sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {user.email || '—'}
-                      </TableCell>
-                      <TableCell sx={{ textTransform: 'capitalize' }}>{user.role}</TableCell>
-                      <TableCell>
-                        {user.role === 'student' ? user.gradeLevel || '—' : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {user.role === 'student' ? user.section || '—' : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {user.role === 'student'
-                          ? user.schoolYear
-                            ? `SY ${user.schoolYear}`
-                            : '—'
-                          : '—'}
-                      </TableCell>
-                      <TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={0.25} justifyContent="flex-end">
-                          <Tooltip title={user.isActive ? 'Deactivate' : 'Activate'}>
-                            <IconButton
-                              size="small"
-                              aria-label={
-                                user.isActive
-                                  ? `Deactivate ${user.firstName} ${user.lastName}`
-                                  : `Activate ${user.firstName} ${user.lastName}`
-                              }
-                              onClick={() => toggleActive(user)}
-                            >
-                              {user.isActive ? (
-                                <PersonOffOutlinedIcon fontSize="small" />
-                              ) : (
-                                <HowToRegOutlinedIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                          {user.role === 'student' ? (
-                            <Tooltip title="Set password">
-                              <IconButton
-                                size="small"
-                                aria-label={`Set password for ${user.firstName} ${user.lastName}`}
-                                onClick={() => {
-                                  setPasswordTarget(user);
-                                  setNewPassword('');
-                                }}
-                              >
-                                <LockResetIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          ) : null}
-                          {canDeleteUser(user) ? (
-                            <Tooltip title="Delete">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                aria-label={`Delete ${user.firstName} ${user.lastName}`}
-                                onClick={() => setUserToDelete(user)}
-                              >
-                                <DeleteOutlinedIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          ) : null}
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </Fragment>
-              ))}
-              {!users.length ? (
-                <TableRow>
-                  <TableCell colSpan={9}>
-                    No users match the current filters.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+      {!users.length ? (
+        <Paper sx={{ p: 2 }}>
+          <Typography color="text.secondary">
+            No users match the current filters.
+          </Typography>
+        </Paper>
+      ) : (
+        <Stack spacing={2.5}>
+          {userGroups.map((group) => (
+            <Paper key={group.key} sx={{ overflow: 'hidden' }}>
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.25,
+                  bgcolor: 'action.hover',
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                }}
+              >
+                <Typography variant="subtitle2" fontWeight={800}>
+                  {group.label} ({group.users.length})
+                </Typography>
+              </Box>
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                {group.key === 'teacher' ? (
+                  <Table size="small" sx={{ minWidth: 900 }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>Name</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Username</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>Email</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 260 }}>Advises</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Status</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 120 }} align="right">
+                          Actions
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {group.users.map((user) => (
+                        <TableRow key={user.id} hover>
+                          <TableCell>
+                            {user.firstName} {user.lastName}
+                          </TableCell>
+                          <TableCell>{user.username || '—'}</TableCell>
+                          <TableCell>{user.email || '—'}</TableCell>
+                          <TableCell>{renderAdvisedSections(user)}</TableCell>
+                          <TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
+                          <TableCell align="right">{renderUserActions(user)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : group.key === 'student' ? (
+                  <Table size="small" sx={{ minWidth: 1000 }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>Name</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Username</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>Email</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 90 }}>Grade</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Section</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>School Year</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Status</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }} align="right">
+                          Actions
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {group.users.map((user) => (
+                        <TableRow key={user.id} hover>
+                          <TableCell>
+                            {user.firstName} {user.lastName}
+                          </TableCell>
+                          <TableCell>{user.username || '—'}</TableCell>
+                          <TableCell>{user.email || '—'}</TableCell>
+                          <TableCell>{user.gradeLevel || '—'}</TableCell>
+                          <TableCell>{user.section || '—'}</TableCell>
+                          <TableCell>
+                            {user.schoolYear ? `SY ${user.schoolYear}` : '—'}
+                          </TableCell>
+                          <TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
+                          <TableCell align="right">{renderUserActions(user)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <Table size="small" sx={{ minWidth: 720 }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>Name</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Username</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>Email</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Status</TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 120 }} align="right">
+                          Actions
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {group.users.map((user) => (
+                        <TableRow key={user.id} hover>
+                          <TableCell>
+                            {user.firstName} {user.lastName}
+                          </TableCell>
+                          <TableCell>{user.username || '—'}</TableCell>
+                          <TableCell>{user.email || '—'}</TableCell>
+                          <TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
+                          <TableCell align="right">{renderUserActions(user)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </TableContainer>
+            </Paper>
+          ))}
+        </Stack>
+      )}
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Create User</DialogTitle>
@@ -543,6 +742,100 @@ export default function AdminUsersPage() {
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleCreate}>Create</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(gradeTarget)}
+        onClose={() => !savingGrade && setGradeTarget(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>
+          Edit class details
+          {gradeTarget
+            ? ` · ${gradeTarget.firstName} ${gradeTarget.lastName}`
+            : ''}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select
+              label="Grade Level"
+              fullWidth
+              value={gradeForm.gradeLevel}
+              onChange={(e) =>
+                setGradeForm((prev) => ({
+                  ...prev,
+                  gradeLevel: e.target.value,
+                  section: '',
+                }))
+              }
+            >
+              {GRADE_LEVELS.map((grade) => (
+                <MenuItem key={grade} value={grade}>
+                  {grade}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="School Year"
+              fullWidth
+              value={gradeForm.schoolYear}
+              onChange={(e) =>
+                setGradeForm((prev) => ({
+                  ...prev,
+                  schoolYear: e.target.value,
+                  section: '',
+                }))
+              }
+            >
+              {schoolYearOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Section"
+              fullWidth
+              value={gradeForm.section}
+              onChange={(e) =>
+                setGradeForm((prev) => ({ ...prev, section: e.target.value }))
+              }
+              helperText={
+                gradeSectionOptions.length
+                  ? 'Choose from admin-managed sections'
+                  : 'No sections for this grade — add one under Sections first'
+              }
+              disabled={!gradeSectionOptions.length}
+            >
+              {gradeSectionOptions.map((item) => (
+                <MenuItem key={item} value={item}>
+                  {item}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGradeTarget(null)} disabled={savingGrade}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveGrade}
+            disabled={
+              savingGrade ||
+              !gradeForm.gradeLevel ||
+              !gradeForm.schoolYear ||
+              !gradeForm.section
+            }
+          >
+            {savingGrade ? 'Saving…' : 'Save'}
+          </Button>
         </DialogActions>
       </Dialog>
 

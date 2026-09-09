@@ -23,10 +23,6 @@ import {
 } from '../utils/gradeLevels.js';
 import {
   SCHOOL_YEAR_INVALID_MESSAGE,
-  SECTION_INVALID_MESSAGE,
-  SECTION_REQUIRED_MESSAGE,
-  isValidSection,
-  normalizeSection,
 } from '../utils/classSections.js';
 import {
   currentSchoolYearStartYear,
@@ -34,9 +30,9 @@ import {
   isValidSchoolYearLabel,
 } from '../utils/schoolYears.js';
 import ClassSectionService from './ClassSectionService.js';
+import ClassSectionModel from '../models/ClassSectionModel.js';
 import ActivityLogService from './ActivityLogService.js';
 import { query } from '../config/db.js';
-
 function displayUserLabel(user) {
   if (!user) return 'Unknown user';
   const name = `${user.firstName || user.first_name || ''} ${user.lastName || user.last_name || ''}`.trim();
@@ -84,6 +80,42 @@ function sanitizeUser(user) {
   return payload;
 }
 
+function formatAdvisedSectionLabel(row) {
+  const grade = String(row.grade_level || '').trim();
+  const name = String(row.name || '').trim();
+  if (!grade || !name) return null;
+  return `${grade}-${name}`;
+}
+
+function attachTeacherAdvisedSections(users, sectionRows) {
+  const byTeacher = new Map();
+  for (const row of sectionRows || []) {
+    const teacherId = Number(row.adviser_id);
+    if (!Number.isInteger(teacherId) || teacherId <= 0) continue;
+    const label = formatAdvisedSectionLabel(row);
+    if (!label) continue;
+    if (!byTeacher.has(teacherId)) byTeacher.set(teacherId, []);
+    byTeacher.get(teacherId).push({
+      schoolYear: row.school_year || null,
+      gradeLevel: row.grade_level || null,
+      name: row.name || null,
+      label,
+    });
+  }
+
+  return (users || []).map((user) => {
+    if (user.role !== 'teacher') return user;
+    const advisedSections = byTeacher.get(Number(user.id)) || [];
+    return {
+      ...user,
+      advisedSections,
+      advisedSectionsLabel: advisedSections.length
+        ? `Advises: ${advisedSections.map((item) => item.label).join(', ')}`
+        : null,
+    };
+  });
+}
+
 async function assertAdminCanResetStudentPassword(actor, student) {
   if (!student || student.role !== 'student') {
     throw new AppError('Only student accounts can be managed this way', 400);
@@ -96,8 +128,16 @@ async function assertAdminCanResetStudentPassword(actor, student) {
 const UserService = {
   async listUsers(filters) {
     const result = await UserModel.findAll(filters);
+    const users = result.users.map(sanitizeUser);
+    const teacherIds = users
+      .filter((user) => user.role === 'teacher')
+      .map((user) => user.id);
+    const sectionRows = teacherIds.length
+      ? await ClassSectionModel.listByAdviserIds(teacherIds)
+      : [];
+
     return {
-      users: result.users.map(sanitizeUser),
+      users: attachTeacherAdvisedSections(users, sectionRows),
       total: result.total,
       page: Number(filters.page) || 1,
       limit: Number(filters.limit) || 20,
@@ -241,7 +281,129 @@ const UserService = {
     }
 
     const updated = await UserModel.update(id, fields);
-    const sanitized = sanitizeUser(updated);
+    const effectiveRole = fields.role || user.role;
+
+    if (effectiveRole === 'student') {
+      const wantsProfileUpdate =
+        data.gradeLevel !== undefined ||
+        data.section !== undefined ||
+        data.schoolYear !== undefined ||
+        data.schoolName !== undefined;
+
+      if (wantsProfileUpdate) {
+        let profile = await StudentProfileModel.findByUserId(id);
+        if (!profile) {
+          await StudentProfileModel.create(id, {});
+          profile = await StudentProfileModel.findByUserId(id);
+        }
+
+        let nextGrade = undefined;
+        if (data.gradeLevel !== undefined) {
+          const normalizedGrade = normalizeGradeLevel(data.gradeLevel);
+          if (!normalizedGrade || !isValidGradeLevel(normalizedGrade)) {
+            throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
+          }
+          nextGrade = normalizedGrade;
+        }
+
+        let nextSchoolYear = undefined;
+        if (data.schoolYear !== undefined) {
+          const value = String(data.schoolYear || '').trim();
+          if (!value || !isValidSchoolYearLabel(value)) {
+            throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
+          }
+          nextSchoolYear = value;
+        }
+
+        const effectiveSy =
+          nextSchoolYear ||
+          profile.school_year ||
+          formatSchoolYearLabel(currentSchoolYearStartYear());
+        const effectiveGrade =
+          nextGrade || normalizeGradeLevel(profile.grade_level);
+
+        let nextSection = undefined;
+        if (data.section !== undefined) {
+          nextSection = await ClassSectionService.assertSectionInCatalog(
+            effectiveSy,
+            effectiveGrade,
+            data.section,
+          );
+        } else if (
+          nextGrade &&
+          normalizeGradeLevel(profile.grade_level) &&
+          nextGrade !== normalizeGradeLevel(profile.grade_level)
+        ) {
+          // Grade changed without a new section — clear old section to avoid mismatch.
+          nextSection = null;
+        } else if (
+          nextSchoolYear &&
+          profile.school_year &&
+          nextSchoolYear !== String(profile.school_year).trim()
+        ) {
+          // School year changed without a new section — clear old section.
+          nextSection = null;
+        }
+
+        const profileSets = [];
+        const profileParams = { userId: id };
+        if (nextGrade !== undefined) {
+          profileSets.push('grade_level = :gradeLevel');
+          profileParams.gradeLevel = nextGrade;
+        }
+        if (nextSchoolYear !== undefined) {
+          profileSets.push('school_year = :schoolYear');
+          profileParams.schoolYear = nextSchoolYear;
+        }
+        if (nextSection !== undefined) {
+          profileSets.push('section = :section');
+          profileParams.section = nextSection;
+        }
+        if (data.schoolName !== undefined) {
+          profileSets.push('school_name = :schoolName');
+          profileParams.schoolName =
+            data.schoolName !== null && String(data.schoolName).trim() !== ''
+              ? String(data.schoolName).trim()
+              : null;
+        }
+
+        if (profileSets.length) {
+          await query(
+            `UPDATE student_profiles
+             SET ${profileSets.join(', ')}
+             WHERE user_id = :userId`,
+            profileParams,
+          );
+        }
+
+        const gradeChanged =
+          nextGrade !== undefined &&
+          nextGrade !== normalizeGradeLevel(profile.grade_level);
+        const schoolYearChanged =
+          nextSchoolYear !== undefined &&
+          nextSchoolYear !== String(profile.school_year || '').trim();
+
+        if (gradeChanged || schoolYearChanged) {
+          const CourseService = (await import('./CourseService.js')).default;
+          await CourseService.alignStudentAccessAfterPlacementChange(
+            id,
+            actor?.id || null,
+          );
+        }
+      }
+    }
+
+    const refreshed = await UserModel.findById(id);
+    const profile =
+      (fields.role || user.role) === 'student'
+        ? await StudentProfileModel.findByUserId(id)
+        : null;
+    const sanitized = sanitizeUser({
+      ...refreshed,
+      grade_level: profile?.grade_level,
+      section: profile?.section,
+      school_year: profile?.school_year,
+    });
     await ActivityLogService.log({
       actorId: actor?.id || null,
       action: 'user.updated',
@@ -249,7 +411,12 @@ const UserService = {
       entityId: sanitized.id,
       summary: `Updated account for ${displayUserLabel(sanitized)}`,
       metadata: {
-        fields: Object.keys(fields).filter((key) => key !== 'password_hash'),
+        fields: [
+          ...Object.keys(fields).filter((key) => key !== 'password_hash'),
+          ...(data.gradeLevel !== undefined ? ['grade_level'] : []),
+          ...(data.section !== undefined ? ['section'] : []),
+          ...(data.schoolYear !== undefined ? ['school_year'] : []),
+        ],
         passwordChanged: Boolean(fields.password_hash),
       },
     });

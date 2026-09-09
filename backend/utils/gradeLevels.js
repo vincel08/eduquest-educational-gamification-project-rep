@@ -12,6 +12,8 @@ export const GRADE_LEVELS = [
 
 export const GRADE_LEVEL_REQUIRED_MESSAGE = "Please select your grade level.";
 export const GRADE_LEVEL_INVALID_MESSAGE = "Please select a valid grade level.";
+export const GRADE_LEVEL_LOCKED_MESSAGE =
+  "Grade level is locked. Ask an administrator to change it.";
 export const GRADE_LEVEL_REQUIRED_FOR_ENROLL_MESSAGE =
   "Set your grade level in your profile before enrolling in subjects.";
 export const GRADE_LEVEL_MISMATCH_MESSAGE =

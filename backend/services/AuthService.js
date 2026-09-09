@@ -12,14 +12,17 @@ import { query } from "../config/db.js";
 import { validateNewPassword } from "../utils/passwordPolicy.js";
 import {
   GRADE_LEVEL_INVALID_MESSAGE,
+  GRADE_LEVEL_LOCKED_MESSAGE,
   GRADE_LEVEL_REQUIRED_MESSAGE,
   isValidGradeLevel,
   normalizeGradeLevel,
 } from "../utils/gradeLevels.js";
 import {
   SCHOOL_YEAR_INVALID_MESSAGE,
+  SCHOOL_YEAR_LOCKED_MESSAGE,
   SCHOOL_YEAR_REQUIRED_MESSAGE,
   SECTION_INVALID_MESSAGE,
+  SECTION_LOCKED_MESSAGE,
   SECTION_REQUIRED_MESSAGE,
   isValidSection,
   normalizeSection,
@@ -309,12 +312,37 @@ const AuthService = {
     let profile = null;
     if (user.role === "student") {
       const existing = await StudentProfileModel.findByUserId(userId);
+      if (!existing) {
+        await StudentProfileModel.create(userId, {});
+      }
+      const profileRow =
+        existing || (await StudentProfileModel.findByUserId(userId));
+
       const normalizedGrade = normalizeGradeLevel(gradeLevel);
       if (normalizedGrade && !isValidGradeLevel(normalizedGrade)) {
         throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
       }
 
-      let nextSchoolYear = undefined;
+      const existingGrade = normalizeGradeLevel(profileRow?.grade_level);
+      const gradeAlreadySet =
+        Boolean(existingGrade) && isValidGradeLevel(existingGrade);
+
+      // Students may set class placement once; only administrators can change it later.
+      let gradeToPersist = undefined;
+      if (gradeLevel !== undefined) {
+        if (gradeAlreadySet) {
+          if (normalizedGrade && normalizedGrade !== existingGrade) {
+            throw new AppError(GRADE_LEVEL_LOCKED_MESSAGE, 403);
+          }
+        } else if (normalizedGrade) {
+          gradeToPersist = normalizedGrade;
+        }
+      }
+
+      const existingSchoolYear = String(profileRow?.school_year || "").trim();
+      const schoolYearAlreadySet = isValidSchoolYearLabel(existingSchoolYear);
+
+      let schoolYearToPersist = undefined;
       if (schoolYear !== undefined) {
         const value = String(schoolYear || "").trim();
         if (!value) {
@@ -323,44 +351,76 @@ const AuthService = {
         if (!isValidSchoolYearLabel(value)) {
           throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
         }
-        nextSchoolYear = value;
+        if (schoolYearAlreadySet) {
+          if (value !== existingSchoolYear) {
+            throw new AppError(SCHOOL_YEAR_LOCKED_MESSAGE, 403);
+          }
+        } else {
+          schoolYearToPersist = value;
+        }
       }
 
-      let nextSection = undefined;
+      const existingSection = normalizeSection(profileRow?.section);
+      const sectionAlreadySet = Boolean(existingSection);
+
+      let sectionToPersist = undefined;
       if (section !== undefined) {
-        const effectiveSy =
-          nextSchoolYear ||
-          existing?.school_year ||
-          formatSchoolYearLabel(currentSchoolYearStartYear());
-        const effectiveGrade = normalizedGrade || existing?.grade_level || null;
-        nextSection = await ClassSectionService.assertSectionInCatalog(
-          effectiveSy,
-          effectiveGrade,
-          section,
+        const requestedSection = normalizeSection(section);
+        if (sectionAlreadySet) {
+          if (requestedSection && requestedSection !== existingSection) {
+            throw new AppError(SECTION_LOCKED_MESSAGE, 403);
+          }
+        } else {
+          const effectiveSy =
+            schoolYearToPersist ||
+            existingSchoolYear ||
+            formatSchoolYearLabel(currentSchoolYearStartYear());
+          const effectiveGrade =
+            gradeToPersist || existingGrade || profileRow?.grade_level || null;
+          sectionToPersist = await ClassSectionService.assertSectionInCatalog(
+            effectiveSy,
+            effectiveGrade,
+            section,
+          );
+        }
+      }
+
+      const profileSets = [];
+      const profileParams = { userId };
+      if (gradeToPersist !== undefined) {
+        profileSets.push("grade_level = :gradeLevel");
+        profileParams.gradeLevel = gradeToPersist;
+      }
+      if (schoolYearToPersist !== undefined) {
+        profileSets.push("school_year = :schoolYear");
+        profileParams.schoolYear = schoolYearToPersist;
+      }
+      if (sectionToPersist !== undefined) {
+        profileSets.push("section = :section");
+        profileParams.section = sectionToPersist;
+      }
+      if (schoolName !== undefined) {
+        profileSets.push("school_name = :schoolName");
+        profileParams.schoolName =
+          schoolName !== null && String(schoolName).trim() !== ""
+            ? String(schoolName).trim()
+            : null;
+      }
+
+      if (profileSets.length) {
+        await query(
+          `UPDATE student_profiles
+           SET ${profileSets.join(", ")}
+           WHERE user_id = :userId`,
+          profileParams,
         );
       }
-
-      await query(
-        `UPDATE student_profiles
-         SET grade_level = COALESCE(:gradeLevel, grade_level),
-             school_name = COALESCE(:schoolName, school_name),
-             section = COALESCE(:section, section),
-             school_year = COALESCE(:schoolYear, school_year)
-         WHERE user_id = :userId`,
-        {
-          gradeLevel: normalizedGrade,
-          schoolName:
-            schoolName !== undefined &&
-            schoolName !== null &&
-            String(schoolName).trim() !== ""
-              ? String(schoolName).trim()
-              : null,
-          section: nextSection ?? null,
-          schoolYear: nextSchoolYear ?? null,
-          userId,
-        },
-      );
       profile = await StudentProfileModel.findByUserId(userId);
+
+      if (gradeToPersist !== undefined || schoolYearToPersist !== undefined) {
+        const CourseService = (await import("./CourseService.js")).default;
+        await CourseService.alignStudentAccessAfterPlacementChange(userId, userId);
+      }
     }
 
     return { user: sanitizeUser(updatedUser), profile };

@@ -17,8 +17,12 @@ async function assertStudentCanAccessCourseContent(user, courseId, { coursePubli
   if (!coursePublished || !contentPublished) {
     deny();
   }
-  const enrolled = await CourseModel.isEnrolled(courseId, user.id);
-  if (!enrolled) {
+  try {
+    const CourseService = (await import('./CourseService.js')).default;
+    await CourseService.assertStudentCourseAccess(courseId, user.id, {
+      requireEnrollment: true,
+    });
+  } catch {
     deny();
   }
 }

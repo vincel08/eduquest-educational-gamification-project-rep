@@ -79,6 +79,7 @@ after(async () => {
     await query('DELETE FROM courses WHERE id = :id', { id: courseId }).catch(() => {});
   }
   for (const userId of createdUserIds) {
+    await query('DELETE FROM student_profiles WHERE user_id = :id', { id: userId }).catch(() => {});
     await query('DELETE FROM users WHERE id = :id', { id: userId }).catch(() => {});
   }
   for (const file of tempFiles) {
@@ -137,18 +138,27 @@ describe('authenticated file API', () => {
     studentB = await createUser('student', 'student-b');
     admin = await createUser('administrator', 'admin-a');
 
+    const schoolYear = '2026-2027';
+    const gradeLevel = 'Grade 10';
+
+    await query(
+      `INSERT INTO student_profiles (user_id, grade_level, school_year, section)
+       VALUES (:a, :gradeLevel, :schoolYear, 'A'), (:b, :gradeLevel, :schoolYear, 'A')`,
+      { a: studentA.id, b: studentB.id, gradeLevel, schoolYear },
+    );
+
     const courseResult = await query(
-      `INSERT INTO courses (title, description, subject, grade_level, teacher_id, is_published)
-       VALUES ('Secure Course', 'desc', 'Math', 'Grade 10', :teacherId, 1)`,
-      { teacherId: teacherA.id }
+      `INSERT INTO courses (title, description, subject, grade_level, school_year, teacher_id, is_published)
+       VALUES ('Secure Course', 'desc', 'Math', :gradeLevel, :schoolYear, :teacherId, 1)`,
+      { teacherId: teacherA.id, gradeLevel, schoolYear }
     );
     const courseId = courseResult.insertId;
     createdCourseIds.push(courseId);
 
     const otherCourse = await query(
-      `INSERT INTO courses (title, description, subject, grade_level, teacher_id, is_published)
-       VALUES ('Other Course', 'desc', 'Science', 'Grade 10', :teacherId, 1)`,
-      { teacherId: teacherB.id }
+      `INSERT INTO courses (title, description, subject, grade_level, school_year, teacher_id, is_published)
+       VALUES ('Other Course', 'desc', 'Science', :gradeLevel, :schoolYear, :teacherId, 1)`,
+      { teacherId: teacherB.id, gradeLevel, schoolYear }
     );
     createdCourseIds.push(otherCourse.insertId);
 
