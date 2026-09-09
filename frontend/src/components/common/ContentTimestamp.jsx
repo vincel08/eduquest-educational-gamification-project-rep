@@ -7,6 +7,14 @@ import {
   getTimestampValue,
 } from '../../utils/contentTimestamps';
 
+function creatorName(item) {
+  // Only use explicit creator fields (quizzes/games). Do not fall back to
+  // course teacher_* fields — those would change unrelated Created blocks.
+  const name =
+    `${item?.creator_first_name || ''} ${item?.creator_last_name || ''}`.trim();
+  return name || null;
+}
+
 /**
  * Displays Created / Last Updated timestamps with a clock icon.
  * variant: 'full' (teacher/admin with time) | 'date' (student date-only)
@@ -22,6 +30,7 @@ export default function ContentTimestamp({
 }) {
   const created = createdAt ?? getTimestampValue(item, 'created');
   const updated = updatedAt ?? getTimestampValue(item, 'updated');
+  const teacher = creatorName(item);
   const formatter = variant === 'date' ? formatContentDate : formatContentDateTime;
   const gap = dense ? 0.25 : 0.5;
 
@@ -36,9 +45,32 @@ export default function ContentTimestamp({
             <Typography variant="caption" color="text.secondary" fontWeight={700} lineHeight={1.2}>
               Created
             </Typography>
-            <Typography variant={dense ? 'caption' : 'body2'} color="text.secondary" lineHeight={1.3}>
-              {formatter(created)}
-            </Typography>
+            {teacher ? (
+              <>
+                <Typography
+                  variant={dense ? 'caption' : 'body2'}
+                  color="text.secondary"
+                  lineHeight={1.3}
+                >
+                  Teacher: {teacher}
+                </Typography>
+                <Typography
+                  variant={dense ? 'caption' : 'body2'}
+                  color="text.secondary"
+                  lineHeight={1.3}
+                >
+                  Date: {formatter(created)}
+                </Typography>
+              </>
+            ) : (
+              <Typography
+                variant={dense ? 'caption' : 'body2'}
+                color="text.secondary"
+                lineHeight={1.3}
+              >
+                {formatter(created)}
+              </Typography>
+            )}
           </Stack>
         </Stack>
       ) : null}

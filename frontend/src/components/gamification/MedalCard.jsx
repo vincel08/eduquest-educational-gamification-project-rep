@@ -34,7 +34,7 @@ export default function MedalCard({
 
   return (
     <Card
-      className="glass-panel"
+      className={isLocked ? "glass-panel" : "glass-panel eq-achievement-glow"}
       component={motion.div}
       whileHover={isLocked ? undefined : { scale: 1.03, y: -4 }}
       transition={{ type: "spring", stiffness: 300, damping: 18 }}

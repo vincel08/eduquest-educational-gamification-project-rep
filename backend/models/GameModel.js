@@ -1,5 +1,15 @@
 import { query } from '../config/db.js';
 
+function parseGameData(value) {
+  if (value == null || typeof value === 'object') return value || {};
+  if (typeof value !== 'string') return {};
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}
+
 const GameModel = {
   async create(data) {
     const result = await query(
@@ -27,10 +37,14 @@ const GameModel = {
 
   async findById(id) {
     const rows = await query(
-      `SELECT g.*, c.title AS course_title, c.teacher_id, l.title AS lesson_title
+      `SELECT g.*, c.title AS course_title, c.teacher_id, l.title AS lesson_title,
+              COALESCE(creator.first_name, teacher.first_name) AS creator_first_name,
+              COALESCE(creator.last_name, teacher.last_name) AS creator_last_name
        FROM educational_games g
        INNER JOIN courses c ON c.id = g.course_id
        LEFT JOIN lessons l ON l.id = g.lesson_id
+       LEFT JOIN users creator ON creator.id = g.created_by
+       LEFT JOIN users teacher ON teacher.id = c.teacher_id
        WHERE g.id = :id
        LIMIT 1`,
       { id }
@@ -40,24 +54,28 @@ const GameModel = {
 
     return {
       ...rows[0],
-      game_data: typeof rows[0].game_data === 'string'
-        ? JSON.parse(rows[0].game_data)
-        : rows[0].game_data,
+      game_data: parseGameData(rows[0].game_data),
     };
   },
 
   async findByCourse(courseId, { publishedOnly = false } = {}) {
-    const filter = publishedOnly ? 'AND is_published = 1' : '';
+    const filter = publishedOnly ? 'AND g.is_published = 1' : '';
     const rows = await query(
-      `SELECT * FROM educational_games
-       WHERE course_id = :courseId ${filter}
-       ORDER BY created_at DESC`,
+      `SELECT g.*,
+              COALESCE(creator.first_name, teacher.first_name) AS creator_first_name,
+              COALESCE(creator.last_name, teacher.last_name) AS creator_last_name
+       FROM educational_games g
+       INNER JOIN courses c ON c.id = g.course_id
+       LEFT JOIN users creator ON creator.id = g.created_by
+       LEFT JOIN users teacher ON teacher.id = c.teacher_id
+       WHERE g.course_id = :courseId ${filter}
+       ORDER BY g.created_at DESC`,
       { courseId }
     );
 
     return rows.map((row) => ({
       ...row,
-      game_data: typeof row.game_data === 'string' ? JSON.parse(row.game_data) : row.game_data,
+      game_data: parseGameData(row.game_data),
     }));
   },
 
