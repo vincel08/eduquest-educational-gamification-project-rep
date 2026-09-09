@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -9,6 +9,8 @@ import {
   DialogTitle,
   IconButton,
   InputAdornment,
+  ListItemText,
+  Menu,
   MenuItem,
   Paper,
   Stack,
@@ -21,49 +23,148 @@ import {
   TextField,
   Tooltip,
   Typography,
-} from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import LockResetIcon from '@mui/icons-material/LockReset';
-import PersonOffOutlinedIcon from '@mui/icons-material/PersonOffOutlined';
-import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import PageHeader from '../../components/common/PageHeader';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import userService from '../../services/userService';
-import classSectionService from '../../services/classSectionService';
-import { getErrorMessage } from '../../services/api';
-import { useAuth } from '../../contexts/AuthContext';
-import { useAdminFilters } from '../../contexts/AdminFiltersContext';
-import { useClassSectionsRevision } from '../../utils/classSectionsEvents';
-import { GRADE_LEVELS } from '../../utils/gradeLevels';
+} from "@mui/material";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import LockResetIcon from "@mui/icons-material/LockReset";
+import PersonOffOutlinedIcon from "@mui/icons-material/PersonOffOutlined";
+import HowToRegOutlinedIcon from "@mui/icons-material/HowToRegOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import PageHeader from "../../components/common/PageHeader";
+import LoadingScreen from "../../components/common/LoadingScreen";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import userService from "../../services/userService";
+import classSectionService from "../../services/classSectionService";
+import { getErrorMessage } from "../../services/api";
+import { useAuth } from "../../contexts/AuthContext";
+import { useAdminFilters } from "../../contexts/AdminFiltersContext";
+import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
+import { GRADE_LEVELS } from "../../utils/gradeLevels";
 import {
   defaultSchoolYearValue,
   listSchoolYearOptions,
-} from '../../utils/schoolYears';
-import { SECTION_PLACEHOLDER } from '../../utils/classSections';
-import { useSearchParams } from 'react-router-dom';
+} from "../../utils/schoolYears";
+import { SECTION_PLACEHOLDER } from "../../utils/classSections";
+import { useSearchParams } from "react-router-dom";
 
 const emptyForm = {
-  firstName: '',
-  lastName: '',
-  username: '',
-  email: '',
-  password: '',
-  role: 'student',
-  gradeLevel: 'Grade 10',
-  schoolName: 'EduWow High',
-  section: '',
+  firstName: "",
+  lastName: "",
+  username: "",
+  email: "",
+  password: "",
+  role: "student",
+  gradeLevel: "Grade 10",
+  schoolName: "EduWow High",
+  section: "",
   schoolYear: defaultSchoolYearValue(),
 };
 
-const ROLE_FILTERS = new Set(['all', 'administrator', 'teacher', 'student']);
+const ROLE_FILTERS = new Set(["all", "administrator", "teacher", "student"]);
+
+function AdvisedSectionsCell({ user }) {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const sections = Array.isArray(user.advisedSections)
+    ? user.advisedSections
+    : [];
+  const open = Boolean(anchorEl);
+
+  if (!sections.length) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        None
+      </Typography>
+    );
+  }
+
+  if (sections.length <= 2) {
+    return (
+      <Typography variant="body2" sx={{ color: 'text.primary' }}>
+        {sections.map((item) => item.label).join(', ')}
+      </Typography>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        size="small"
+        onClick={(event) => setAnchorEl(event.currentTarget)}
+        aria-haspopup="menu"
+        aria-expanded={open ? 'true' : undefined}
+        aria-label={`See all advised sections for ${user.firstName} ${user.lastName}`}
+        endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16 }} />}
+        sx={{
+          px: 0.5,
+          py: 0,
+          minWidth: 0,
+          textTransform: 'none',
+          fontWeight: 600,
+          fontSize: '0.8125rem',
+          color: 'primary.light',
+          bgcolor: 'transparent',
+          border: 'none',
+          borderRadius: 1,
+          textDecoration: 'underline',
+          textUnderlineOffset: 2,
+          '&:hover': {
+            bgcolor: 'action.hover',
+            textDecoration: 'underline',
+            color: 'primary.main',
+          },
+          '& .MuiButton-endIcon': {
+            ml: 0.25,
+            color: 'inherit',
+          },
+        }}
+      >
+        See all ({sections.length})
+      </Button>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            sx: {
+              mt: 0.5,
+              minWidth: 200,
+              maxWidth: 320,
+              maxHeight: 280,
+            },
+          },
+        }}
+      >
+        {sections.map((item) => (
+          <MenuItem
+            key={`${item.schoolYear || ''}-${item.label}`}
+            dense
+            onClick={() => setAnchorEl(null)}
+          >
+            <ListItemText
+              primary={item.label}
+              secondary={item.schoolYear ? `SY ${item.schoolYear}` : null}
+              slotProps={{
+                primary: { variant: 'body2' },
+                secondary: { variant: 'caption' },
+              }}
+            />
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
+  );
+}
 
 function roleFromSearchParams(searchParams) {
-  const role = String(searchParams.get('role') || 'all').trim().toLowerCase();
-  return ROLE_FILTERS.has(role) ? role : 'all';
+  const role = String(searchParams.get("role") || "all")
+    .trim()
+    .toLowerCase();
+  return ROLE_FILTERS.has(role) ? role : "all";
 }
 
 export default function AdminUsersPage() {
@@ -78,24 +179,26 @@ export default function AdminUsersPage() {
   const [deletingUserId, setDeletingUserId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [sectionOptions, setSectionOptions] = useState([]);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [passwordTarget, setPasswordTarget] = useState(null);
-  const [newPassword, setNewPassword] = useState('');
+  const [newPassword, setNewPassword] = useState("");
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [showSetPassword, setShowSetPassword] = useState(false);
   const [gradeTarget, setGradeTarget] = useState(null);
   const [gradeForm, setGradeForm] = useState({
-    gradeLevel: 'Grade 10',
+    gradeLevel: "Grade 10",
     schoolYear: defaultSchoolYearValue(),
-    section: '',
+    section: "",
   });
   const [gradeSectionOptions, setGradeSectionOptions] = useState([]);
   const [savingGrade, setSavingGrade] = useState(false);
-  const [roleFilter, setRoleFilter] = useState(() => roleFromSearchParams(searchParams));
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState(() =>
+    roleFromSearchParams(searchParams),
+  );
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     setRoleFilter(roleFromSearchParams(searchParams));
@@ -107,8 +210,8 @@ export default function AdminUsersPage() {
     setSearchParams(
       (prev) => {
         const nextParams = new URLSearchParams(prev);
-        if (next === 'all') nextParams.delete('role');
-        else nextParams.set('role', next);
+        if (next === "all") nextParams.delete("role");
+        else nextParams.set("role", next);
         return nextParams;
       },
       { replace: true },
@@ -124,7 +227,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     let active = true;
-    if (!form.schoolYear || !form.gradeLevel || form.role !== 'student') {
+    if (!form.schoolYear || !form.gradeLevel || form.role !== "student") {
       setSectionOptions([]);
       return undefined;
     }
@@ -136,7 +239,7 @@ export default function AdminUsersPage() {
         setSectionOptions(options);
         setForm((prev) =>
           prev.section && !options.includes(prev.section)
-            ? { ...prev, section: '' }
+            ? { ...prev, section: "" }
             : prev,
         );
       })
@@ -166,7 +269,7 @@ export default function AdminUsersPage() {
         setGradeSectionOptions(options);
         setGradeForm((prev) =>
           prev.section && !options.includes(prev.section)
-            ? { ...prev, section: '' }
+            ? { ...prev, section: "" }
             : prev,
         );
       })
@@ -191,7 +294,7 @@ export default function AdminUsersPage() {
       limit: 100,
       ...toQueryParams(),
     };
-    if (roleFilter !== 'all') {
+    if (roleFilter !== "all") {
       params.role = roleFilter;
     }
     if (search) {
@@ -202,7 +305,7 @@ export default function AdminUsersPage() {
       .then((response) => {
         if (!active) return;
         setUsers(response.data.data.users || []);
-        setError('');
+        setError("");
       })
       .catch((err) => {
         if (!active) return;
@@ -222,7 +325,7 @@ export default function AdminUsersPage() {
         limit: 100,
         ...toQueryParams(),
       };
-      if (roleFilter !== 'all') {
+      if (roleFilter !== "all") {
         params.role = roleFilter;
       }
       if (search) {
@@ -236,18 +339,18 @@ export default function AdminUsersPage() {
   }
 
   async function handleCreate() {
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     try {
       const payload = {
         ...form,
         email: form.email.trim() || undefined,
-        username: form.role === 'student' ? form.username.trim() : undefined,
+        username: form.role === "student" ? form.username.trim() : undefined,
       };
       await userService.create(payload);
       setOpen(false);
       setForm(emptyForm);
-      setMessage('User created');
+      setMessage("User created");
       await reloadUsers();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -264,12 +367,16 @@ export default function AdminUsersPage() {
   }
 
   async function handleSetPassword() {
-    setError('');
+    setError("");
     try {
-      await userService.setPassword(passwordTarget.id, { password: newPassword });
-      setMessage(`Password updated for ${passwordTarget.firstName} ${passwordTarget.lastName}`);
+      await userService.setPassword(passwordTarget.id, {
+        password: newPassword,
+      });
+      setMessage(
+        `Password updated for ${passwordTarget.firstName} ${passwordTarget.lastName}`,
+      );
       setPasswordTarget(null);
-      setNewPassword('');
+      setNewPassword("");
       setShowSetPassword(false);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -277,20 +384,20 @@ export default function AdminUsersPage() {
   }
 
   function openGradeEditor(user) {
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     setGradeTarget(user);
     setGradeForm({
-      gradeLevel: user.gradeLevel || 'Grade 10',
+      gradeLevel: user.gradeLevel || "Grade 10",
       schoolYear: user.schoolYear || defaultSchoolYearValue(),
-      section: user.section || '',
+      section: user.section || "",
     });
   }
 
   async function handleSaveGrade() {
     if (!gradeTarget) return;
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     setSavingGrade(true);
     try {
       await userService.update(gradeTarget.id, {
@@ -312,20 +419,21 @@ export default function AdminUsersPage() {
 
   function canDeleteUser(user) {
     if (!user) return false;
-    if (user.role === 'administrator') return false;
-    if (currentUser?.id != null && Number(user.id) === Number(currentUser.id)) return false;
+    if (user.role === "administrator") return false;
+    if (currentUser?.id != null && Number(user.id) === Number(currentUser.id))
+      return false;
     return true;
   }
 
   async function handleDeleteUser() {
     if (!userToDelete) return;
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
     setDeletingUserId(userToDelete.id);
     try {
       await userService.remove(userToDelete.id);
       setUserToDelete(null);
-      setMessage('User deleted');
+      setMessage("User deleted");
       await reloadUsers();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -334,14 +442,16 @@ export default function AdminUsersPage() {
     }
   }
 
-  const isStudentRole = form.role === 'student';
+  const isStudentRole = form.role === "student";
   const userGroups = useMemo(() => {
     const groups = [
-      { key: 'administrator', label: 'Administrators', users: [] },
-      { key: 'teacher', label: 'Teachers', users: [] },
-      { key: 'student', label: 'Students', users: [] },
+      { key: "administrator", label: "Administrators", users: [] },
+      { key: "teacher", label: "Teachers", users: [] },
+      { key: "student", label: "Students", users: [] },
     ];
-    const byRole = Object.fromEntries(groups.map((group) => [group.key, group]));
+    const byRole = Object.fromEntries(
+      groups.map((group) => [group.key, group]),
+    );
     users.forEach((user) => {
       const group = byRole[user.role];
       if (group) group.users.push(user);
@@ -352,7 +462,7 @@ export default function AdminUsersPage() {
   function renderUserActions(user) {
     return (
       <Stack direction="row" spacing={0.25} justifyContent="flex-end">
-        <Tooltip title={user.isActive ? 'Deactivate' : 'Activate'}>
+        <Tooltip title={user.isActive ? "Deactivate" : "Activate"}>
           <IconButton
             size="small"
             aria-label={
@@ -369,7 +479,7 @@ export default function AdminUsersPage() {
             )}
           </IconButton>
         </Tooltip>
-        {user.role === 'student' ? (
+        {user.role === "student" ? (
           <Tooltip title="Edit grade / section">
             <IconButton
               size="small"
@@ -380,14 +490,14 @@ export default function AdminUsersPage() {
             </IconButton>
           </Tooltip>
         ) : null}
-        {user.role === 'student' ? (
+        {user.role === "student" ? (
           <Tooltip title="Set password">
             <IconButton
               size="small"
               aria-label={`Set password for ${user.firstName} ${user.lastName}`}
               onClick={() => {
                 setPasswordTarget(user);
-                setNewPassword('');
+                setNewPassword("");
               }}
             >
               <LockResetIcon fontSize="small" />
@@ -410,66 +520,6 @@ export default function AdminUsersPage() {
     );
   }
 
-  function renderAdvisedSections(user) {
-    const sections = Array.isArray(user.advisedSections) ? user.advisedSections : [];
-    if (!sections.length) {
-      return (
-        <Typography variant="body2" color="text.secondary">
-          None
-        </Typography>
-      );
-    }
-
-    const summary =
-      sections.length === 1
-        ? sections[0].label
-        : `${sections.length} sections`;
-
-    return (
-      <TextField
-        select
-        size="small"
-        fullWidth
-        value="__summary__"
-        onChange={() => {}}
-        aria-label={`Advised sections for ${user.firstName} ${user.lastName}`}
-        slotProps={{
-          select: {
-            displayEmpty: true,
-            renderValue: () => summary,
-            MenuProps: {
-              PaperProps: {
-                sx: { maxHeight: 280 },
-              },
-            },
-          },
-        }}
-        sx={{
-          minWidth: 160,
-          maxWidth: 260,
-          '& .MuiInputBase-root': { bgcolor: 'transparent' },
-        }}
-      >
-        <MenuItem value="__summary__" sx={{ display: 'none' }} />
-        {sections.map((item) => (
-          <MenuItem
-            key={`${item.schoolYear || ''}-${item.label}`}
-            value={`${item.schoolYear || ''}|${item.label}`}
-          >
-            <Stack spacing={0} sx={{ py: 0.25 }}>
-              <Typography variant="body2">{item.label}</Typography>
-              {item.schoolYear ? (
-                <Typography variant="caption" color="text.secondary">
-                  SY {item.schoolYear}
-                </Typography>
-              ) : null}
-            </Stack>
-          </MenuItem>
-        ))}
-      </TextField>
-    );
-  }
-
   if (loading && !users.length) return <LoadingScreen />;
 
   return (
@@ -477,13 +527,25 @@ export default function AdminUsersPage() {
       <PageHeader
         title="User Management"
         subtitle="Search and filter by role. Sidebar school year / grade / section filters apply to students (and section advisers)."
-        action={<Button variant="contained" onClick={() => setOpen(true)}>Add User</Button>}
+        action={
+          <Button variant="contained" onClick={() => setOpen(true)}>
+            Add User
+          </Button>
+        }
       />
-      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-      {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
+      {message ? (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {message}
+        </Alert>
+      ) : null}
 
       <Stack
-        direction={{ xs: 'column', sm: 'row' }}
+        direction={{ xs: "column", sm: "row" }}
         spacing={1.5}
         sx={{ mb: 2 }}
       >
@@ -519,31 +581,41 @@ export default function AdminUsersPage() {
       ) : (
         <Stack spacing={2.5}>
           {userGroups.map((group) => (
-            <Paper key={group.key} sx={{ overflow: 'hidden' }}>
+            <Paper key={group.key} sx={{ overflow: "hidden" }}>
               <Box
                 sx={{
                   px: 2,
                   py: 1.25,
-                  bgcolor: 'action.hover',
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
+                  bgcolor: "action.hover",
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
                 }}
               >
                 <Typography variant="subtitle2" fontWeight={800}>
                   {group.label} ({group.users.length})
                 </Typography>
               </Box>
-              <TableContainer sx={{ overflowX: 'auto' }}>
-                {group.key === 'teacher' ? (
+              <TableContainer sx={{ overflowX: "auto" }}>
+                {group.key === "teacher" ? (
                   <Table size="small" sx={{ minWidth: 900 }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>Name</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Username</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>Email</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 260 }}>Advises</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Status</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 120 }} align="right">
+                        <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>
+                          Name
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>
+                          Username
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>
+                          Email
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 260 }}>
+                          Advises
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>
+                          Status
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 120 }}>
                           Actions
                         </TableCell>
                       </TableRow>
@@ -554,27 +626,47 @@ export default function AdminUsersPage() {
                           <TableCell>
                             {user.firstName} {user.lastName}
                           </TableCell>
-                          <TableCell>{user.username || '—'}</TableCell>
-                          <TableCell>{user.email || '—'}</TableCell>
-                          <TableCell>{renderAdvisedSections(user)}</TableCell>
-                          <TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
-                          <TableCell align="right">{renderUserActions(user)}</TableCell>
+                          <TableCell>{user.username || "—"}</TableCell>
+                          <TableCell>{user.email || "—"}</TableCell>
+                          <TableCell>
+                            <AdvisedSectionsCell user={user} />
+                          </TableCell>
+                          <TableCell>
+                            {user.isActive ? "Active" : "Inactive"}
+                          </TableCell>
+                          <TableCell align="right">
+                            {renderUserActions(user)}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                ) : group.key === 'student' ? (
+                ) : group.key === "student" ? (
                   <Table size="small" sx={{ minWidth: 1000 }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>Name</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Username</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>Email</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 90 }}>Grade</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Section</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>School Year</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Status</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }} align="right">
+                        <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>
+                          Name
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>
+                          Username
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>
+                          Email
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 90 }}>
+                          Grade
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>
+                          Section
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>
+                          School Year
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>
+                          Status
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>
                           Actions
                         </TableCell>
                       </TableRow>
@@ -585,15 +677,19 @@ export default function AdminUsersPage() {
                           <TableCell>
                             {user.firstName} {user.lastName}
                           </TableCell>
-                          <TableCell>{user.username || '—'}</TableCell>
-                          <TableCell>{user.email || '—'}</TableCell>
-                          <TableCell>{user.gradeLevel || '—'}</TableCell>
-                          <TableCell>{user.section || '—'}</TableCell>
+                          <TableCell>{user.username || "—"}</TableCell>
+                          <TableCell>{user.email || "—"}</TableCell>
+                          <TableCell>{user.gradeLevel || "—"}</TableCell>
+                          <TableCell>{user.section || "—"}</TableCell>
                           <TableCell>
-                            {user.schoolYear ? `SY ${user.schoolYear}` : '—'}
+                            {user.schoolYear ? `SY ${user.schoolYear}` : "—"}
                           </TableCell>
-                          <TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
-                          <TableCell align="right">{renderUserActions(user)}</TableCell>
+                          <TableCell>
+                            {user.isActive ? "Active" : "Inactive"}
+                          </TableCell>
+                          <TableCell align="right">
+                            {renderUserActions(user)}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -602,11 +698,19 @@ export default function AdminUsersPage() {
                   <Table size="small" sx={{ minWidth: 720 }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>Name</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Username</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>Email</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Status</TableCell>
-                        <TableCell sx={{ fontWeight: 700, minWidth: 120 }} align="right">
+                        <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>
+                          Name
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>
+                          Username
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>
+                          Email
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>
+                          Status
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, minWidth: 120 }}>
                           Actions
                         </TableCell>
                       </TableRow>
@@ -617,10 +721,14 @@ export default function AdminUsersPage() {
                           <TableCell>
                             {user.firstName} {user.lastName}
                           </TableCell>
-                          <TableCell>{user.username || '—'}</TableCell>
-                          <TableCell>{user.email || '—'}</TableCell>
-                          <TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
-                          <TableCell align="right">{renderUserActions(user)}</TableCell>
+                          <TableCell>{user.username || "—"}</TableCell>
+                          <TableCell>{user.email || "—"}</TableCell>
+                          <TableCell>
+                            {user.isActive ? "Active" : "Inactive"}
+                          </TableCell>
+                          <TableCell align="right">
+                            {renderUserActions(user)}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -632,12 +740,29 @@ export default function AdminUsersPage() {
         </Stack>
       )}
 
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>Create User</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="First name" value={form.firstName} onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))} />
-            <TextField label="Last name" value={form.lastName} onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))} />
+            <TextField
+              label="First name"
+              value={form.firstName}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, firstName: e.target.value }))
+              }
+            />
+            <TextField
+              label="Last name"
+              value={form.lastName}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, lastName: e.target.value }))
+              }
+            />
             <TextField
               select
               label="Role"
@@ -654,7 +779,9 @@ export default function AdminUsersPage() {
                   label="Username or school/LRN ID"
                   required
                   value={form.username}
-                  onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, username: e.target.value }))
+                  }
                   helperText="Required for students. Used to sign in."
                 />
                 <TextField
@@ -662,7 +789,9 @@ export default function AdminUsersPage() {
                   label="Grade Level"
                   required
                   value={form.gradeLevel}
-                  onChange={(e) => setForm((p) => ({ ...p, gradeLevel: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, gradeLevel: e.target.value }))
+                  }
                 >
                   {GRADE_LEVELS.map((grade) => (
                     <MenuItem key={grade} value={grade}>
@@ -675,7 +804,9 @@ export default function AdminUsersPage() {
                   label="School Year"
                   required
                   value={form.schoolYear}
-                  onChange={(e) => setForm((p) => ({ ...p, schoolYear: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, schoolYear: e.target.value }))
+                  }
                 >
                   {schoolYearOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
@@ -688,12 +819,14 @@ export default function AdminUsersPage() {
                   label="Section"
                   required
                   value={form.section}
-                  onChange={(e) => setForm((p) => ({ ...p, section: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, section: e.target.value }))
+                  }
                   placeholder={SECTION_PLACEHOLDER}
                   helperText={
                     sectionOptions.length
-                      ? 'Choose from admin-managed sections'
-                      : 'No sections for this grade — add one under Sections first'
+                      ? "Choose from admin-managed sections"
+                      : "No sections for this grade — add one under Sections first"
                   }
                   disabled={!sectionOptions.length}
                 >
@@ -706,31 +839,43 @@ export default function AdminUsersPage() {
                 <TextField
                   label="School name"
                   value={form.schoolName}
-                  onChange={(e) => setForm((p) => ({ ...p, schoolName: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, schoolName: e.target.value }))
+                  }
                 />
               </>
             ) : null}
             <TextField
-              label={isStudentRole ? 'Email (optional)' : 'Email'}
+              label={isStudentRole ? "Email (optional)" : "Email"}
               required={!isStudentRole}
               value={form.email}
-              onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, email: e.target.value }))
+              }
             />
             <TextField
               label="Password"
-              type={showCreatePassword ? 'text' : 'password'}
+              type={showCreatePassword ? "text" : "password"}
               value={form.password}
-              onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, password: e.target.value }))
+              }
               slotProps={{
                 input: {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
-                        aria-label={showCreatePassword ? 'Hide password' : 'Show password'}
+                        aria-label={
+                          showCreatePassword ? "Hide password" : "Show password"
+                        }
                         onClick={() => setShowCreatePassword((prev) => !prev)}
                         edge="end"
                       >
-                        {showCreatePassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        {showCreatePassword ? (
+                          <VisibilityOffIcon />
+                        ) : (
+                          <VisibilityIcon />
+                        )}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -741,7 +886,9 @@ export default function AdminUsersPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate}>Create</Button>
+          <Button variant="contained" onClick={handleCreate}>
+            Create
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -755,7 +902,7 @@ export default function AdminUsersPage() {
           Edit class details
           {gradeTarget
             ? ` · ${gradeTarget.firstName} ${gradeTarget.lastName}`
-            : ''}
+            : ""}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -768,7 +915,7 @@ export default function AdminUsersPage() {
                 setGradeForm((prev) => ({
                   ...prev,
                   gradeLevel: e.target.value,
-                  section: '',
+                  section: "",
                 }))
               }
             >
@@ -787,7 +934,7 @@ export default function AdminUsersPage() {
                 setGradeForm((prev) => ({
                   ...prev,
                   schoolYear: e.target.value,
-                  section: '',
+                  section: "",
                 }))
               }
             >
@@ -807,8 +954,8 @@ export default function AdminUsersPage() {
               }
               helperText={
                 gradeSectionOptions.length
-                  ? 'Choose from admin-managed sections'
-                  : 'No sections for this grade — add one under Sections first'
+                  ? "Choose from admin-managed sections"
+                  : "No sections for this grade — add one under Sections first"
               }
               disabled={!gradeSectionOptions.length}
             >
@@ -834,7 +981,7 @@ export default function AdminUsersPage() {
               !gradeForm.section
             }
           >
-            {savingGrade ? 'Saving…' : 'Save'}
+            {savingGrade ? "Saving…" : "Save"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -844,19 +991,19 @@ export default function AdminUsersPage() {
         title="Delete user?"
         description={
           <>
-            You’re about to permanently delete{' '}
+            You’re about to permanently delete{" "}
             <strong>
               {userToDelete
                 ? `${userToDelete.firstName} ${userToDelete.lastName}`
-                : 'this user'}
+                : "this user"}
             </strong>
             .
           </>
         }
         details={
-          userToDelete?.role === 'student'
-            ? 'Their progress, enrollments, quiz attempts, and XP history for this account will also be removed. This can’t be undone.'
-            : 'This can’t be undone. If they still own subjects, quizzes, games, or materials, delete or reassign those first.'
+          userToDelete?.role === "student"
+            ? "Their progress, enrollments, quiz attempts, and XP history for this account will also be removed. This can’t be undone."
+            : "This can’t be undone. If they still own subjects, quizzes, games, or materials, delete or reassign those first."
         }
         cancelLabel="Keep user"
         confirmLabel="Delete user"
@@ -878,14 +1025,16 @@ export default function AdminUsersPage() {
       >
         <DialogTitle>
           Set password
-          {passwordTarget ? ` · ${passwordTarget.firstName} ${passwordTarget.lastName}` : ''}
+          {passwordTarget
+            ? ` · ${passwordTarget.firstName} ${passwordTarget.lastName}`
+            : ""}
         </DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
             sx={{ mt: 1 }}
             label="New password"
-            type={showSetPassword ? 'text' : 'password'}
+            type={showSetPassword ? "text" : "password"}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             slotProps={{
@@ -893,11 +1042,17 @@ export default function AdminUsersPage() {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
-                      aria-label={showSetPassword ? 'Hide password' : 'Show password'}
+                      aria-label={
+                        showSetPassword ? "Hide password" : "Show password"
+                      }
                       onClick={() => setShowSetPassword((prev) => !prev)}
                       edge="end"
                     >
-                      {showSetPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      {showSetPassword ? (
+                        <VisibilityOffIcon />
+                      ) : (
+                        <VisibilityIcon />
+                      )}
                     </IconButton>
                   </InputAdornment>
                 ),
@@ -914,7 +1069,11 @@ export default function AdminUsersPage() {
           >
             Cancel
           </Button>
-          <Button variant="contained" onClick={handleSetPassword} disabled={!newPassword}>
+          <Button
+            variant="contained"
+            onClick={handleSetPassword}
+            disabled={!newPassword}
+          >
             Save password
           </Button>
         </DialogActions>
