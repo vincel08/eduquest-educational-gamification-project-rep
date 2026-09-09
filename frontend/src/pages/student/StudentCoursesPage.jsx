@@ -121,7 +121,7 @@ export default function StudentCoursesPage() {
                 <QuestCard
                   title={course.subject || course.title}
                   description={course.description || "Subject overview"}
-                  meta={adviser ? `Adviser: ${adviser}` : undefined}
+                  meta={adviser ? `Teacher: ${adviser}` : undefined}
                   icon={<MenuBookIcon />}
                   accent="purple"
                   difficulty={course.grade_level}
