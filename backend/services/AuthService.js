@@ -567,14 +567,26 @@ const AuthService = {
 
     const resetUrl = `${env.clientUrl.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(rawToken)}`;
 
+    let delivered = false;
     try {
-      await EmailService.sendPasswordResetEmail({
+      const result = await EmailService.sendPasswordResetEmail({
         to: user.email,
         firstName: user.first_name,
         resetUrl,
       });
-    } catch {
-      console.error("[AuthService] Password reset email delivery failed");
+      delivered = Boolean(result?.delivered);
+    } catch (error) {
+      console.error(
+        "[AuthService] Password reset email delivery failed:",
+        error?.message || error,
+      );
+    }
+
+    // Always print in non-production so local testing never depends on SMTP.
+    if (!env.isProduction) {
+      console.info(
+        `[AuthService] Password reset link for ${user.email}${delivered ? "" : " (email not delivered)"}:\n${resetUrl}`,
+      );
     }
 
     return {
