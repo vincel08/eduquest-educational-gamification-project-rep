@@ -10,6 +10,11 @@ import SectionHeader from "../../components/common/SectionHeader";
 import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 
+function courseAdviserName(course) {
+  const name = `${course?.teacher_first_name || ""} ${course?.teacher_last_name || ""}`.trim();
+  return name || null;
+}
+
 export default function StudentCoursesPage() {
   const [catalog, setCatalog] = useState([]);
   const [enrolled, setEnrolled] = useState([]);
@@ -39,6 +44,7 @@ export default function StudentCoursesPage() {
   if (loading) return <LoadingScreen label="Loading subjects..." showCards />;
 
   const enrolledIds = new Set(enrolled.map((course) => course.id));
+  const availableCatalog = catalog.filter((course) => !enrolledIds.has(course.id));
 
   return (
     <>
@@ -59,29 +65,33 @@ export default function StudentCoursesPage() {
       />
       <Grid container spacing={2} sx={{ mb: 4 }}>
         {enrolled.length ? (
-          enrolled.map((course) => (
-            <Grid key={course.id} size={{ xs: 12, sm: 6, md: 4 }}>
-              <QuestCard
-                title={course.subject || course.title}
-                description={
-                  `${course.grade_level || ""}${course.description ? ` · ${course.description}` : ""}`.trim() ||
-                  "Subject overview"
-                }
-                icon={<SchoolIcon />}
-                accent="blue"
-                status={`${Number(course.progress_percent || 0)}% lessons`}
-                statusColor={
-                  Number(course.progress_percent || 0) >= 100
-                    ? "success"
-                    : "primary"
-                }
-                showTimestamp
-                item={course}
-                to={`/student/courses/${course.id}`}
-                actionLabel="Continue Quest"
-              />
-            </Grid>
-          ))
+          enrolled.map((course) => {
+            const adviser = courseAdviserName(course);
+            return (
+              <Grid key={course.id} size={{ xs: 12, sm: 6, md: 4 }}>
+                <QuestCard
+                  title={course.subject || course.title}
+                  description={
+                    `${course.grade_level || ""}${course.description ? ` · ${course.description}` : ""}`.trim() ||
+                    "Subject overview"
+                  }
+                  meta={adviser ? `Adviser: ${adviser}` : undefined}
+                  icon={<SchoolIcon />}
+                  accent="blue"
+                  status={`${Number(course.progress_percent || 0)}% lessons`}
+                  statusColor={
+                    Number(course.progress_percent || 0) >= 100
+                      ? "success"
+                      : "primary"
+                  }
+                  showTimestamp
+                  item={course}
+                  to={`/student/courses/${course.id}`}
+                  actionLabel="Continue Quest"
+                />
+              </Grid>
+            );
+          })
         ) : (
           <Grid size={12}>
             <EmptyState
@@ -100,32 +110,34 @@ export default function StudentCoursesPage() {
         icon={<MenuBookIcon color="secondary" />}
       />
       <Grid container spacing={2}>
-        {catalog.length ? (
-          catalog.map((course) => (
-            <Grid key={course.id} size={{ xs: 12, sm: 6, md: 4 }}>
-              <QuestCard
-                title={course.subject || course.title}
-                description={course.description || "Subject overview"}
-                icon={<MenuBookIcon />}
-                accent={enrolledIds.has(course.id) ? "green" : "purple"}
-                difficulty={course.grade_level}
-                status={enrolledIds.has(course.id) ? "Enrolled" : "Available"}
-                statusColor={
-                  enrolledIds.has(course.id) ? "success" : "secondary"
-                }
-                showTimestamp
-                item={course}
-                to={`/student/courses/${course.id}`}
-                actionLabel={
-                  enrolledIds.has(course.id) ? "Open" : "View Subject"
-                }
-              />
-            </Grid>
-          ))
+        {availableCatalog.length ? (
+          availableCatalog.map((course) => {
+            const adviser = courseAdviserName(course);
+            return (
+              <Grid key={course.id} size={{ xs: 12, sm: 6, md: 4 }}>
+                <QuestCard
+                  title={course.subject || course.title}
+                  description={course.description || "Subject overview"}
+                  meta={adviser ? `Adviser: ${adviser}` : undefined}
+                  icon={<MenuBookIcon />}
+                  accent="purple"
+                  difficulty={course.grade_level}
+                  status="Available"
+                  statusColor="secondary"
+                  showTimestamp
+                  item={course}
+                  to={`/student/courses/${course.id}`}
+                  actionLabel="View Subject"
+                />
+              </Grid>
+            );
+          })
         ) : (
           <Grid size={12}>
             <Typography color="text.secondary">
-              No subjects published yet.
+              {enrolled.length
+                ? "You're enrolled in every available subject."
+                : "No subjects published yet."}
             </Typography>
           </Grid>
         )}
