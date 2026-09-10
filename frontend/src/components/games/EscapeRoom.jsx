@@ -7,6 +7,10 @@ import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { SOUND_KEYS } from '../../utils/soundEffects';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
+import {
   AnimatePresence,
   MotionBox,
   MotionStack,
@@ -188,10 +192,20 @@ function CodePanel({
 
 export default function EscapeRoom({ gameData, onComplete, xpReward = 50 }) {
   const stages = useMemo(() => gameData?.stages || [], [gameData]);
-  const [index, setIndex] = useState(0);
+  const saved = useRestoredGameProgress();
+  const restoredResponses = Array.isArray(saved.responses) ? saved.responses : [];
+  const [index, setIndex] = useState(() => {
+    const maxIdx = Math.max(0, stages.length - 1);
+    const fromSaved = Number(saved.index);
+    const aligned =
+      Number.isFinite(fromSaved) && fromSaved === restoredResponses.length
+        ? fromSaved
+        : restoredResponses.length;
+    return Math.max(0, Math.min(aligned, maxIdx));
+  });
   const [draft, setDraft] = useState('');
-  const [score, setScore] = useState(0);
-  const [responses, setResponses] = useState([]);
+  const [score, setScore] = useState(() => Number(saved.score) || 0);
+  const [responses, setResponses] = useState(() => restoredResponses);
   const [doorOpen, setDoorOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
@@ -200,6 +214,10 @@ export default function EscapeRoom({ gameData, onComplete, xpReward = 50 }) {
     answers: { responses },
   }));
 
+  useSaveGameProgress(
+    () => ({ index, score, responses }),
+    [index, score, responses],
+  );
   if (!stages.length) {
     return (
       <Typography color="text.secondary">No escape room stages available.</Typography>

@@ -8,12 +8,14 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   List,
   ListItem,
   ListItemText,
   Paper,
   Stack,
+  Switch,
   TextField,
   Tooltip,
   Typography,
@@ -21,6 +23,7 @@ import {
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import PersonRemoveOutlinedIcon from "@mui/icons-material/PersonRemoveOutlined";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 import { Link as RouterLink, useParams } from "react-router-dom";
@@ -44,6 +47,16 @@ import {
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 import { formatGameTypeLabel } from "../../utils/gameTypes";
 
+const emptyLessonForm = {
+  title: "",
+  competency: "",
+  content: "",
+  orderIndex: 1,
+  xpReward: 25,
+  isPublished: true,
+  generateAiExtras: true,
+};
+
 export default function TeacherCourseDetailPage() {
   const { courseId } = useParams();
   const { toQueryParams, schoolYear, gradeLevel, section } = useTeacherFilters();
@@ -53,17 +66,13 @@ export default function TeacherCourseDetailPage() {
   const [games, setGames] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
   const [open, setOpen] = useState(false);
+  const [editingLesson, setEditingLesson] = useState(null);
   const [lessonToDelete, setLessonToDelete] = useState(null);
+  const [materialToDelete, setMaterialToDelete] = useState(null);
+  const [deletingMaterialId, setDeletingMaterialId] = useState(null);
   const [studentToRemove, setStudentToRemove] = useState(null);
   const [removingStudentId, setRemovingStudentId] = useState(null);
-  const [form, setForm] = useState({
-    title: "",
-    competency: "",
-    content: "",
-    orderIndex: 1,
-    xpReward: 25,
-    generateAiExtras: true,
-  });
+  const [form, setForm] = useState(emptyLessonForm);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -71,6 +80,7 @@ export default function TeacherCourseDetailPage() {
   const [filters, setFilters] = useState({});
   const [downloadingId, setDownloadingId] = useState(null);
   const [deletingLessonId, setDeletingLessonId] = useState(null);
+  const [savingLesson, setSavingLesson] = useState(false);
 
   async function load() {
     try {
@@ -112,24 +122,64 @@ export default function TeacherCourseDetailPage() {
     [games, sort, filters],
   );
 
-  async function handleCreateLesson() {
+  async function handleSaveLesson() {
     setError("");
+    setMessage("");
+    setSavingLesson(true);
     try {
-      await lessonService.create(courseId, form);
+      const payload = {
+        title: form.title.trim(),
+        competency: form.competency,
+        content: form.content,
+        orderIndex: Number(form.orderIndex) || 1,
+        xpReward: Number(form.xpReward) || 0,
+        isPublished: Boolean(form.isPublished),
+      };
+      if (editingLesson) {
+        await lessonService.update(editingLesson.id, payload);
+        setMessage("Lesson updated");
+      } else {
+        await lessonService.create(courseId, {
+          ...payload,
+          generateAiExtras: form.generateAiExtras,
+        });
+        setMessage("Lesson created");
+      }
       setOpen(false);
+      setEditingLesson(null);
       setForm({
-        title: "",
-        competency: "",
-        content: "",
-        orderIndex: lessons.length + 1,
-        xpReward: 25,
-        generateAiExtras: true,
+        ...emptyLessonForm,
+        orderIndex: lessons.length + (editingLesson ? 0 : 1),
       });
-      setMessage("Lesson created");
       await load();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setSavingLesson(false);
     }
+  }
+
+  function openCreateLesson() {
+    setEditingLesson(null);
+    setForm({
+      ...emptyLessonForm,
+      orderIndex: lessons.length + 1,
+    });
+    setOpen(true);
+  }
+
+  function openEditLesson(lesson) {
+    setEditingLesson(lesson);
+    setForm({
+      title: lesson.title || "",
+      competency: lesson.competency || "",
+      content: lesson.content || "",
+      orderIndex: Number(lesson.order_index) || 1,
+      xpReward: Number(lesson.xp_reward) || 25,
+      isPublished: Boolean(lesson.is_published),
+      generateAiExtras: false,
+    });
+    setOpen(true);
   }
 
   async function handleUpload(lessonId, event) {
@@ -186,6 +236,23 @@ export default function TeacherCourseDetailPage() {
     }
   }
 
+  async function handleDeleteMaterial() {
+    if (!materialToDelete) return;
+    setError("");
+    setMessage("");
+    setDeletingMaterialId(materialToDelete.id);
+    try {
+      await lessonService.deleteMaterial(materialToDelete.id);
+      setMaterialToDelete(null);
+      setMessage("Material deleted");
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setDeletingMaterialId(null);
+    }
+  }
+
   async function handleDownloadMaterial(material) {
     setError("");
     setDownloadingId(material.id);
@@ -219,16 +286,7 @@ export default function TeacherCourseDetailPage() {
             >
               Class Scores
             </Button>
-            <Button
-              variant="contained"
-              onClick={() => {
-                setForm((prev) => ({
-                  ...prev,
-                  orderIndex: lessons.length + 1,
-                }));
-                setOpen(true);
-              }}
-            >
+            <Button variant="contained" onClick={openCreateLesson}>
               Add Lesson
             </Button>
           </Stack>
@@ -309,6 +367,15 @@ export default function TeacherCourseDetailPage() {
                       alignSelf: { xs: "stretch", sm: "flex-start" },
                     }}
                   >
+                    <Tooltip title="Edit lesson">
+                      <IconButton
+                        size="small"
+                        aria-label={`Edit lesson ${lesson.title}`}
+                        onClick={() => openEditLesson(lesson)}
+                      >
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title="Upload material">
                       <IconButton
                         component="label"
@@ -426,6 +493,26 @@ export default function TeacherCourseDetailPage() {
                                     </span>
                                   </Tooltip>
                                 ) : null}
+                                <Tooltip title="Delete material">
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      aria-label={`Delete ${material.original_name}`}
+                                      disabled={
+                                        deletingMaterialId === material.id
+                                      }
+                                      onClick={() =>
+                                        setMaterialToDelete({
+                                          ...material,
+                                          lessonTitle: lesson.title,
+                                        })
+                                      }
+                                    >
+                                      <DeleteOutlinedIcon fontSize="small" />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
                               </Stack>
                             </Stack>
                           </Paper>
@@ -534,11 +621,11 @@ export default function TeacherCourseDetailPage() {
             <Typography variant="h6">Educational Games</Typography>
             <Button
               component={RouterLink}
-              to="/teacher/ai-game"
+              to={`/teacher/ai-game?courseId=${courseId}`}
               size="small"
               variant="outlined"
             >
-              Create Game
+              AI Game
             </Button>
           </Stack>
           <List>
@@ -691,13 +778,47 @@ export default function TeacherCourseDetailPage() {
         onConfirm={handleRemoveStudent}
       />
 
+      <ConfirmDialog
+        open={Boolean(materialToDelete)}
+        title="Delete material?"
+        description={
+          <>
+            You’re about to delete{" "}
+            <strong>
+              {materialToDelete?.original_name || "this file"}
+            </strong>
+            {materialToDelete?.lessonTitle
+              ? ` from ${materialToDelete.lessonTitle}`
+              : ""}
+            .
+          </>
+        }
+        details="Students will no longer be able to open or download this file."
+        cancelLabel="Keep file"
+        confirmLabel="Delete material"
+        confirmColor="error"
+        loading={Boolean(deletingMaterialId)}
+        loadingLabel="Deleting…"
+        onClose={() => {
+          if (deletingMaterialId) return;
+          setMaterialToDelete(null);
+        }}
+        onConfirm={handleDeleteMaterial}
+      />
+
       <Dialog
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          if (savingLesson) return;
+          setOpen(false);
+          setEditingLesson(null);
+        }}
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Add Lesson</DialogTitle>
+        <DialogTitle>
+          {editingLesson ? "Edit Lesson" : "Add Lesson"}
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
@@ -735,16 +856,41 @@ export default function TeacherCourseDetailPage() {
                 setForm((p) => ({ ...p, xpReward: Number(e.target.value) }))
               }
             />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={Boolean(form.isPublished)}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, isPublished: e.target.checked }))
+                  }
+                />
+              }
+              label="Published for students"
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setOpen(false);
+              setEditingLesson(null);
+            }}
+            disabled={savingLesson}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
-            disabled={!form.title.trim()}
-            onClick={handleCreateLesson}
+            disabled={savingLesson || !form.title.trim()}
+            onClick={handleSaveLesson}
           >
-            Create
+            {savingLesson
+              ? editingLesson
+                ? "Saving..."
+                : "Creating..."
+              : editingLesson
+                ? "Save"
+                : "Create"}
           </Button>
         </DialogActions>
       </Dialog>

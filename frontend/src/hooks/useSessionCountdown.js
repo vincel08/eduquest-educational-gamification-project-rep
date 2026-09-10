@@ -17,38 +17,60 @@ export function formatClock(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+function secondsUntilDeadline(deadlineAt, fallbackSeconds) {
+  if (deadlineAt == null) return fallbackSeconds;
+  const ms = Number(deadlineAt) - Date.now();
+  if (!Number.isFinite(ms)) return fallbackSeconds;
+  return Math.max(0, Math.ceil(ms / 1000));
+}
+
 /**
  * @param {number|null|undefined} minutes
- * @param {{ enabled?: boolean, onExpire?: () => void, fallbackMinutes?: number }} options
+ * @param {{
+ *   enabled?: boolean,
+ *   onExpire?: () => void,
+ *   fallbackMinutes?: number,
+ *   deadlineAt?: number|null,
+ * }} options
  */
 export default function useSessionCountdown(minutes, options = {}) {
-  const { enabled = true, onExpire, fallbackMinutes = 10 } = options;
+  const {
+    enabled = true,
+    onExpire,
+    fallbackMinutes = 10,
+    deadlineAt = null,
+  } = options;
   const totalSeconds = resolveTimeLimitMinutes(minutes, fallbackMinutes) * 60;
-  const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
+  const [secondsLeft, setSecondsLeft] = useState(() =>
+    secondsUntilDeadline(deadlineAt, totalSeconds),
+  );
   const expiredRef = useRef(false);
   const onExpireRef = useRef(onExpire);
   onExpireRef.current = onExpire;
 
   useEffect(() => {
     expiredRef.current = false;
-    setSecondsLeft(totalSeconds);
-  }, [totalSeconds, enabled]);
+    setSecondsLeft(secondsUntilDeadline(deadlineAt, totalSeconds));
+  }, [totalSeconds, deadlineAt]);
 
   useEffect(() => {
     if (!enabled) return undefined;
 
     const timer = window.setInterval(() => {
       setSecondsLeft((prev) => {
-        if (prev <= 1) {
+        const next = deadlineAt != null
+          ? secondsUntilDeadline(deadlineAt, 0)
+          : prev - 1;
+        if (next <= 0) {
           window.clearInterval(timer);
           return 0;
         }
-        return prev - 1;
+        return next;
       });
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [totalSeconds, enabled]);
+  }, [totalSeconds, enabled, deadlineAt]);
 
   useEffect(() => {
     if (!enabled || secondsLeft > 0 || expiredRef.current) return;

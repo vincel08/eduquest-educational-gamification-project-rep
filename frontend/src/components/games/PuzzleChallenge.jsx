@@ -4,6 +4,10 @@ import ExtensionIcon from '@mui/icons-material/Extension';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
+import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
 import {
   AnimatePresence,
@@ -31,16 +35,30 @@ export default function PuzzleChallenge({ gameData, onComplete, xpReward = 50 })
     () => firstNonEmptyList(gameData?.items, gameData?.clues),
     [gameData],
   );
-  const [index, setIndex] = useState(0);
+  const saved = useRestoredGameProgress();
+  const restoredResponses = Array.isArray(saved.responses) ? saved.responses : [];
+  const [index, setIndex] = useState(() => {
+    const maxIdx = Math.max(0, items.length - 1);
+    const fromSaved = Number(saved.index);
+    const aligned =
+      Number.isFinite(fromSaved) && fromSaved === restoredResponses.length
+        ? fromSaved
+        : restoredResponses.length;
+    return Math.max(0, Math.min(aligned, maxIdx));
+  });
   const [draft, setDraft] = useState('');
-  const [score, setScore] = useState(0);
-  const [responses, setResponses] = useState([]);
+  const [score, setScore] = useState(() => Number(saved.score) || 0);
+  const [responses, setResponses] = useState(() => restoredResponses);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
   useRegisterTimeoutSubmit(() => ({
     score,
     answers: { responses },
   }));
 
+  useSaveGameProgress(
+    () => ({ index, score, responses }),
+    [index, score, responses],
+  );
   const current = items[index];
   const hintLetters = useMemo(
     () => scrambleLetters(current?.answer),

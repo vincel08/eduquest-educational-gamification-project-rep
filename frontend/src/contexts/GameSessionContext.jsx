@@ -4,13 +4,27 @@ const GameSessionContext = createContext({
   registerSubmit: () => () => {},
   timedOut: false,
   elapsedSeconds: 0,
+  persistEnabled: false,
+  initialProgress: {},
+  saveProgress: () => {},
 });
 
-export function GameSessionProvider({ children, registerSubmit, timedOut = false, elapsedSeconds = 0 }) {
+export function GameSessionProvider({
+  children,
+  registerSubmit,
+  timedOut = false,
+  elapsedSeconds = 0,
+  persistEnabled = false,
+  initialProgress = {},
+  saveProgress = () => {},
+}) {
   const value = {
     registerSubmit,
     timedOut,
     elapsedSeconds,
+    persistEnabled,
+    initialProgress,
+    saveProgress,
   };
   return (
     <GameSessionContext.Provider value={value}>

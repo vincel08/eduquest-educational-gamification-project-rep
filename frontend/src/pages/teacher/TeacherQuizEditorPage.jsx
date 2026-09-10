@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Alert, Button, Chip, Stack } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 import PublishIcon from "@mui/icons-material/Publish";
+import UnpublishedOutlinedIcon from "@mui/icons-material/UnpublishedOutlined";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
@@ -62,7 +63,9 @@ export default function TeacherQuizEditorPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewQuiz, setPreviewQuiz] = useState(null);
   const [savedQuizId, setSavedQuizId] = useState(isNew ? null : Number(quizId));
+  const [isPublished, setIsPublished] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [unpublishOpen, setUnpublishOpen] = useState(false);
 
   useEffect(() => {
     const params = { limit: 100 };
@@ -150,6 +153,7 @@ export default function TeacherQuizEditorPage() {
         if (!active) return;
         const quiz = response.data.data;
         setSavedQuizId(quiz.id);
+        setIsPublished(Boolean(quiz.is_published));
         setForm({
           title: quiz.title || "",
           description: quiz.description || "",
@@ -273,8 +277,25 @@ export default function TeacherQuizEditorPage() {
     setSaving(true);
     try {
       await quizService.publish(quiz.id);
+      setIsPublished(true);
       setMessage("Quiz published. Enrolled students can now take it.");
       navigate("/teacher/quizzes");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUnpublish() {
+    if (!savedQuizId) return;
+    setError("");
+    setMessage("");
+    setSaving(true);
+    try {
+      await quizService.unpublish(savedQuizId);
+      setIsPublished(false);
+      setMessage("Quiz unpublished. Students can no longer take it.");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -297,7 +318,13 @@ export default function TeacherQuizEditorPage() {
               alignItems={{ sm: "center" }}
             >
               <Chip
-                label={isNew || !savedQuizId ? "Draft" : "Editing"}
+                label={
+                  isNew || !savedQuizId
+                    ? "Draft"
+                    : isPublished
+                      ? "Published"
+                      : "Unpublished"
+                }
                 sx={{ bgcolor: "rgba(255,255,255,0.92)", fontWeight: 800 }}
               />
               <Chip
@@ -324,19 +351,39 @@ export default function TeacherQuizEditorPage() {
               >
                 Preview
               </Button>
-              <Button
-                variant="contained"
-                startIcon={<PublishIcon />}
-                disabled={saving}
-                onClick={() => setPublishOpen(true)}
-                sx={{
-                  bgcolor: "#FACC15",
-                  color: "#1E293B",
-                  "&:hover": { bgcolor: "#FDE047" },
-                }}
-              >
-                Publish
-              </Button>
+              {isPublished ? (
+                <Button
+                  variant="outlined"
+                  startIcon={<UnpublishedOutlinedIcon />}
+                  disabled={saving || !savedQuizId}
+                  onClick={() => setUnpublishOpen(true)}
+                  sx={{
+                    bgcolor: "rgba(255,255,255,0.12)",
+                    color: "#fff",
+                    borderColor: "rgba(255,255,255,0.35)",
+                    "&:hover": {
+                      bgcolor: "rgba(255,255,255,0.2)",
+                      borderColor: "rgba(255,255,255,0.5)",
+                    },
+                  }}
+                >
+                  Unpublish
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  startIcon={<PublishIcon />}
+                  disabled={saving}
+                  onClick={() => setPublishOpen(true)}
+                  sx={{
+                    bgcolor: "#FACC15",
+                    color: "#1E293B",
+                    "&:hover": { bgcolor: "#FDE047" },
+                  }}
+                >
+                  Publish
+                </Button>
+              )}
             </Stack>
           }
         />
@@ -377,14 +424,26 @@ export default function TeacherQuizEditorPage() {
           >
             Preview
           </Button>
-          <Button
-            variant="contained"
-            disabled={saving}
-            onClick={() => setPublishOpen(true)}
-            startIcon={<PublishIcon />}
-          >
-            Publish
-          </Button>
+          {isPublished ? (
+            <Button
+              variant="outlined"
+              color="warning"
+              disabled={saving || !savedQuizId}
+              onClick={() => setUnpublishOpen(true)}
+              startIcon={<UnpublishedOutlinedIcon />}
+            >
+              Unpublish
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              disabled={saving}
+              onClick={() => setPublishOpen(true)}
+              startIcon={<PublishIcon />}
+            >
+              Publish
+            </Button>
+          )}
         </Stack>
 
         <QuizPreviewDialog
@@ -411,6 +470,27 @@ export default function TeacherQuizEditorPage() {
           onConfirm={async () => {
             setPublishOpen(false);
             await handlePublish();
+          }}
+        />
+
+        <ConfirmDialog
+          open={unpublishOpen}
+          title="Unpublish this quiz?"
+          description={
+            <>
+              <strong>{form.title.trim() || "This quiz"}</strong> will be hidden
+              from students until you publish it again.
+            </>
+          }
+          details="Existing attempts and scores are kept. Students just can’t start new attempts."
+          cancelLabel="Keep published"
+          confirmLabel="Unpublish quiz"
+          loading={saving}
+          loadingLabel="Unpublishing…"
+          onClose={() => setUnpublishOpen(false)}
+          onConfirm={async () => {
+            setUnpublishOpen(false);
+            await handleUnpublish();
           }}
         />
       </Stack>

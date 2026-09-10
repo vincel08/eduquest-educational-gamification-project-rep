@@ -22,6 +22,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useThemeMode } from "../contexts/ThemeModeContext";
+import { useLeavePlayGuardContext } from "../contexts/LeavePlayGuardContext";
 import NotificationBell from "../components/common/NotificationBell";
 import PageTransition from "../components/common/PageTransition";
 import BrandLogo from "../components/common/BrandLogo";
@@ -40,6 +41,8 @@ export default function DashboardLayout({
   const { user, logout, profile } = useAuth();
   const { mode, toggleMode } = useThemeMode();
   const navigate = useNavigate();
+  const { guardedNavigate, isGuarding } = useLeavePlayGuardContext();
+  const go = guardedNavigate || navigate;
   const location = useLocation();
   // Keep in sync with MUI `md` (900px): permanent drawer only from md and up.
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -63,7 +66,18 @@ export default function DashboardLayout({
         </Typography>
       </Box>
       <Divider />
-      <List sx={{ px: 1.5, py: 1.5, flex: 1, overflowY: "auto", minHeight: 0 }}>
+      <List
+        sx={{
+          px: 1.5,
+          py: 1.5,
+          flex: 1,
+          overflowY: "auto",
+          minHeight: 0,
+          // Keep nav scroll away from the active pill edge.
+          scrollbarGutter: "stable",
+          mr: 0.25,
+        }}
+      >
         {navItems.map((item) => {
           const selected =
             location.pathname === item.path ||
@@ -73,7 +87,7 @@ export default function DashboardLayout({
               key={item.path}
               selected={selected}
               onClick={() => {
-                navigate(item.path);
+                go(item.path);
                 setMobileOpen(false);
               }}
               aria-label={item.label}
@@ -139,8 +153,15 @@ export default function DashboardLayout({
         </Box>
         <ListItemButton
           onClick={() => {
+            if (isGuarding) {
+              go("/login", {
+                replace: true,
+                state: { performLogout: true },
+              });
+              return;
+            }
             logout();
-            navigate("/login");
+            navigate("/login", { replace: true });
           }}
           aria-label="Logout"
         >
@@ -213,7 +234,7 @@ export default function DashboardLayout({
           </IconButton>
           {showNotifications ? <NotificationBell /> : null}          {profilePath ? (
             <IconButton
-              onClick={() => navigate(profilePath)}
+              onClick={() => go(profilePath)}
               aria-label="Open profile"
               size="small"
               sx={{

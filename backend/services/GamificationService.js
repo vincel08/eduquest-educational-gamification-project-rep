@@ -1,6 +1,8 @@
 import GamificationModel from "../models/GamificationModel.js";
 import StudentProfileModel from "../models/StudentProfileModel.js";
 import QuizModel from "../models/QuizModel.js";
+import CourseModel from "../models/CourseModel.js";
+import UserModel from "../models/UserModel.js";
 import NotificationModel from "../models/NotificationModel.js";
 import StreakService from "./StreakService.js";
 import ActivityLogService from "./ActivityLogService.js";
@@ -10,6 +12,27 @@ import {
   xpForNextLevel,
   xpProgressInLevel,
 } from "../utils/levelCalculator.js";
+
+async function assertAwardTargetStudent(studentId) {
+  const student = await UserModel.findById(studentId);
+  if (!student || student.role !== "student" || !student.is_active) {
+    throw new AppError("Select an active student", 400);
+  }
+  return student;
+}
+
+async function assertTeacherCanAwardStudent(teacherId, studentId) {
+  const inRoster = await CourseModel.isStudentInTeacherRoster(
+    studentId,
+    teacherId,
+  );
+  if (!inRoster) {
+    throw new AppError(
+      "You can only award students enrolled in your subjects",
+      403,
+    );
+  }
+}
 
 function isDuplicateKeyError(error) {
   return error?.code === "ER_DUP_ENTRY" || Number(error?.errno) === 1062;
@@ -1244,10 +1267,13 @@ const GamificationService = {
       throw new AppError("Only custom teacher badges can be awarded manually", 400);
     }
 
+    await assertAwardTargetStudent(studentId);
+
     if (actorRole === "teacher") {
       if (Number(badge.created_by) !== Number(awardedBy)) {
         throw new AppError("You can only award badges you created", 403);
       }
+      await assertTeacherCanAwardStudent(awardedBy, studentId);
     } else if (actorRole === "administrator") {
       // Admins may award legacy manual badges or any teacher custom badge.
     } else {
@@ -1458,9 +1484,21 @@ const GamificationService = {
     return { id: Number(id), soft: false, preservedAwards: 0 };
   },
 
-  async awardMedalManually({ studentId, medalId, awardedBy }) {
+  async awardMedalManually({ studentId, medalId, awardedBy, actorRole }) {
     const medal = await GamificationModel.findMedalById(medalId);
     if (!medal) throw new AppError("Medal not found", 404);
+
+    await assertAwardTargetStudent(studentId);
+
+    // Automatic unlocks (criteria engine) pass awardedBy=null with no actorRole.
+    const isSystemUnlock = awardedBy == null && !actorRole;
+    if (!isSystemUnlock) {
+      if (actorRole === "teacher") {
+        await assertTeacherCanAwardStudent(awardedBy, studentId);
+      } else if (actorRole !== "administrator") {
+        throw new AppError("Not allowed to award medals", 403);
+      }
+    }
 
     const awarded = await GamificationModel.awardMedal({
       studentId,
@@ -1471,11 +1509,12 @@ const GamificationService = {
       return { ...awarded, alreadyOwned: true };
     }
 
-    const isSystemUnlock = medal.criteria_type !== "manual" && !awardedBy;
+    const unlockedBySystem =
+      isSystemUnlock || (medal.criteria_type !== "manual" && !awardedBy);
     await NotificationModel.create({
       userId: studentId,
-      title: isSystemUnlock ? "New Medal Earned!" : "Medal Awarded",
-      message: isSystemUnlock
+      title: unlockedBySystem ? "New Medal Earned!" : "Medal Awarded",
+      message: unlockedBySystem
         ? `You earned the "${medal.name}" medal.`
         : `You were awarded the "${medal.name}" medal.`,
       type: "achievement",

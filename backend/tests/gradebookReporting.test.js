@@ -118,7 +118,21 @@ describe('teacher gradebook reporting', () => {
     await pool.end();
   });
 
-  it('lists students who took each quiz/game with attained scores', async () => {
+  it('lists the submitted grade result per student (best score)', async () => {
+    await query(
+      `UPDATE quiz_attempts SET released_to_gradebook = 1 WHERE quiz_id = :quizId`,
+      { quizId },
+    );
+    await query(
+      `UPDATE game_scores SET released_to_gradebook = 1 WHERE game_id = :gameId`,
+      { gameId },
+    );
+    await query(
+      `INSERT INTO game_scores (game_id, student_id, score, xp_earned, played_at, released_to_gradebook)
+       VALUES (:gameId, :studentId, 40, 0, DATE_ADD(NOW(), INTERVAL 1 MINUTE), 1)`,
+      { gameId, studentId: student.id },
+    );
+
     const data = await GradebookService.getCourseGradebook(courseId, teacher);
     assert.equal(data.course.id, courseId);
     assert.equal(data.quizzes.length, 1);
@@ -128,8 +142,10 @@ describe('teacher gradebook reporting', () => {
     assert.equal(data.quizzes[0].results[0].score, 88.5);
     assert.equal(data.quizzes[0].results[0].earnedPoints, 9);
     assert.equal(data.quizzes[0].results[0].totalPoints, 10);
+    assert.equal(data.games[0].results.length, 1);
     assert.equal(data.games[0].results[0].earnedPoints, 75);
     assert.equal(data.games[0].results[0].totalPoints, 100);
+    assert.equal(data.games[0].results[0].playCount, 2);
   });
 
   it('lets the teacher update earned quiz points for a student who took it', async () => {

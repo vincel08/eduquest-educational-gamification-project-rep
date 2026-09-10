@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Grid,
@@ -38,6 +38,7 @@ import EmptyState from '../../components/common/EmptyState';
 import analyticsService from '../../services/analyticsService';
 import { getErrorMessage } from '../../services/api';
 import { useAdminFilters } from '../../contexts/AdminFiltersContext';
+import useRefreshOnFocus from '../../hooks/useRefreshOnFocus';
 
 function formatChartDay(value) {
   const raw = String(value || '').trim();
@@ -59,14 +60,37 @@ export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const requestIdRef = useRef(0);
+
+  const load = useCallback(
+    async ({ silent = false } = {}) => {
+      const requestId = ++requestIdRef.current;
+      if (!silent) setLoading(true);
+      try {
+        const response = await analyticsService.admin(toQueryParams());
+        if (requestId !== requestIdRef.current) return;
+        setData(response.data.data);
+        setError('');
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return;
+        if (!silent) setError(getErrorMessage(err));
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [toQueryParams],
+  );
 
   useEffect(() => {
-    setLoading(true);
-    analyticsService.admin(toQueryParams())
-      .then((response) => setData(response.data.data))
-      .catch((err) => setError(getErrorMessage(err)))
-      .finally(() => setLoading(false));
-  }, [schoolYear, gradeLevel, section, toQueryParams]);
+    load();
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [schoolYear, gradeLevel, section, load]);
+
+  useRefreshOnFocus(() => load({ silent: true }));
 
   const roleCounts = useMemo(() => {
     const map = { student: 0, teacher: 0, administrator: 0 };
@@ -78,8 +102,8 @@ export default function AdminDashboard() {
     return map;
   }, [data]);
 
-  if (loading) return <LoadingScreen label="Loading control center..." showCards />;
-  if (error) return <Alert severity="error">{error}</Alert>;
+  if (loading && !data) return <LoadingScreen label="Loading control center..." showCards />;
+  if (error && !data) return <Alert severity="error">{error}</Alert>;
 
   const totalUsers = Object.values(roleCounts).reduce((sum, n) => sum + n, 0);
   const showSectionsStat = !section || section === 'all';
@@ -106,6 +130,11 @@ export default function AdminDashboard() {
         title="Admin Control Center"
         subtitle="Platform health, engagement trends, and recent learning content."
       />
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -167,10 +196,22 @@ export default function AdminDashboard() {
           </Grid>
         ) : null}
         <Grid size={contentStatSize}>
-          <StatCard label="Quizzes" value={data.totalQuizzes} icon={<QuizIcon />} color="#F59E0B" />
+          <StatCard
+            label="Quizzes"
+            value={data.totalQuizzes}
+            icon={<QuizIcon />}
+            color="#F59E0B"
+            to="/admin/quizzes"
+          />
         </Grid>
         <Grid size={contentStatSize}>
-          <StatCard label="Games" value={data.totalGames || 0} icon={<SportsEsportsIcon />} color="#8B5CF6" />
+          <StatCard
+            label="Games"
+            value={data.totalGames || 0}
+            icon={<SportsEsportsIcon />}
+            color="#8B5CF6"
+            to="/admin/games"
+          />
         </Grid>
       </Grid>
 

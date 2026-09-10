@@ -1,75 +1,176 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Box, LinearProgress, Stack, Typography, useTheme } from '@mui/material';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Box,
+  LinearProgress,
+  Stack,
+  TextField,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import StyleOutlinedIcon from '@mui/icons-material/StyleOutlined';
-import AnswerFeedback from './AnswerFeedback';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
+import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
 import {
   AnimatePresence,
   MotionBox,
   MotionButton,
-  MotionStack,
 } from './GameMotion';
+
+function expectedDefinition(item) {
+  return String(item?.definition || item?.back || item?.answer || '').trim();
+}
+
+function expectedTerm(item) {
+  return String(item?.term || item?.front || item?.prompt || '').trim();
+}
+
+function normalizeAnswer(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function scoreFromResponses(items, responses) {
+  if (!items.length) return 0;
+  let correct = 0;
+  items.forEach((item, index) => {
+    if (
+      normalizeAnswer(responses[index]) === normalizeAnswer(expectedTerm(item))
+    ) {
+      correct += 1;
+    }
+  });
+  return Math.round((correct / items.length) * 100);
+}
 
 export default function Flashcards({ gameData, onComplete, xpReward = 50 }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const items = useMemo(
     () => firstNonEmptyList(gameData?.items, gameData?.pairs),
-    [gameData]
+    [gameData],
   );
-  const [index, setIndex] = useState(0);
+  const saved = useRestoredGameProgress();
+  const restoredResponses = Array.isArray(saved.responses) ? saved.responses : [];
+  const restoredFlags = Array.isArray(saved.correctFlags) ? saved.correctFlags : [];
+  const [index, setIndex] = useState(() => {
+    const maxIdx = Math.max(0, items.length - 1);
+    const fromSaved = Number(saved.index);
+    const aligned =
+      Number.isFinite(fromSaved) && fromSaved === restoredResponses.length
+        ? fromSaved
+        : restoredResponses.length;
+    return Math.max(0, Math.min(aligned, maxIdx));
+  });
+  const [draft, setDraft] = useState(() => String(saved.draft || ''));
   const [flipped, setFlipped] = useState(false);
-  const [known, setKnown] = useState(0);
-  const [remembered, setRemembered] = useState([]);
-  const [exitDir, setExitDir] = useState(0);
-  const { feedback, showFeedback, handleNext } = useAnswerFeedback();
-  useRegisterTimeoutSubmit(() => ({
-    score: Math.round((known / Math.max(items.length, 1)) * 100),
-    answers: { remembered },
-  }));
+  const [responses, setResponses] = useState(() => restoredResponses);
+  const [correctFlags, setCorrectFlags] = useState(() =>
+    restoredFlags.slice(0, restoredResponses.length),
+  );
+  const { feedback, showFeedback, handleNext } = useAnswerFeedback({
+    autoAdvanceMs: 0,
+  });
 
+  useSaveGameProgress(
+    () => ({ index, draft, responses, correctFlags }),
+    [index, draft, responses, correctFlags],
+  );
+
+  useRegisterTimeoutSubmit(() => {
+    const filled = [...responses];
+    if (filled.length === index) {
+      filled.push(draft);
+    }
+    while (filled.length < items.length) {
+      filled.push('');
+    }
+    return {
+      score: scoreFromResponses(items, filled),
+      answers: { responses: filled },
+    };
+  });
+
+  const skipIndexResetRef = useRef(true);
   useEffect(() => {
-    setExitDir(0);
+    if (skipIndexResetRef.current) {
+      skipIndexResetRef.current = false;
+      return;
+    }
+    setDraft('');
     setFlipped(false);
   }, [index]);
 
+  useEffect(() => {
+    if (feedback?.open) {
+      setFlipped(true);
+    }
+  }, [feedback?.open]);
+
+  useEffect(() => {
+    if (!feedback?.open) return undefined;
+    function onKey(event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleNext();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [feedback?.open, handleNext]);
+
   if (!items.length) {
-    return <Typography color="text.secondary">No flashcard items available.</Typography>;
+    return (
+      <Typography color="text.secondary">No flashcard items available.</Typography>
+    );
   }
 
   const current = items[index];
+  const prompt = expectedDefinition(current);
+  const answer = expectedTerm(current);
   const perCardXp = Math.max(5, Math.round(Number(xpReward) / items.length));
   const progress = (index / items.length) * 100;
-  const front = current.term || current.front || '';
-  const back = current.definition || current.back || '';
+  const known = correctFlags.filter(Boolean).length;
+  const answered = Boolean(feedback?.open);
+  const isCorrect = Boolean(feedback?.isCorrect);
+  const resultColor = isCorrect ? '#16A34A' : '#DC2626';
+  const nextLabel = index + 1 >= items.length ? 'See Results' : 'Next Card';
+  const cardMinHeight = answered ? 460 : 400;
 
-  function next(gotIt) {
+  function submit() {
     if (feedback?.open) return;
-    const nextKnown = gotIt ? known + 1 : known;
-    const nextScore = Math.round((nextKnown / items.length) * 100);
+    const userAnswer = draft.trim();
+    const correct =
+      normalizeAnswer(userAnswer) === normalizeAnswer(answer) && Boolean(answer);
+    const nextResponses = [...responses, userAnswer];
+    const nextFlags = [...correctFlags, correct];
+    const nextScore = scoreFromResponses(items, nextResponses);
 
-    setExitDir(gotIt ? 1 : -1);
+    setResponses(nextResponses);
+    setCorrectFlags(nextFlags);
+    setFlipped(true);
 
     showFeedback({
-      isCorrect: gotIt,
-      userAnswer: gotIt ? 'Got it' : 'Still learning',
-      correctAnswer: back,
-      explanation: gotIt
-        ? null
-        : `Review this concept: ${front} — ${back}`,
-      xpEarned: gotIt ? perCardXp : 0,
+      isCorrect: correct,
+      userAnswer: userAnswer || '(blank)',
+      correctAnswer: answer,
+      explanation: null,
+      xpEarned: correct ? perCardXp : 0,
       score: nextScore,
       progress: (index + 1) / items.length,
       onNext: () => {
-        const nextRemembered = [...remembered, Boolean(gotIt)];
-        setRemembered(nextRemembered);
         if (index + 1 >= items.length) {
-          onComplete?.({ score: nextScore, answers: { remembered: nextRemembered } });
+          onComplete?.({
+            score: nextScore,
+            answers: { responses: nextResponses },
+          });
           return;
         }
-        setKnown(nextKnown);
         setIndex((prev) => prev + 1);
       },
     });
@@ -78,14 +179,9 @@ export default function Flashcards({ gameData, onComplete, xpReward = 50 }) {
   return (
     <Stack spacing={2.5}>
       <Stack spacing={1}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography variant="body2" color="text.secondary" fontWeight={700}>
-            Card {index + 1} of {items.length}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Known {known}
-          </Typography>
-        </Stack>
+        <Typography variant="body2" color="text.secondary" fontWeight={700}>
+          Card {index + 1} of {items.length} · Correct {known}
+        </Typography>
         <LinearProgress
           variant="determinate"
           value={progress}
@@ -99,7 +195,13 @@ export default function Flashcards({ gameData, onComplete, xpReward = 50 }) {
             },
           }}
         />
-        <Stack direction="row" spacing={0.75} justifyContent="center" flexWrap="wrap" useFlexGap>
+        <Stack
+          direction="row"
+          spacing={0.75}
+          justifyContent="flex-start"
+          flexWrap="wrap"
+          useFlexGap
+        >
           {items.map((_, i) => (
             <MotionBox
               key={`dot-${i}`}
@@ -107,7 +209,7 @@ export default function Flashcards({ gameData, onComplete, xpReward = 50 }) {
                 scale: i === index ? 1.25 : 1,
                 backgroundColor:
                   i < index
-                    ? remembered[i]
+                    ? correctFlags[i]
                       ? '#0D9488'
                       : '#F59E0B'
                     : i === index
@@ -127,145 +229,142 @@ export default function Flashcards({ gameData, onComplete, xpReward = 50 }) {
 
       <Box
         sx={{
-          position: 'relative',
-          minHeight: { xs: 240, sm: 280 },
-          perspective: 1200,
-          display: 'grid',
-          placeItems: 'center',
+          perspective: 1400,
+          display: 'flex',
+          justifyContent: 'center',
+          px: 1,
         }}
       >
-        {/* Deck depth behind current card */}
-        {index + 1 < items.length ? (
-          <Box
-            sx={{
-              position: 'absolute',
-              width: { xs: '92%', sm: 420 },
-              height: { xs: 210, sm: 250 },
-              borderRadius: 4,
-              bgcolor: 'action.hover',
-              border: '1px solid',
-              borderColor: 'divider',
-              transform: 'translateY(14px) scale(0.96)',
-              zIndex: 0,
-            }}
-          />
-        ) : null}
-        {index + 2 < items.length ? (
-          <Box
-            sx={{
-              position: 'absolute',
-              width: { xs: '88%', sm: 400 },
-              height: { xs: 200, sm: 240 },
-              borderRadius: 4,
-              bgcolor: 'action.selected',
-              border: '1px solid',
-              borderColor: 'divider',
-              transform: 'translateY(26px) scale(0.92)',
-              zIndex: 0,
-              opacity: 0.7,
-            }}
-          />
-        ) : null}
-
-        <AnimatePresence mode="wait" custom={exitDir}>
+        <AnimatePresence mode="wait">
           <MotionBox
-            key={`flash-${index}`}
-            custom={exitDir}
-            initial={{ opacity: 0, y: 28, rotate: -4, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
-            exit={(dir) => ({
-              opacity: 0,
-              x: dir === 0 ? 0 : dir * 160,
-              y: dir === 0 ? -20 : 12,
-              rotate: dir === 0 ? 0 : dir * 12,
-              scale: 0.9,
-            })}
-            transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+            key={`card-${index}`}
+            initial={{ opacity: 0, y: 18, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -14, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
             sx={{
               position: 'relative',
-              zIndex: 1,
-              width: { xs: '100%', sm: 440 },
-              height: { xs: 230, sm: 270 },
-              cursor: feedback?.open ? 'default' : 'pointer',
-              transformStyle: 'preserve-3d',
-            }}
-            onClick={() => {
-              if (feedback?.open) return;
-              setFlipped((prev) => !prev);
+              width: '100%',
+              maxWidth: 380,
+              minHeight: cardMinHeight,
+              aspectRatio: answered ? 'auto' : '3 / 4',
             }}
           >
             <MotionBox
               animate={{ rotateY: flipped ? 180 : 0 }}
               transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-              whileHover={feedback?.open ? undefined : { y: -4 }}
-              whileTap={feedback?.open ? undefined : { scale: 0.985 }}
               style={{ transformStyle: 'preserve-3d' }}
               sx={{
                 position: 'relative',
                 width: '100%',
                 height: '100%',
+                minHeight: cardMinHeight,
               }}
             >
-              {/* Front */}
+              {/* Front — definition (question) + type answer */}
               <Box
                 sx={{
                   position: 'absolute',
                   inset: 0,
                   backfaceVisibility: 'hidden',
                   WebkitBackfaceVisibility: 'hidden',
-                  borderRadius: 4,
-                  p: 3,
+                  borderRadius: '18px',
+                  p: { xs: 2.5, sm: 3 },
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  alignItems: 'stretch',
+                  justifyContent: 'space-between',
                   textAlign: 'center',
                   border: '1px solid',
-                  borderColor: 'divider',
+                  borderColor: isDark ? 'rgba(148,163,184,0.22)' : 'rgba(15,23,42,0.08)',
                   background: isDark
-                    ? `radial-gradient(circle at 20% 15%, rgba(13,148,136,0.22), transparent 45%),
-                       linear-gradient(160deg, #1e293b 0%, #0f172a 100%)`
-                    : `radial-gradient(circle at 20% 15%, rgba(13,148,136,0.14), transparent 45%),
-                       linear-gradient(160deg, #ffffff 0%, #f8fafc 100%)`,
+                    ? `radial-gradient(circle at 18% 12%, rgba(13,148,136,0.28), transparent 42%),
+                       linear-gradient(165deg, #1e293b 0%, #0f172a 100%)`
+                    : `radial-gradient(circle at 18% 12%, rgba(13,148,136,0.16), transparent 42%),
+                       linear-gradient(165deg, #ffffff 0%, #f1f5f9 100%)`,
                   boxShadow: isDark
-                    ? '0 18px 40px rgba(0,0,0,0.35)'
-                    : '0 18px 40px rgba(15, 23, 42, 0.12)',
+                    ? '0 22px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04) inset'
+                    : '0 22px 48px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(255,255,255,0.7) inset',
                   color: 'text.primary',
                 }}
               >
-                <MotionBox
-                  animate={{ y: [0, -4, 0] }}
-                  transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 2.5,
-                    mb: 1.5,
-                    display: 'grid',
-                    placeItems: 'center',
-                    bgcolor: 'rgba(13,148,136,0.14)',
-                    color: '#0F766E',
-                  }}
-                >
-                  <StyleOutlinedIcon />
-                </MotionBox>
-                <Typography variant="overline" sx={{ letterSpacing: 1.2, color: 'text.secondary', mb: 1 }}>
-                  Term
-                </Typography>
-                <Typography variant="h5" fontWeight={800} sx={{ lineHeight: 1.3, px: 1 }}>
-                  {front}
-                </Typography>
-                <MotionBox
-                  animate={{ opacity: [0.55, 1, 0.55] }}
-                  transition={{ duration: 1.8, repeat: Infinity }}
-                >
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-                    Tap to flip
+                <Box>
+                  <Box sx={{ display: 'grid', placeItems: 'center', mb: 1 }}>
+                    <MotionBox
+                      animate={{ y: [0, -4, 0] }}
+                      transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                      sx={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 2.5,
+                        display: 'grid',
+                        placeItems: 'center',
+                        bgcolor: 'rgba(13,148,136,0.14)',
+                        color: '#0F766E',
+                      }}
+                    >
+                      <StyleOutlinedIcon />
+                    </MotionBox>
+                  </Box>
+                  <Typography
+                    variant="overline"
+                    sx={{ letterSpacing: 1.2, color: 'text.secondary', mb: 1, display: 'block' }}
+                  >
+                    Definition
                   </Typography>
-                </MotionBox>
+                  <Typography
+                    variant="h6"
+                    fontWeight={800}
+                    sx={{
+                      lineHeight: 1.35,
+                      px: 0.5,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 6,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {prompt}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mt: 2.5 }}>
+                  <TextField
+                    label="Type answer"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        submit();
+                      }
+                    }}
+                    fullWidth
+                    autoComplete="off"
+                    size="small"
+                  />
+                  <MotionButton
+                    variant="contained"
+                    fullWidth
+                    disabled={!draft.trim()}
+                    onClick={submit}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.97 }}
+                    sx={{
+                      mt: 1.25,
+                      py: 1.15,
+                      fontWeight: 800,
+                      borderRadius: 2.5,
+                      bgcolor: '#0D9488',
+                      '&:hover': { bgcolor: '#0F766E' },
+                    }}
+                  >
+                    Check answer
+                  </MotionButton>
+                </Box>
               </Box>
 
-              {/* Back */}
+              {/* Back — result on the card */}
               <Box
                 sx={{
                   position: 'absolute',
@@ -273,90 +372,123 @@ export default function Flashcards({ gameData, onComplete, xpReward = 50 }) {
                   backfaceVisibility: 'hidden',
                   WebkitBackfaceVisibility: 'hidden',
                   transform: 'rotateY(180deg)',
-                  borderRadius: 4,
-                  p: 3,
+                  borderRadius: '18px',
+                  p: { xs: 2.25, sm: 2.75 },
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'center',
+                  alignItems: 'stretch',
                   justifyContent: 'center',
                   textAlign: 'center',
-                  border: '1px solid',
-                  borderColor: 'rgba(13,148,136,0.35)',
-                  background: isDark
-                    ? `radial-gradient(circle at 80% 20%, rgba(245,158,11,0.18), transparent 40%),
-                       linear-gradient(160deg, #134e4a 0%, #115e59 55%, #0f766e 100%)`
-                    : `radial-gradient(circle at 80% 20%, rgba(245,158,11,0.16), transparent 40%),
-                       linear-gradient(160deg, #ecfdf5 0%, #ccfbf1 55%, #f0fdfa 100%)`,
+                  overflow: 'auto',
+                  border: `1px solid ${resultColor}66`,
+                  background: isCorrect
+                    ? isDark
+                      ? `linear-gradient(145deg, rgba(22,163,74,0.28), rgba(15,118,110,0.55), rgba(15,23,42,0.92))`
+                      : `linear-gradient(145deg, rgba(34,197,94,0.22), rgba(250,204,21,0.18), #f0fdf4)`
+                    : isDark
+                      ? `linear-gradient(145deg, rgba(220,38,38,0.28), rgba(127,29,29,0.45), rgba(15,23,42,0.92))`
+                      : `linear-gradient(145deg, rgba(220,38,38,0.16), rgba(254,226,226,0.85), #fff)`,
                   boxShadow: isDark
-                    ? '0 18px 40px rgba(0,0,0,0.4)'
-                    : '0 18px 40px rgba(13, 148, 136, 0.2)',
-                  color: isDark ? '#ECFDF5' : '#134E4A',
+                    ? `0 22px 48px ${resultColor}33`
+                    : `0 22px 48px ${resultColor}28`,
+                  color: isDark ? '#F8FAFC' : 'text.primary',
                 }}
               >
-                <Typography variant="overline" sx={{ letterSpacing: 1.2, opacity: 0.8, mb: 1 }}>
-                  Definition
+                <Box sx={{ display: 'grid', placeItems: 'center', mb: 0.5 }}>
+                  {isCorrect ? (
+                    <CheckCircleRoundedIcon sx={{ fontSize: 48, color: resultColor }} />
+                  ) : (
+                    <CancelRoundedIcon sx={{ fontSize: 48, color: resultColor }} />
+                  )}
+                </Box>
+
+                <Typography variant="h6" fontWeight={900} sx={{ color: resultColor }}>
+                  {isCorrect ? 'Correct!' : 'Incorrect'}
                 </Typography>
-                <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.45, px: 1 }}>
-                  {back}
+
+                {feedback?.message ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                    {feedback.message}
+                  </Typography>
+                ) : null}
+
+                <Typography
+                  variant="overline"
+                  sx={{ letterSpacing: 1.1, mt: 1.5, opacity: 0.8 }}
+                >
+                  Term
                 </Typography>
-                <Typography variant="caption" sx={{ mt: 2, opacity: 0.75, display: 'block' }}>
-                  Tap to flip back
+                <Typography
+                  variant="subtitle1"
+                  fontWeight={700}
+                  sx={{ lineHeight: 1.4, px: 0.5 }}
+                >
+                  {answer}
                 </Typography>
+
+                <Stack spacing={0.75} sx={{ mt: 1.75, textAlign: 'left' }}>
+                  <Typography variant="body2">
+                    Your answer:{' '}
+                    <strong>{String(feedback?.userAnswer || '')}</strong>
+                  </Typography>
+                  {feedback?.xpEarned > 0 ? (
+                    <Typography
+                      variant="body2"
+                      fontWeight={700}
+                      sx={{ color: resultColor }}
+                    >
+                      +{feedback.xpEarned} XP earned
+                    </Typography>
+                  ) : null}
+                  <Typography variant="body2">
+                    Current Score: <strong>{feedback?.score ?? 0}</strong>
+                  </Typography>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Progress {Math.round((feedback?.progress || 0) * 100)}%
+                    </Typography>
+                    <LinearProgress
+                      variant="determinate"
+                      value={Math.max(
+                        0,
+                        Math.min(100, (feedback?.progress || 0) * 100),
+                      )}
+                      sx={{
+                        mt: 0.5,
+                        height: 8,
+                        borderRadius: 999,
+                        bgcolor: 'action.hover',
+                        '& .MuiLinearProgress-bar': {
+                          borderRadius: 999,
+                          bgcolor: resultColor,
+                        },
+                      }}
+                    />
+                  </Box>
+                </Stack>
+
+                <MotionButton
+                  variant="contained"
+                  fullWidth
+                  onClick={handleNext}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.97 }}
+                  sx={{
+                    mt: 2,
+                    py: 1.15,
+                    fontWeight: 800,
+                    borderRadius: 2.5,
+                    bgcolor: resultColor,
+                    '&:hover': { bgcolor: resultColor, filter: 'brightness(0.92)' },
+                  }}
+                >
+                  {nextLabel}
+                </MotionButton>
               </Box>
             </MotionBox>
           </MotionBox>
         </AnimatePresence>
       </Box>
-
-      <MotionStack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.25}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-      >
-        <MotionButton
-          variant="outlined"
-          fullWidth
-          disabled={feedback?.open}
-          onClick={() => next(false)}
-          whileHover={{ x: -4 }}
-          whileTap={{ scale: 0.97 }}
-          sx={{ py: 1.25, fontWeight: 800 }}
-        >
-          Still learning
-        </MotionButton>
-        <MotionButton
-          variant="contained"
-          fullWidth
-          disabled={feedback?.open}
-          onClick={() => next(true)}
-          whileHover={{ x: 4, scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          sx={{
-            py: 1.25,
-            fontWeight: 800,
-            bgcolor: '#0D9488',
-            '&:hover': { bgcolor: '#0F766E' },
-          }}
-        >
-          Got it
-        </MotionButton>
-      </MotionStack>
-
-      <AnswerFeedback
-        open={feedback?.open}
-        isCorrect={feedback?.isCorrect}
-        correctAnswer={feedback?.correctAnswer}
-        userAnswer={feedback?.userAnswer}
-        explanation={feedback?.explanation}
-        xpEarned={feedback?.xpEarned}
-        score={feedback?.score}
-        progress={feedback?.progress}
-        message={feedback?.message}
-        onNext={handleNext}
-        nextLabel={index + 1 >= items.length ? 'See Results' : 'Next Card'}
-      />
     </Stack>
   );
 }

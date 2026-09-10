@@ -296,6 +296,19 @@ const CourseModel = {
     return Boolean(rows[0]);
   },
 
+  async isStudentInTeacherRoster(studentId, teacherId) {
+    const rows = await query(
+      `SELECT 1 AS ok
+       FROM course_enrollments ce
+       INNER JOIN courses c ON c.id = ce.course_id
+       WHERE ce.student_id = :studentId
+         AND c.teacher_id = :teacherId
+       LIMIT 1`,
+      { studentId, teacherId },
+    );
+    return Boolean(rows[0]);
+  },
+
   async updateProgress(courseId, studentId, progressPercent) {
     await query(
       `UPDATE course_enrollments

@@ -90,6 +90,38 @@ const getDesignTokens = (mode) => {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
+          // Thin, theme-aware scrollbars (sidebar + page content).
+          '*': {
+            scrollbarWidth: 'thin',
+            scrollbarColor: isLight
+              ? 'rgba(100, 116, 139, 0.45) transparent'
+              : 'rgba(148, 163, 184, 0.35) transparent',
+          },
+          '*::-webkit-scrollbar': {
+            width: 8,
+            height: 8,
+          },
+          '*::-webkit-scrollbar-track': {
+            background: 'transparent',
+            marginBlock: 4,
+          },
+          '*::-webkit-scrollbar-thumb': {
+            backgroundColor: isLight
+              ? 'rgba(100, 116, 139, 0.4)'
+              : 'rgba(148, 163, 184, 0.32)',
+            borderRadius: 999,
+            border: '2px solid transparent',
+            backgroundClip: 'padding-box',
+            minHeight: 36,
+          },
+          '*::-webkit-scrollbar-thumb:hover': {
+            backgroundColor: isLight
+              ? 'rgba(59, 130, 246, 0.55)'
+              : 'rgba(96, 165, 250, 0.55)',
+          },
+          '*::-webkit-scrollbar-corner': {
+            background: 'transparent',
+          },
           body: {
             transition: 'background 0.35s ease, color 0.35s ease',
           },

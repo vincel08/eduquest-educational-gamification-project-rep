@@ -181,7 +181,7 @@ export default function TeacherDashboard() {
     <PageContainer>
       <PageHeader
         title="Teacher Studio"
-        subtitle="Track courses, motivate learners, and launch AI content."
+        subtitle="Track subjects, motivate learners, and launch AI content."
         action={
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button

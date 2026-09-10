@@ -316,12 +316,21 @@ const GameService = {
       };
     }
 
+    if (
+      user.role === "teacher" &&
+      Number(game.teacher_id) !== Number(user.id)
+    ) {
+      throw new AppError("Access denied", 403);
+    }
+
     return game;
   },
 
   async listByCourse(courseId, user) {
     if (user.role === "student") {
       await CourseService.assertStudentCourseAccess(courseId, user.id);
+    } else if (user.role === "teacher" || user.role === "administrator") {
+      await CourseService.assertStaffCourseAccess(courseId, user);
     }
     const publishedOnly = user.role === "student";
     const games = await GameModel.findByCourse(courseId, { publishedOnly });

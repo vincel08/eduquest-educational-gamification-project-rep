@@ -3,6 +3,10 @@ import { Button, Stack, TextField, Typography, useTheme } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
+import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
 import { playSound, SOUND_KEYS, syncJeopardyMusic } from '../../utils/soundEffects';
 import {
   AnimatePresence,
@@ -18,10 +22,15 @@ export default function Jeopardy({ gameData, onComplete, xpReward = 50 }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const categories = useMemo(() => gameData?.categories || [], [gameData]);
+  const saved = useRestoredGameProgress();
   const [selected, setSelected] = useState(null);
-  const [answered, setAnswered] = useState({});
-  const [responses, setResponses] = useState([]);
-  const [score, setScore] = useState(0);
+  const [answered, setAnswered] = useState(() =>
+    saved.answered && typeof saved.answered === 'object' ? saved.answered : {},
+  );
+  const [responses, setResponses] = useState(() =>
+    Array.isArray(saved.responses) ? saved.responses : [],
+  );
+  const [score, setScore] = useState(() => Number(saved.score) || 0);
   const [draft, setDraft] = useState('');
   const thinkingTimersRef = useRef([]);
   const boardIntroPlayedRef = useRef(false);
@@ -31,6 +40,10 @@ export default function Jeopardy({ gameData, onComplete, xpReward = 50 }) {
     return { score: percent, answers: { responses } };
   });
 
+  useSaveGameProgress(
+    () => ({ answered, responses, score }),
+    [answered, responses, score],
+  );
   const totalClues = categories.reduce((sum, category) => sum + (category.clues?.length || 0), 0);
   const maxPoints = categories.reduce(
     (sum, category) => sum + (category.clues || []).reduce((inner, clueItem) => inner + (Number(clueItem.points) || 100), 0),

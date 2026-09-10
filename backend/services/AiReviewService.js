@@ -8,6 +8,7 @@ import GameService from './GameService.js';
 import AiUsageService from './AiUsageService.js';
 import AppError from '../utils/AppError.js';
 import { normalizeGameType } from '../utils/gameTypes.js';
+import { getMaxItemsForGameType } from '../utils/gameItemLimits.js';
 import { assertGameDataMatchesType } from '../utils/gameDataValidation.js';
 import {
   assertInputTextSize,
@@ -1114,7 +1115,7 @@ const AiReviewService = {
         ...replacement,
         id: items[index]?.id || replacement.id || tempId('g'),
       };
-      assertGameItemCount(nextItems.length);
+      assertGameItemCount(nextItems.length, current.gameType);
       updates.game = withGameItems(current, nextItems, collection);
     }
 
@@ -1131,18 +1132,19 @@ const AiReviewService = {
     }
 
     if (target === 'more_questions' && draft.quiz) {
+      const addCount = Math.min(Math.max(Number(payload.count) || 3, 1), 10);
       const generated = await AiService.generateContentQuiz({
         topic: draft.quiz.title,
         lessonContent: sourceText || draft.quiz.title,
         difficulty: draft.quiz.difficulty || 'medium',
-        questionCount: Number(payload.count) || 3,
+        questionCount: addCount,
         gradeLevel: course.grade_level || "junior high school",
       });
       updates.quiz = {
         ...draft.quiz,
         questions: [
           ...draft.quiz.questions,
-          ...normalizeQuiz(generated).questions,
+          ...normalizeQuiz(generated).questions.slice(0, addCount),
         ],
       };
     }
@@ -1155,10 +1157,28 @@ const AiReviewService = {
           400,
         );
       }
-      const addCount = Math.min(Math.max(Number(payload.count) || 3, 1), 10);
+      const gameType = current.gameType || 'flashcards';
+      const typeMax = getMaxItemsForGameType(gameType);
+      const remaining = Math.max(0, typeMax - items.length);
+      if (remaining <= 0) {
+        throw new AppError(
+          `This game already has the maximum of ${typeMax} items for ${gameType}.`,
+          400,
+        );
+      }
+      const rawCount = Number(payload.count);
+      const requested =
+        Number.isInteger(rawCount) && rawCount > 0 ? rawCount : 3;
+      const addCount = Math.min(requested, 10, remaining);
+      if (addCount < 1) {
+        throw new AppError(
+          `This game already has the maximum of ${typeMax} items for ${gameType}.`,
+          400,
+        );
+      }
       const generated = await AiService.generateGame({
         topic: draft.game.title,
-        gameType: current.gameType || 'flashcards',
+        gameType,
         gradeLevel: course.grade_level || "junior high school",
         lessonContent: sourceText || draft.game.title,
         itemCount: addCount,
@@ -1172,8 +1192,8 @@ const AiReviewService = {
       if (!extra.length) {
         throw new AppError('AI did not return additional game items. Please try again.', 502);
       }
-      const nextItems = [...items, ...extra];
-      assertGameItemCount(nextItems.length);
+      const nextItems = [...items, ...extra].slice(0, typeMax);
+      assertGameItemCount(nextItems.length, gameType);
       updates.game = withGameItems(current, nextItems, collection);
     }
 

@@ -151,6 +151,7 @@ const GamificationController = {
         studentId: Number(req.body.studentId),
         medalId: Number(req.body.medalId),
         awardedBy: req.user.id,
+        actorRole: req.user.role,
       });
       return successResponse(res, "Medal awarded", data);
     } catch (error) {

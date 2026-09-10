@@ -15,6 +15,10 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import AddIcon from '@mui/icons-material/Add';
 import { formatGameTypeLabel } from '../../utils/gameTypes';
 import { normalizeAnswer, resolveCrosswordClues, syncCrosswordGameData } from '../../utils/crosswordGrid';
+import {
+  countGameItems,
+  getMaxItemsForGameType,
+} from '../../utils/gameItemLimits';
 
 function newId(prefix) {
   return `${prefix}_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
@@ -93,6 +97,8 @@ export default function GameEditor({
 
   const gameType = game.gameType || 'flashcards';
   const gameData = game.gameData || {};
+  const itemMax = getMaxItemsForGameType(gameType);
+  const canAddItem = countGameItems(game) < itemMax;
 
   function updateGame(patch) {
     // gameType is intentionally immutable in the editor to preserve type integrity.
@@ -180,6 +186,7 @@ export default function GameEditor({
           <Button
             startIcon={<AddIcon />}
             variant="outlined"
+            disabled={!canAddItem}
             onClick={() => updateGameData({
               [listKey]: [...list, { id: newId('g'), term: '', definition: '' }],
             })}
@@ -245,6 +252,7 @@ export default function GameEditor({
           <Button
             startIcon={<AddIcon />}
             variant="outlined"
+            disabled={!canAddItem}
             onClick={() => updateGameData({
               [listKey]: [...list, {
                 id: newId('g'),
@@ -361,6 +369,7 @@ export default function GameEditor({
               <Button
                 startIcon={<AddIcon />}
                 variant="outlined"
+                disabled={!canAddItem}
                 onClick={() => updateGameData({
                   stages: [...stages, { id: newId('s'), name: `Stage ${stages.length + 1}`, clue: '', answer: '', hint: '' }],
                 })}
@@ -498,6 +507,7 @@ export default function GameEditor({
                     ))}
                     <Button
                       size="small"
+                      disabled={!canAddItem}
                       onClick={() => {
                         const next = [...categories];
                         next[categoryIndex] = {
@@ -528,12 +538,12 @@ export default function GameEditor({
               multiline
               minRows={3}
               value={words.map((word) => (typeof word === 'string' ? word : word?.word)).filter(Boolean).join(', ')}
-              helperText="Saving regenerates an authoritative grid from these words."
               onChange={(e) => {
                 const nextWords = e.target.value
                   .split(',')
                   .map((word) => word.trim().toUpperCase())
-                  .filter(Boolean);
+                  .filter(Boolean)
+                  .slice(0, itemMax);
                 updateGameData({
                   words: nextWords,
                   grid: undefined,
@@ -541,6 +551,11 @@ export default function GameEditor({
                   gridSize: gameData.gridSize || 10,
                 });
               }}
+              helperText={
+                words.length >= itemMax
+                  ? `Maximum of ${itemMax} words for this game type.`
+                  : 'Saving regenerates an authoritative grid from these words.'
+              }
             />
             <TextField
               label="Grid size"
@@ -583,6 +598,7 @@ export default function GameEditor({
               <Button
                 startIcon={<AddIcon />}
                 variant="outlined"
+                disabled={!canAddItem}
                 onClick={() => commitClueItems([...items, {
                   id: newId('g'),
                   clue: '',

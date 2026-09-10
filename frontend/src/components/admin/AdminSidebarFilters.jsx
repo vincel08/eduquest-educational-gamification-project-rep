@@ -17,6 +17,13 @@ function hideFiltersForPath(pathname) {
   return pathname.startsWith("/admin/badges");
 }
 
+/** Quiz/game banks are subject-scoped, not section-roster scoped. */
+function hideSectionForPath(pathname) {
+  return (
+    pathname.startsWith("/admin/quizzes") || pathname.startsWith("/admin/games")
+  );
+}
+
 export default function AdminSidebarFilters() {
   const location = useLocation();
   const {
@@ -33,9 +40,10 @@ export default function AdminSidebarFilters() {
   const sectionsRevision = useClassSectionsRevision();
   const [sections, setSections] = useState([]);
   const hideFilters = hideFiltersForPath(location.pathname);
+  const hideSection = hideSectionForPath(location.pathname);
 
   useEffect(() => {
-    if (hideFilters) {
+    if (hideFilters || hideSection) {
       setSections([]);
       return undefined;
     }
@@ -63,6 +71,7 @@ export default function AdminSidebarFilters() {
     };
   }, [
     hideFilters,
+    hideSection,
     schoolYear,
     gradeLevel,
     toQueryParams,
@@ -118,21 +127,23 @@ export default function AdminSidebarFilters() {
             </MenuItem>
           ))}
         </TextField>
-        <TextField
-          select
-          size="small"
-          label="Section"
-          value={section}
-          onChange={(event) => setSection(event.target.value)}
-          fullWidth
-        >
-          <MenuItem value="all">All sections</MenuItem>
-          {sections.map((item) => (
-            <MenuItem key={item} value={item}>
-              {item}
-            </MenuItem>
-          ))}
-        </TextField>
+        {hideSection ? null : (
+          <TextField
+            select
+            size="small"
+            label="Section"
+            value={section}
+            onChange={(event) => setSection(event.target.value)}
+            fullWidth
+          >
+            <MenuItem value="all">All sections</MenuItem>
+            {sections.map((item) => (
+              <MenuItem key={item} value={item}>
+                {item}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
       </Stack>
     </Box>
   );

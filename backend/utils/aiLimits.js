@@ -58,13 +58,16 @@ export function assertGameItemRequestCount(value, gameType = 'auto') {
   return n;
 }
 
-export function assertGameItemCount(count) {
-  const max = env.aiLimits.maxGameItems;
+export function assertGameItemCount(count, gameType = null) {
+  const max = gameType
+    ? getMaxItemsForGameType(gameType)
+    : Number(env.aiLimits.maxGameItems) || 50;
   const n = Number(count) || 0;
   if (n > max) {
+    const label = gameType && gameType !== 'auto' ? ` for ${gameType}` : '';
     throw new AppError(
-      `Generated game content exceeded the maximum of ${max} items.`,
-      400
+      `Game content exceeded the maximum of ${max} items${label}.`,
+      400,
     );
   }
   return n;

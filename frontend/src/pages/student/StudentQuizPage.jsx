@@ -29,15 +29,24 @@ import { pickMotivationalMessage } from "../../utils/feedbackMessages";
 import { playSound, SOUND_KEYS, unlockAudio, stopAmbient } from "../../utils/soundEffects";
 import SoundToggle from "../../components/games/SoundToggle";
 import SessionTimerBar from "../../components/games/SessionTimerBar";
-import useSessionCountdown from "../../hooks/useSessionCountdown";
+import useSessionCountdown, {
+  resolveTimeLimitMinutes,
+} from "../../hooks/useSessionCountdown";
 import { useAuth } from "../../contexts/AuthContext";
 import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 import { useRewards } from "../../contexts/RewardsContext";
+import {
+  clearPlaySession,
+  playSessionKey,
+  readPlaySession,
+  writePlaySession,
+} from "../../utils/playSessionStorage";
+import { useRegisterLeavePlayGuard } from "../../contexts/LeavePlayGuardContext";
 
 export default function StudentQuizPage() {
   const { quizId } = useParams();
   const navigate = useNavigate();
-  const { updateProfile } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { notifyReward } = useRewards();
   const [quiz, setQuiz] = useState(null);
   const [motivation, setMotivation] = useState("");
@@ -51,6 +60,7 @@ export default function StudentQuizPage() {
   const [releasingGrade, setReleasingGrade] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [startedAt, setStartedAt] = useState(null);
+  const [deadlineAt, setDeadlineAt] = useState(null);
   const [reviewMode, setReviewMode] = useState(false);
   const [attemptMeta, setAttemptMeta] = useState({
     attemptsUsed: 0,
@@ -64,14 +74,15 @@ export default function StudentQuizPage() {
   });
   const submitOnceRef = useRef(false);
   const handleSubmitRef = useRef(null);
+  const storageKey =
+    user?.id && quizId ? playSessionKey("quiz", user.id, quizId) : null;
 
   useEffect(() => () => stopAmbient(), []);
 
-  function applyStartPayload(data) {
+  function applyStartPayload(data, { forceFresh = false } = {}) {
     setQuiz(data.quiz);
     setQuestions(data.questions);
     setAttemptId(data.attempt.id);
-    setStartedAt(Date.now());
     setReviewMode(false);
     submitOnceRef.current = false;
     setAttemptMeta({
@@ -84,6 +95,45 @@ export default function StudentQuizPage() {
       hasOverride: Boolean(data.hasOverride),
       extraAttempts: Number(data.extraAttempts || 0),
     });
+
+    const limitMinutes = resolveTimeLimitMinutes(
+      data.quiz?.time_limit_minutes,
+      15,
+    );
+    const saved =
+      !forceFresh && storageKey ? readPlaySession(storageKey) : null;
+    const sameAttempt =
+      saved && Number(saved.attemptId) === Number(data.attempt.id);
+
+    if (sameAttempt) {
+      setAnswers(
+        saved.answers && typeof saved.answers === "object" ? saved.answers : {},
+      );
+      setCurrentIndex(
+        Math.max(
+          0,
+          Math.min(
+            Number(saved.currentIndex) || 0,
+            Math.max(0, (data.questions?.length || 1) - 1),
+          ),
+        ),
+      );
+      setStartedAt(Number(saved.startedAt) || Date.now());
+      const restoredDeadline = Number(saved.deadlineAt);
+      setDeadlineAt(
+        Number.isFinite(restoredDeadline) && restoredDeadline > 0
+          ? restoredDeadline
+          : Date.now() + limitMinutes * 60 * 1000,
+      );
+      return;
+    }
+
+    if (storageKey) clearPlaySession(storageKey);
+    const now = Date.now();
+    setAnswers({});
+    setCurrentIndex(0);
+    setStartedAt(now);
+    setDeadlineAt(now + limitMinutes * 60 * 1000);
   }
 
   useEffect(() => {
@@ -145,8 +195,12 @@ export default function StudentQuizPage() {
     });
   }
 
-  async function handleSubmit() {
-    if (submitting || result) return;
+  async function handleSubmit(options = {}) {
+    const abandoned = Boolean(options?.abandoned);
+    if (result) return true;
+    if (submitting) {
+      throw new Error('Submit already in progress');
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -161,8 +215,9 @@ export default function StudentQuizPage() {
       });
       const response = await quizService.submit(attemptId, payload);
       const data = response.data.data;
+      if (storageKey) clearPlaySession(storageKey);
       const timeTakenMs = startedAt ? Date.now() - startedAt : null;
-      setResult({ ...data, timeTakenMs });
+      setResult({ ...data, timeTakenMs, abandoned: Boolean(abandoned) });
       setAttemptMeta({
         attemptsUsed: data.attemptsUsed ?? attemptMeta.attemptsUsed + 1,
         attemptsRemaining: data.attemptsRemaining ?? 0,
@@ -191,13 +246,38 @@ export default function StudentQuizPage() {
         celebrateWin: Boolean(data.isPassed),
       });
       if (data.isPassed && data.perfect) celebrateAchievement();
+      return true;
     } catch (err) {
       setError(getErrorMessage(err));
+      throw err;
     } finally {
       setSubmitting(false);
     }
   }
   handleSubmitRef.current = handleSubmit;
+
+  useEffect(() => {
+    if (!storageKey || !attemptId || result || reviewMode || loading || !deadlineAt) {
+      return;
+    }
+    writePlaySession(storageKey, {
+      attemptId,
+      answers,
+      currentIndex,
+      startedAt,
+      deadlineAt,
+    });
+  }, [
+    storageKey,
+    attemptId,
+    answers,
+    currentIndex,
+    startedAt,
+    deadlineAt,
+    result,
+    reviewMode,
+    loading,
+  ]);
 
   async function handleKeepScore() {
     setReleasingGrade(true);
@@ -346,14 +426,34 @@ export default function StudentQuizPage() {
   const quizActive = Boolean(
     quiz && questions.length && !result && !reviewMode && !startBlocked && !loading,
   );
+
+  useRegisterLeavePlayGuard(quizActive && Boolean(attemptId), {
+    activityLabel: "this quiz",
+    exitPath: "/student/quizzes",
+    onAbandon: async () => {
+      if (submitOnceRef.current) return;
+      submitOnceRef.current = true;
+      try {
+        const ok = await handleSubmitRef.current?.({ abandoned: true });
+        if (ok !== true) {
+          throw new Error("Quiz was not submitted");
+        }
+      } catch (err) {
+        submitOnceRef.current = false;
+        throw err;
+      }
+    },
+  });
+
   const countdown = useSessionCountdown(quiz?.time_limit_minutes, {
-    enabled: quizActive && !submitting,
+    enabled: quizActive && !submitting && Boolean(deadlineAt),
     onExpire: () => {
       if (submitOnceRef.current) return;
       submitOnceRef.current = true;
       handleSubmitRef.current?.();
     },
     fallbackMinutes: 15,
+    deadlineAt,
   });
 
   if (loading) return <LoadingScreen />;
@@ -581,6 +681,7 @@ export default function StudentQuizPage() {
                 color={result.isPassed ? "secondary" : "primary"}
                 disabled={releasingGrade}
                 onClick={() => {
+                  if (storageKey) clearPlaySession(storageKey);
                   setResult(null);
                   setReviewMode(false);
                   setAnswers({});
@@ -589,7 +690,9 @@ export default function StudentQuizPage() {
                   setLoading(true);
                   quizService
                     .start(quizId)
-                    .then((response) => applyStartPayload(response.data.data))
+                    .then((response) =>
+                      applyStartPayload(response.data.data, { forceFresh: true }),
+                    )
                     .catch((err) => setError(getErrorMessage(err)))
                     .finally(() => setLoading(false));
                 }}
@@ -757,7 +860,7 @@ export default function StudentQuizPage() {
                 color="success"
                 size="large"
                 disabled={submitting}
-                onClick={handleSubmit}
+                onClick={() => handleSubmit()}
               >
                 {submitting ? "Submitting..." : "Submit Quiz"}
               </Button>

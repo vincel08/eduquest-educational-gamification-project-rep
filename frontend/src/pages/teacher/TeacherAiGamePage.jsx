@@ -26,7 +26,7 @@ import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
 import LockIcon from "@mui/icons-material/Lock";
 import ExploreIcon from "@mui/icons-material/Explore";
 import ExtensionIcon from "@mui/icons-material/Extension";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
 import AiGeneratedReviewPanel from "../../components/ai-review/AiGeneratedReviewPanel";
@@ -123,6 +123,7 @@ const GAME_TYPE_OPTIONS = [
 
 export default function TeacherAiGamePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { schoolYear, gradeLevel } = useTeacherFilters();
   const [courses, setCourses] = useState([]);
   const [lessons, setLessons] = useState([]);
@@ -155,6 +156,19 @@ export default function TeacherAiGamePage() {
             (course) => String(course.id) === String(prev.courseId),
           );
           if (stillValid) return prev;
+
+          const presetCourseId = searchParams.get("courseId");
+          if (
+            presetCourseId &&
+            list.some((course) => String(course.id) === String(presetCourseId))
+          ) {
+            return {
+              ...prev,
+              courseId: String(presetCourseId),
+              lessonId: "",
+            };
+          }
+
           return {
             ...prev,
             courseId: list[0] ? String(list[0].id) : "",
@@ -163,7 +177,7 @@ export default function TeacherAiGamePage() {
         });
       })
       .catch((err) => setError(getErrorMessage(err)));
-  }, [schoolYear, gradeLevel]);
+  }, [schoolYear, gradeLevel, searchParams]);
 
   useEffect(() => {
     if (!form.courseId) {

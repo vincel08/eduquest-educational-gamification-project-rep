@@ -6,6 +6,10 @@ import { firstNonEmptyList } from '../../utils/gameDataLists';
 import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
+import {
   AnimatePresence,
   MotionBox,
   MotionButton,
@@ -19,18 +23,27 @@ export default function SpinWheel({ gameData, onComplete, xpReward = 50 }) {
     () => firstNonEmptyList(gameData?.items, gameData?.rounds),
     [gameData],
   );
-  const [index, setIndex] = useState(null);
-  const [score, setScore] = useState(0);
-  const [answered, setAnswered] = useState(0);
-  const [roundsPlayed, setRoundsPlayed] = useState([]);
+  const saved = useRestoredGameProgress();
+  const [index, setIndex] = useState(() =>
+    saved.index == null ? null : Number(saved.index),
+  );
+  const [score, setScore] = useState(() => Number(saved.score) || 0);
+  const [answered, setAnswered] = useState(() => Number(saved.answered) || 0);
+  const [roundsPlayed, setRoundsPlayed] = useState(() =>
+    Array.isArray(saved.roundsPlayed) ? saved.roundsPlayed : [],
+  );
   const [spinning, setSpinning] = useState(false);
-  const [rotation, setRotation] = useState(0);
+  const [rotation, setRotation] = useState(() => Number(saved.rotation) || 0);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
   useRegisterTimeoutSubmit(() => ({
     score,
     answers: { rounds: roundsPlayed },
   }));
 
+  useSaveGameProgress(
+    () => ({ index, score, answered, roundsPlayed, rotation }),
+    [index, score, answered, roundsPlayed, rotation],
+  );
   const totalRounds = Math.min(items.length, 5);
   const perSpinXp = Math.max(5, Math.round(Number(xpReward) / Math.max(totalRounds, 1)));
   const points = Math.round(100 / Math.max(totalRounds, 1));

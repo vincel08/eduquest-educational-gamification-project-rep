@@ -5,6 +5,10 @@ import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { firstNonEmptyList } from '../../utils/gameDataLists';
 import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
+import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
 import { MotionBox } from './GameMotion';
 
 function shuffle(list) {
@@ -53,24 +57,46 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
     () => firstNonEmptyList(gameData?.items, gameData?.pairs),
     [gameData],
   );
-  const targets = useMemo(
-    () =>
-      shuffle(
-        items.map((item, index) => ({
-          id: `target-${index}`,
-          definition: itemDefinition(item),
-          sourceIndex: index,
-        })),
-      ),
-    [items],
-  );
+  const saved = useRestoredGameProgress();
+  const targets = useMemo(() => {
+    if (
+      Array.isArray(saved.targets) &&
+      saved.targets.length === items.length &&
+      items.length > 0
+    ) {
+      return saved.targets;
+    }
+    return shuffle(
+      items.map((item, index) => ({
+        id: `target-${index}`,
+        definition: itemDefinition(item),
+        sourceIndex: index,
+      })),
+    );
+  }, [items, saved.targets]);
   const targetsById = useMemo(
     () => new Map(targets.map((target) => [target.id, target])),
     [targets],
   );
 
   // termIndex → targetId (stable even when definitions duplicate)
-  const [matches, setMatches] = useState({});
+  const [matches, setMatches] = useState(() => {
+    if (
+      !saved.matches ||
+      typeof saved.matches !== 'object' ||
+      !Array.isArray(saved.targets) ||
+      saved.targets.length !== items.length
+    ) {
+      return {};
+    }
+    const validIds = new Set(saved.targets.map((target) => target.id));
+    const next = {};
+    Object.entries(saved.matches).forEach(([termIndex, targetId]) => {
+      if (validIds.has(targetId)) next[termIndex] = targetId;
+    });
+    return next;
+  });
+
   const [draggingIndex, setDraggingIndex] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [justFilled, setJustFilled] = useState(null);
@@ -87,6 +113,10 @@ export default function DragDrop({ gameData, onComplete, xpReward = 50 }) {
     };
   });
 
+  useSaveGameProgress(
+    () => ({ targets, matches }),
+    [targets, matches],
+  );
   if (!items.length) {
     return (
       <Typography color="text.secondary">No drag-and-drop pairs available.</Typography>

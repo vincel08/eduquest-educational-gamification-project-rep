@@ -6,6 +6,10 @@ import { firstNonEmptyList } from '../../utils/gameDataLists';
 import { playSound, SOUND_KEYS, syncQuizShowMusic } from '../../utils/soundEffects';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
+import {
   AnimatePresence,
   MotionBox,
   MotionButton,
@@ -32,21 +36,48 @@ export default function QuizShow({ gameData, onComplete, xpReward = 50 }) {
     }));
   }, [gameData]);
 
-  const [index, setIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [choices, setChoices] = useState([]);
+  const saved = useRestoredGameProgress();
+  const restoredChoices = Array.isArray(saved.choices) ? saved.choices : [];
+  const [choices, setChoices] = useState(() => restoredChoices);
+  const [index, setIndex] = useState(() => {
+    const maxIdx = Math.max(0, rounds.length - 1);
+    const fromSaved = Number(saved.index);
+    const aligned =
+      Number.isFinite(fromSaved) && fromSaved === restoredChoices.length
+        ? fromSaved
+        : restoredChoices.length;
+    return Math.max(0, Math.min(aligned, maxIdx));
+  });
+  const [score, setScore] = useState(() => Number(saved.score) || 0);
   const [locked, setLocked] = useState(false);
   const [pressed, setPressed] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
   const resolvedRef = useRef(false);
   const introPlayedRef = useRef(false);
-  const stateRef = useRef({ score: 0, choices: [], index: 0 });
+  const stateRef = useRef({
+    score: Number(saved.score) || 0,
+    choices: restoredChoices,
+    index: Math.max(
+      0,
+      Math.min(
+        Number.isFinite(Number(saved.index)) &&
+          Number(saved.index) === restoredChoices.length
+          ? Number(saved.index)
+          : restoredChoices.length,
+        Math.max(0, rounds.length - 1),
+      ),
+    ),
+  });
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
   useRegisterTimeoutSubmit(() => ({
     score,
     answers: { choices },
   }));
 
+  useSaveGameProgress(
+    () => ({ index, score, choices }),
+    [index, score, choices],
+  );
   useEffect(() => {
     stateRef.current = { score, choices, index };
   }, [score, choices, index]);
@@ -173,9 +204,10 @@ export default function QuizShow({ gameData, onComplete, xpReward = 50 }) {
           useFlexGap
           flexWrap="wrap"
           spacing={1}
+          sx={{ width: '100%' }}
         >
           <Typography variant="body2" color="text.secondary" fontWeight={700}>
-            Question {index + 1} / {rounds.length}
+            Question {index + 1} of {rounds.length} · Score {score}
           </Typography>
           <Box
             sx={{
@@ -195,9 +227,6 @@ export default function QuizShow({ gameData, onComplete, xpReward = 50 }) {
           >
             {secondsLeft}s
           </Box>
-          <Typography variant="body2" color="text.secondary" fontWeight={700}>
-            Score {score}
-          </Typography>
         </Stack>
         <LinearProgress
           variant="determinate"

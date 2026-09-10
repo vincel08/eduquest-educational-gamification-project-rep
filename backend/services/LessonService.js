@@ -171,6 +171,14 @@ const LessonService = {
     await CourseService.assertStudentCourseAccess(lesson.course_id, studentId);
 
     const materials = await LessonModel.getMaterials(lessonId);
+    const hasContent = String(lesson.content || "").trim().length > 0;
+    if (!hasContent && materials.length === 0) {
+      throw new AppError(
+        "This lesson has no content or materials yet. Ask your teacher to add some before completing it.",
+        400,
+      );
+    }
+
     if (materials.length > 0) {
       const views = await LessonModel.countMaterialViewsForLesson(
         lessonId,

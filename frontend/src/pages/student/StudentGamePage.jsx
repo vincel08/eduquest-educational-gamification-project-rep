@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import { useNavigate, useParams, Link as RouterLink } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
@@ -14,11 +14,16 @@ import { playSound, SOUND_KEYS, stopAmbient } from "../../utils/soundEffects";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRewards } from "../../contexts/RewardsContext";
 import { formatGameTypeLabel } from "../../utils/gameTypes";
+import {
+  clearPlaySession,
+  playSessionKey,
+} from "../../utils/playSessionStorage";
+import { useRegisterLeavePlayGuard } from "../../contexts/LeavePlayGuardContext";
 
 export default function StudentGamePage() {
   const { gameId } = useParams();
   const navigate = useNavigate();
-  const { updateProfile } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { notifyReward } = useRewards();
   const [game, setGame] = useState(null);
   const [finished, setFinished] = useState(false);
@@ -37,7 +42,11 @@ export default function StudentGamePage() {
     gradeReleased: false,
     unavailable: false,
   });
+  const snapshotRef = useRef(null);
+  const finishGameRef = useRef(null);
 
+  const persistKey =
+    user?.id && gameId ? playSessionKey("game", user.id, gameId) : null;
   useEffect(() => () => stopAmbient(), []);
 
   useEffect(() => {
@@ -96,7 +105,7 @@ export default function StudentGamePage() {
   }, [gameId]);
 
   async function finishGame(resultPayload) {
-    if (finished) return;
+    if (finished) return true;
     setFinished(true);
 
     const clientScore =
@@ -112,6 +121,7 @@ export default function StudentGamePage() {
         answers,
         durationSeconds: resultPayload?.durationSeconds ?? 60,
       });
+      if (persistKey) clearPlaySession(persistKey);
       const payload = response.data.data;
       if (payload.xpAward?.profile) {
         updateProfile(payload.xpAward.profile);
@@ -164,11 +174,42 @@ export default function StudentGamePage() {
         passed,
         releasedToGradebook: Boolean(payload.releasedToGradebook),
       });
+      return true;
     } catch (err) {
       setFinished(false);
       setError(getErrorMessage(err));
+      throw err;
     }
   }
+  finishGameRef.current = finishGame;
+
+  const blocked = Boolean(
+    attemptMeta.unavailable ||
+      attemptMeta.outOfAttempts ||
+      attemptMeta.gradeReleased,
+  );
+  const playActive = Boolean(game && !loading && !finished && !blocked);
+
+  useRegisterLeavePlayGuard(playActive, {
+    activityLabel: "this game",
+    exitPath: "/student/games",
+    onAbandon: async () => {
+      const payload = snapshotRef.current?.() || {
+        score: 0,
+        answers: { abandoned: true },
+      };
+      const ok = await finishGameRef.current?.({
+        ...payload,
+        answers: {
+          ...(payload.answers || {}),
+          abandoned: true,
+        },
+      });
+      if (ok !== true) {
+        throw new Error("Game was not submitted");
+      }
+    },
+  });
 
   function playAgain() {
     if (
@@ -180,6 +221,7 @@ export default function StudentGamePage() {
     ) {
       return;
     }
+    if (persistKey) clearPlaySession(persistKey);
     setFinished(false);
     setResult(null);
     setError("");
@@ -223,12 +265,6 @@ export default function StudentGamePage() {
       </Stack>
     );
   }
-
-  const blocked = Boolean(
-    attemptMeta.unavailable ||
-      attemptMeta.outOfAttempts ||
-      attemptMeta.gradeReleased,
-  );
 
   return (
     <>
@@ -298,6 +334,11 @@ export default function StudentGamePage() {
             gameData={game.game_data}
             xpReward={game.xp_reward}
             timeLimitMinutes={Number(game.estimated_time) || null}
+            persistKey={persistKey}
+            contentStamp={
+              game.updated_at || game.updatedAt || `${game.id}:${game.game_type}`
+            }
+            snapshotRef={snapshotRef}
             onComplete={finishGame}
           />
         ) : result ? (

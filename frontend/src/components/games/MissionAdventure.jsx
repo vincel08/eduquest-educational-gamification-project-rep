@@ -9,6 +9,10 @@ import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { playSound, SOUND_KEYS, syncMissionAdventureMusic } from '../../utils/soundEffects';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
+import {
   AnimatePresence,
   MotionBox,
   MotionButton,
@@ -46,12 +50,24 @@ export default function MissionAdventure({ gameData, onComplete, xpReward = 50 }
   const briefing = String(gameData?.briefing || gameData?.story || '').trim()
     || 'You are on a learning expedition. Follow the map, answer each challenge, and protect your energy. Reach the final flag to complete the mission.';
 
-  const [started, setStarted] = useState(false);
-  const [index, setIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [choices, setChoices] = useState([]);
-  const [energy, setEnergy] = useState(STARTING_ENERGY);
-  const [failed, setFailed] = useState(false);
+  const saved = useRestoredGameProgress();
+  const restoredChoices = Array.isArray(saved.choices) ? saved.choices : [];
+  const [started, setStarted] = useState(() => Boolean(saved.started));
+  const [index, setIndex] = useState(() => {
+    const maxIdx = Math.max(0, missions.length - 1);
+    const fromSaved = Number(saved.index);
+    const aligned =
+      Number.isFinite(fromSaved) && fromSaved === restoredChoices.length
+        ? fromSaved
+        : restoredChoices.length;
+    return Math.max(0, Math.min(aligned, maxIdx));
+  });
+  const [score, setScore] = useState(() => Number(saved.score) || 0);
+  const [choices, setChoices] = useState(() => restoredChoices);
+  const [energy, setEnergy] = useState(() =>
+    Number.isFinite(Number(saved.energy)) ? Number(saved.energy) : STARTING_ENERGY,
+  );
+  const [failed, setFailed] = useState(() => Boolean(saved.failed));
   const [awaitingChoice, setAwaitingChoice] = useState(false);
   const choiceTimerRef = useRef(null);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
@@ -60,6 +76,10 @@ export default function MissionAdventure({ gameData, onComplete, xpReward = 50 }
     answers: { choices, energyLeft: energy, failed, completed: false },
   }));
 
+  useSaveGameProgress(
+    () => ({ started, index, score, choices, energy, failed }),
+    [started, index, score, choices, energy, failed],
+  );
   useEffect(() => {
     if (!missions.length) return undefined;
 

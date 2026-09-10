@@ -112,11 +112,15 @@ const GameModel = {
               c.title AS course_title,
               c.subject,
               c.grade_level,
-              c.school_year
+              c.school_year,
+              c.teacher_id,
+              u.first_name AS teacher_first_name,
+              u.last_name AS teacher_last_name
        FROM educational_games g
        INNER JOIN courses c ON c.id = g.course_id
+       LEFT JOIN users u ON u.id = c.teacher_id
        ${where}
-       ORDER BY g.created_at DESC`,
+       ORDER BY COALESCE(g.updated_at, g.created_at) DESC, g.id DESC`,
       params,
     );
 
