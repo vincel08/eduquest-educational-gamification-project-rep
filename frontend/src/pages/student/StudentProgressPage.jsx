@@ -535,7 +535,7 @@ export default function StudentProgressPage() {
           <Paper sx={{ p: { xs: 2, md: 2.5 }, mb: 3 }}>
             <SectionHeader
               title="Quiz performance"
-              subtitle="Attempts, pass rate, and average score"
+              subtitle="Attempts, pass rate, and average score (green ≥70%, amber ≥50%)"
               icon={<QuizIcon color="secondary" />}
               actionLabel="All quizzes"
               actionTo="/student/quizzes"
@@ -563,7 +563,15 @@ export default function StudentProgressPage() {
                 <Typography variant="caption" color="text.secondary">
                   Avg score
                 </Typography>
-                <Typography fontWeight={900}>
+                <Typography fontWeight={900} sx={{
+                  color: averageQuizScore >= 70
+                    ? "#10B981"
+                    : averageQuizScore >= 50
+                      ? "#F59E0B"
+                      : averageQuizScore > 0
+                        ? "#F97316"
+                        : "text.primary",
+                }}>
                   {averageQuizScore ? `${averageQuizScore.toFixed(0)}%` : "—"}
                 </Typography>
               </Grid>
