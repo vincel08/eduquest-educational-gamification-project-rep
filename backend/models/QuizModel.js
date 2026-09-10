@@ -89,11 +89,15 @@ const QuizModel = {
               c.subject AS course_subject,
               c.grade_level,
               c.school_year,
+              c.teacher_id,
+              u.first_name AS teacher_first_name,
+              u.last_name AS teacher_last_name,
               (SELECT COUNT(*) FROM quiz_questions qq WHERE qq.quiz_id = q.id) AS question_count
        FROM quizzes q
        INNER JOIN courses c ON c.id = q.course_id
+       LEFT JOIN users u ON u.id = c.teacher_id
        ${where}
-       ORDER BY q.created_at DESC`,
+       ORDER BY COALESCE(q.updated_at, q.created_at) DESC, q.id DESC`,
       params,
     );
   },

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -26,6 +26,10 @@ import GameEditor from './GameEditor';
 import { validateGameDataClient } from '../../utils/gameDataValidation';
 import { formatGameTypeLabel } from '../../utils/gameTypes';
 import { gameDataContentKey, quizContentKey } from '../../utils/gameDataLists';
+import {
+  countGameItems,
+  getMaxItemsForGameType,
+} from '../../utils/gameItemLimits';
 import ObjectivesEditor from './ObjectivesEditor';
 import SummaryEditor from './SummaryEditor';
 import aiReviewService from '../../services/aiReviewService';
@@ -39,17 +43,14 @@ function buildTabs(draft, mode) {
   if (mode === 'game' || mode === 'content') {
     if (draft.game || mode === 'game') tabs.push({ key: 'game', label: 'Educational Game' });
   }
-  if (mode === 'content' || draft.learningObjectives?.length) {
+  // Objectives/summary are AI Content outputs only — not shown on quiz/game review.
+  if (mode === 'content') {
     tabs.push({ key: 'objectives', label: 'Learning Objectives' });
-  }
-  if (mode === 'content' || draft.lessonSummary) {
     tabs.push({ key: 'summary', label: 'Lesson Summary' });
   }
   if (!tabs.length) {
     if (draft.quiz) tabs.push({ key: 'quiz', label: 'Quiz' });
     if (draft.game) tabs.push({ key: 'game', label: 'Educational Game' });
-    tabs.push({ key: 'objectives', label: 'Learning Objectives' });
-    tabs.push({ key: 'summary', label: 'Lesson Summary' });
   }
   return tabs;
 }
@@ -72,12 +73,30 @@ export default function AiGeneratedReviewPanel({
   const [hasPlayedGamePreview, setHasPlayedGamePreview] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(0);
   const [selectedGameItem, setSelectedGameItem] = useState(0);
-  const [aiAction, setAiAction] = useState('improve_writing');
+  const [moreQuestionCount, setMoreQuestionCount] = useState(3);
+  const [moreGameItemCount, setMoreGameItemCount] = useState(3);
 
   const draftId = draft?.id;
   const canEdit = draft?.status === 'draft';
   const tabs = useMemo(() => buildTabs(draft || {}, mode), [draft, mode]);
   const activeKey = tabs[tab]?.key || tabs[0]?.key;
+
+  const gameItemStats = useMemo(() => {
+    if (!draft?.game) return null;
+    const current = countGameItems(draft.game);
+    const max = getMaxItemsForGameType(draft.game.gameType);
+    const remaining = Math.max(0, max - current);
+    const isJeopardy = String(draft.game.gameType || '').toLowerCase() === 'jeopardy';
+    return { current, max, remaining, isJeopardy };
+  }, [draft?.game]);
+
+  useEffect(() => {
+    if (!gameItemStats) return;
+    if (gameItemStats.remaining <= 0) return;
+    if (moreGameItemCount > gameItemStats.remaining) {
+      setMoreGameItemCount(gameItemStats.remaining);
+    }
+  }, [gameItemStats, moreGameItemCount]);
 
   const quizPreviewQuestions = useMemo(() => {
     if (!draft?.quiz?.questions) return [];
@@ -194,33 +213,33 @@ export default function AiGeneratedReviewPanel({
   }
 
   async function handleRegenerate(target) {
+    if (target === 'more_game_items') {
+      if (!gameItemStats || gameItemStats.remaining <= 0 || gameItemStats.isJeopardy) {
+        setError(
+          gameItemStats?.isJeopardy
+            ? 'Generate More Game Items is not supported for Jeopardy. Use Regenerate All instead.'
+            : `This game already has the maximum of ${gameItemStats?.max || 0} items.`,
+        );
+        return;
+      }
+    }
     await runAction(async () => {
       await persistDraft();
       return aiReviewService.regenerate(draftId, {
         target,
         questionIndex: selectedQuestion,
         itemIndex: selectedGameItem,
-        count: 3,
+        count:
+          target === 'more_questions'
+            ? moreQuestionCount
+            : target === 'more_game_items'
+              ? Math.min(
+                  moreGameItemCount,
+                  Math.max(gameItemStats?.remaining || 0, 0),
+                )
+              : undefined,
       });
     }, 'AI regeneration complete.');
-  }
-
-  async function handleTransform() {
-    const sectionMap = {
-      quiz: 'quiz_description',
-      game: 'selected_game_item',
-      objectives: 'objectives',
-      summary: 'summary',
-    };
-    await runAction(async () => {
-      await persistDraft();
-      return aiReviewService.transform(draftId, {
-        action: aiAction,
-        section: sectionMap[activeKey] || 'summary',
-        questionIndex: selectedQuestion,
-        itemIndex: selectedGameItem,
-      });
-    }, 'AI writing update applied.');
   }
 
   if (!draft) return null;
@@ -402,16 +421,30 @@ export default function AiGeneratedReviewPanel({
       <Paper sx={{ p: 2 }}>
         <Typography variant="subtitle1" fontWeight={700} gutterBottom>AI Actions</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Click a game item or question to select it before regenerating or applying a writing action.
-          Generation can take a few minutes on live.
+          Click a game item or question to select it before regenerating.
         </Typography>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} useFlexGap flexWrap="wrap">
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} useFlexGap flexWrap="wrap" alignItems={{ md: 'center' }}>
           <Button disabled={!canEdit || busy} onClick={() => handleRegenerate('all')}>Regenerate All</Button>
           {draft.quiz ? (
             <>
               <Button disabled={!canEdit || busy} onClick={() => handleRegenerate('selected_question')}>
                 Regenerate Selected Question
               </Button>
+              <TextField
+                select
+                size="small"
+                label="New questions"
+                value={moreQuestionCount}
+                onChange={(e) => setMoreQuestionCount(Number(e.target.value))}
+                sx={{ minWidth: 140 }}
+                disabled={!canEdit || busy}
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                  <MenuItem key={n} value={n}>
+                    {n}
+                  </MenuItem>
+                ))}
+              </TextField>
               <Button disabled={!canEdit || busy} onClick={() => handleRegenerate('more_questions')}>
                 Generate More Questions
               </Button>
@@ -422,30 +455,41 @@ export default function AiGeneratedReviewPanel({
               <Button disabled={!canEdit || busy} onClick={() => handleRegenerate('selected_game_item')}>
                 Regenerate Selected Game Item
               </Button>
-              <Button disabled={!canEdit || busy} onClick={() => handleRegenerate('more_game_items')}>
-                Generate More Game Items
-              </Button>
+              {gameItemStats?.isJeopardy ? null : gameItemStats?.remaining > 0 ? (
+                <>
+                  <TextField
+                    select
+                    size="small"
+                    label="New items"
+                    value={Math.min(moreGameItemCount, gameItemStats.remaining)}
+                    onChange={(e) => setMoreGameItemCount(Number(e.target.value))}
+                    sx={{ minWidth: 140 }}
+                    disabled={!canEdit || busy}
+                    helperText={`${gameItemStats.current}/${gameItemStats.max} items`}
+                  >
+                    {Array.from(
+                      { length: Math.min(gameItemStats.remaining, 10) },
+                      (_, index) => index + 1,
+                    ).map((n) => (
+                      <MenuItem key={n} value={n}>
+                        {n}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <Button
+                    disabled={!canEdit || busy}
+                    onClick={() => handleRegenerate('more_game_items')}
+                  >
+                    Generate More Game Items
+                  </Button>
+                </>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                  Item limit reached ({gameItemStats?.current}/{gameItemStats?.max}).
+                </Typography>
+              )}
             </>
           ) : null}
-          <TextField
-            select
-            size="small"
-            label="Writing action"
-            value={aiAction}
-            onChange={(e) => setAiAction(e.target.value)}
-            sx={{ minWidth: 220 }}
-            disabled={!canEdit || busy}
-          >
-            <MenuItem value="improve_writing">Improve Writing</MenuItem>
-            <MenuItem value="shorten">Shorten</MenuItem>
-            <MenuItem value="expand">Expand</MenuItem>
-            <MenuItem value="simplify">Simplify</MenuItem>
-            <MenuItem value="make_more_challenging">Make More Challenging</MenuItem>
-            <MenuItem value="make_easier">Make Easier</MenuItem>
-          </TextField>
-          <Button disabled={!canEdit || busy} variant="outlined" onClick={handleTransform}>
-            Apply Writing Action
-          </Button>
           {busy ? <CircularProgress size={28} /> : null}
         </Stack>
       </Paper>

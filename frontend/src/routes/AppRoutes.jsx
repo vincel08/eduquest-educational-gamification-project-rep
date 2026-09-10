@@ -37,6 +37,8 @@ import TeacherSectionsPage from "../pages/teacher/TeacherSectionsPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminCoursesPage from "../pages/admin/AdminCoursesPage";
+import AdminQuizzesPage from "../pages/admin/AdminQuizzesPage";
+import AdminGamesPage from "../pages/admin/AdminGamesPage";
 import AdminLeaderboardPage from "../pages/admin/AdminLeaderboardPage";
 import AdminBadgesPage from "../pages/admin/AdminBadgesPage";
 import AdminSectionsPage from "../pages/admin/AdminSectionsPage";
@@ -125,6 +127,8 @@ export default function AppRoutes() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="courses" element={<AdminCoursesPage />} />
+          <Route path="quizzes" element={<AdminQuizzesPage />} />
+          <Route path="games" element={<AdminGamesPage />} />
           <Route path="leaderboard" element={<AdminLeaderboardPage />} />
           <Route path="badges" element={<AdminBadgesPage />} />
           <Route path="sections" element={<AdminSectionsPage />} />

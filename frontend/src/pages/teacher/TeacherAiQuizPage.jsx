@@ -155,7 +155,7 @@ export default function TeacherAiQuizPage() {
             label="Lesson (optional)"
             value={form.lessonId}
             onChange={(e) => setForm((p) => ({ ...p, lessonId: e.target.value }))}
-            helperText="Linking a lesson also generates objectives and summary for review."
+            helperText="Optional. Links the quiz to an existing lesson for context."
           >
             <MenuItem value="">None</MenuItem>
             {lessons.map((lesson) => (

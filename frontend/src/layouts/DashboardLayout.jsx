@@ -63,7 +63,18 @@ export default function DashboardLayout({
         </Typography>
       </Box>
       <Divider />
-      <List sx={{ px: 1.5, py: 1.5, flex: 1, overflowY: "auto", minHeight: 0 }}>
+      <List
+        sx={{
+          px: 1.5,
+          py: 1.5,
+          flex: 1,
+          overflowY: "auto",
+          minHeight: 0,
+          // Keep nav scroll away from the active pill edge.
+          scrollbarGutter: "stable",
+          mr: 0.25,
+        }}
+      >
         {navItems.map((item) => {
           const selected =
             location.pathname === item.path ||
