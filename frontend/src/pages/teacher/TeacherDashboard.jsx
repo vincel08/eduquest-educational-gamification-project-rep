@@ -64,6 +64,42 @@ function scoreTextSx(score) {
   };
 }
 
+function scoreLegend() {
+  return (
+    <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Typography variant="body2" color="text.secondary">
+        Average score (%)
+      </Typography>
+      <Stack direction="row" spacing={0.75} alignItems="center">
+        <Box
+          sx={{
+            width: 14,
+            height: 14,
+            borderRadius: 0,
+            bgcolor: "#10B981",
+          }}
+        />
+        <Typography variant="caption" color="text.secondary">
+          ≥70%
+        </Typography>
+      </Stack>
+      <Stack direction="row" spacing={0.75} alignItems="center">
+        <Box
+          sx={{
+            width: 14,
+            height: 14,
+            borderRadius: 0,
+            bgcolor: "#F59E0B",
+          }}
+        />
+        <Typography variant="caption" color="text.secondary">
+          ≥50%
+        </Typography>
+      </Stack>
+    </Stack>
+  );
+}
+
 export default function TeacherDashboard() {
   const theme = useTheme();
   const { toQueryParams, schoolYear, gradeLevel, section } = useTeacherFilters();
@@ -279,7 +315,7 @@ export default function TeacherDashboard() {
           <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2 }}>
             <SectionHeader
               title="Quiz Performance"
-              subtitle="Average score (%) — green ≥70%, amber ≥50%"
+              subtitle={scoreLegend()}
             />
             {quizRows.length ? (
               <Box sx={{ width: "100%", height: chartHeight, mt: 1 }}>

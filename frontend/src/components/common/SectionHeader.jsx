@@ -24,9 +24,13 @@ export default function SectionHeader({
           </Typography>
         </Stack>
         {subtitle ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-            {subtitle}
-          </Typography>
+          typeof subtitle === "string" ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+              {subtitle}
+            </Typography>
+          ) : (
+            <Box sx={{ mt: 0.5 }}>{subtitle}</Box>
+          )
         ) : null}
       </Box>
       {actionLabel && actionTo ? (
