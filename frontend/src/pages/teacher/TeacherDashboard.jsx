@@ -49,17 +49,18 @@ function truncateLabel(text, max = 28) {
   return `${value.slice(0, max - 1)}…`;
 }
 
-function scoreBarColor(score) {
+function scoreBarColor(score, attempts = null) {
+  const hasAttempts = attempts == null ? true : Number(attempts) > 0;
+  if (!hasAttempts) return "#94A3B8"; // no attempts
   const value = Number(score) || 0;
   if (value >= 70) return "#10B981"; // green
   if (value >= 50) return "#F59E0B"; // amber
-  if (value > 0) return "#F97316";
-  return "#94A3B8";
+  return "#F97316"; // <50%
 }
 
-function scoreTextSx(score) {
+function scoreTextSx(score, attempts = null) {
   return {
-    color: scoreBarColor(score),
+    color: scoreBarColor(score, attempts),
     fontWeight: 800,
   };
 }
@@ -94,6 +95,32 @@ function scoreLegend() {
         />
         <Typography variant="caption" color="text.secondary">
           ≥50%
+        </Typography>
+      </Stack>
+      <Stack direction="row" spacing={0.75} alignItems="center">
+        <Box
+          sx={{
+            width: 14,
+            height: 14,
+            borderRadius: 0,
+            bgcolor: "#F97316",
+          }}
+        />
+        <Typography variant="caption" color="text.secondary">
+          &lt;50%
+        </Typography>
+      </Stack>
+      <Stack direction="row" spacing={0.75} alignItems="center">
+        <Box
+          sx={{
+            width: 14,
+            height: 14,
+            borderRadius: 0,
+            bgcolor: "#94A3B8",
+          }}
+        />
+        <Typography variant="caption" color="text.secondary">
+          No attempts
         </Typography>
       </Stack>
     </Stack>
@@ -143,10 +170,10 @@ export default function TeacherDashboard() {
             Number(Math.min(100, Math.max(0, item.average_score)).toFixed(1)),
           ),
           backgroundColor: quizRows.map((item) =>
-            scoreBarColor(item.average_score),
+            scoreBarColor(item.average_score, item.attempts),
           ),
           borderColor: quizRows.map((item) =>
-            scoreBarColor(item.average_score),
+            scoreBarColor(item.average_score, item.attempts),
           ),
           borderWidth: 1,
           borderRadius: 8,
@@ -347,7 +374,7 @@ export default function TeacherDashboard() {
                             {quiz.attempts === 1 ? "" : "s"} · avg{" "}
                             <Box
                               component="span"
-                              sx={scoreTextSx(quiz.average_score)}
+                              sx={scoreTextSx(quiz.average_score, quiz.attempts)}
                             >
                               {Number(quiz.average_score || 0).toFixed(1)}%
                             </Box>
