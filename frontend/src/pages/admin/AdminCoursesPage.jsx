@@ -33,6 +33,23 @@ import userService from "../../services/userService";
 import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
 import { useAdminFilters } from "../../contexts/AdminFiltersContext";
+import { GRADE_LEVELS } from "../../utils/gradeLevels";
+
+function courseSubjectLabel(course) {
+  return String(course?.subject || course?.title || "").trim();
+}
+
+function courseTeacherLabel(course) {
+  return `${course?.teacher_first_name || ""} ${course?.teacher_last_name || ""}`.trim();
+}
+
+function isPublished(course) {
+  return (
+    course?.is_published === true ||
+    course?.is_published === 1 ||
+    course?.is_published === "1"
+  );
+}
 
 export default function AdminCoursesPage() {
   const { toQueryParams, schoolYear, gradeLevel } = useAdminFilters();
@@ -43,6 +60,10 @@ export default function AdminCoursesPage() {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState("newest");
   const [filters, setFilters] = useState({});
+  const [subjectFilter, setSubjectFilter] = useState("all");
+  const [gradeFilter, setGradeFilter] = useState("all");
+  const [teacherFilter, setTeacherFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [reassignTarget, setReassignTarget] = useState(null);
   const [nextTeacherId, setNextTeacherId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -84,10 +105,68 @@ export default function AdminCoursesPage() {
     load();
   }, [schoolYear, gradeLevel]);
 
-  const visibleCourses = useMemo(
-    () => applyTimestampControls(courses, { sort, filters }),
-    [courses, sort, filters],
-  );
+  const subjectOptions = useMemo(() => {
+    const values = new Set();
+    courses.forEach((course) => {
+      const label = courseSubjectLabel(course);
+      if (label) values.add(label);
+    });
+    return [...values].sort((a, b) => a.localeCompare(b));
+  }, [courses]);
+
+  const gradeOptions = useMemo(() => {
+    const values = new Set(GRADE_LEVELS);
+    courses.forEach((course) => {
+      const grade = String(course.grade_level || "").trim();
+      if (grade) values.add(grade);
+    });
+    return [...values].sort((a, b) => a.localeCompare(b));
+  }, [courses]);
+
+  const teacherOptions = useMemo(() => {
+    const byId = new Map();
+    teachers.forEach((teacher) => {
+      byId.set(String(teacher.id), {
+        id: String(teacher.id),
+        label: `${teacher.firstName || ""} ${teacher.lastName || ""}`.trim() ||
+          teacher.email ||
+          `Teacher #${teacher.id}`,
+      });
+    });
+    courses.forEach((course) => {
+      const id = course.teacher_id != null ? String(course.teacher_id) : "";
+      if (!id || byId.has(id)) return;
+      const label = courseTeacherLabel(course) || `Teacher #${id}`;
+      byId.set(id, { id, label });
+    });
+    return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [courses, teachers]);
+
+  const visibleCourses = useMemo(() => {
+    const timestampFiltered = applyTimestampControls(courses, { sort, filters });
+    return timestampFiltered.filter((course) => {
+      if (subjectFilter !== "all") {
+        if (courseSubjectLabel(course) !== subjectFilter) return false;
+      }
+      if (gradeFilter !== "all") {
+        if (String(course.grade_level || "").trim() !== gradeFilter) return false;
+      }
+      if (teacherFilter !== "all") {
+        if (String(course.teacher_id ?? "") !== teacherFilter) return false;
+      }
+      if (statusFilter === "published" && !isPublished(course)) return false;
+      if (statusFilter === "draft" && isPublished(course)) return false;
+      return true;
+    });
+  }, [
+    courses,
+    sort,
+    filters,
+    subjectFilter,
+    gradeFilter,
+    teacherFilter,
+    statusFilter,
+  ]);
 
   async function confirmTogglePublish() {
     if (!publishTarget) return;
@@ -178,6 +257,72 @@ export default function AdminCoursesPage() {
         filters={filters}
         onFiltersChange={setFilters}
       />
+
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.5}
+        useFlexGap
+        flexWrap="wrap"
+        sx={{ mb: 2 }}
+      >
+        <TextField
+          select
+          size="small"
+          label="Subject"
+          value={subjectFilter}
+          onChange={(event) => setSubjectFilter(event.target.value)}
+          sx={{ minWidth: { xs: "100%", sm: 180 } }}
+        >
+          <MenuItem value="all">All subjects</MenuItem>
+          {subjectOptions.map((subject) => (
+            <MenuItem key={subject} value={subject}>
+              {subject}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label="Grade"
+          value={gradeFilter}
+          onChange={(event) => setGradeFilter(event.target.value)}
+          sx={{ minWidth: { xs: "100%", sm: 150 } }}
+        >
+          <MenuItem value="all">All grades</MenuItem>
+          {gradeOptions.map((grade) => (
+            <MenuItem key={grade} value={grade}>
+              {grade}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label="Teacher"
+          value={teacherFilter}
+          onChange={(event) => setTeacherFilter(event.target.value)}
+          sx={{ minWidth: { xs: "100%", sm: 200 } }}
+        >
+          <MenuItem value="all">All teachers</MenuItem>
+          {teacherOptions.map((teacher) => (
+            <MenuItem key={teacher.id} value={teacher.id}>
+              {teacher.label}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label="Status"
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          sx={{ minWidth: { xs: "100%", sm: 150 } }}
+        >
+          <MenuItem value="all">All statuses</MenuItem>
+          <MenuItem value="published">Published</MenuItem>
+          <MenuItem value="draft">Draft</MenuItem>
+        </TextField>
+      </Stack>
 
       <Paper sx={{ p: 2, overflowX: "auto" }}>
         <Table>

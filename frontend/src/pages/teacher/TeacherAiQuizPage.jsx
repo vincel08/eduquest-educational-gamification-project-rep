@@ -79,6 +79,10 @@ export default function TeacherAiQuizPage() {
   async function handleGenerate(event) {
     event.preventDefault();
     if (generateInFlight.current) return;
+    if (!form.lessonId) {
+      setError('Link to lesson is required.');
+      return;
+    }
     generateInFlight.current = true;
     setLoading(true);
     setError('');
@@ -87,7 +91,7 @@ export default function TeacherAiQuizPage() {
     try {
       const response = await aiReviewService.createFromQuiz({
         courseId: Number(form.courseId),
-        lessonId: form.lessonId ? Number(form.lessonId) : null,
+        lessonId: Number(form.lessonId),
         topic: form.topic,
         difficulty: form.difficulty,
         questionCount: Number(form.questionCount),
@@ -152,12 +156,19 @@ export default function TeacherAiQuizPage() {
           </TextField>
           <TextField
             select
-            label="Lesson (optional)"
+            required
+            label="Link to lesson"
             value={form.lessonId}
             onChange={(e) => setForm((p) => ({ ...p, lessonId: e.target.value }))}
-            helperText="Optional. Links the quiz to an existing lesson for context."
+            helperText={
+              !lessons.length
+                ? 'No lessons in this subject yet. Create a lesson first.'
+                : 'Required. Generation is linked to this lesson.'
+            }
           >
-            <MenuItem value="">None</MenuItem>
+            {!lessons.length ? (
+              <MenuItem value="">No lessons available</MenuItem>
+            ) : null}
             {lessons.map((lesson) => (
               <MenuItem key={lesson.id} value={String(lesson.id)}>{lesson.title}</MenuItem>
             ))}
@@ -204,9 +215,20 @@ export default function TeacherAiQuizPage() {
             inputProps={{ min: 1, max: 100, step: 1 }}
             helperText="1–100 questions"
           />
-          <Button type="submit" variant="contained" disabled={loading || !form.courseId || !form.topic.trim()}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading || !form.courseId || !form.lessonId || !form.topic.trim()}
+          >
             {loading ? 'Generating… this can take a few minutes' : 'Generate Quiz'}
           </Button>
+          {!form.lessonId ? (
+            <Typography variant="caption" color="text.secondary">
+              {lessons.length
+                ? 'Select a lesson to enable Generate.'
+                : 'Create a lesson in this subject to enable Generate.'}
+            </Typography>
+          ) : null}
         </Stack>
       </Paper>
 
