@@ -8,6 +8,7 @@ import pool from './config/db.js';
 import routes from './routes/index.js';
 import FileController from './controllers/FileController.js';
 import { errorHandler, notFoundHandler } from './middleware/errorMiddleware.js';
+import EmailService from './services/EmailService.js';
 
 const app = express();
 
@@ -52,6 +53,7 @@ async function start() {
     const server = app.listen(env.port, () => {
       console.log(`EduWow API running on port ${env.port} (${env.nodeEnv})`);
       console.log(`AI provider: ${env.aiProvider}`);
+      void EmailService.verifySmtp();
     });
 
     server.on('error', (error) => {

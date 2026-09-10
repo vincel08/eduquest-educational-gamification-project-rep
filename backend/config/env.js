@@ -136,13 +136,16 @@ const env = {
     ? assertValidClientUrl(process.env.CLIENT_URL)
     : (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, ""),
   mail: {
-    // Set MAIL_HOST to enable SMTP (Mailhog/Ethereal/provider). Empty disables outbound mail.
+    // Set MAIL_HOST and/or BREVO_API_KEY to enable outbound mail.
     host: process.env.MAIL_HOST || "",
-    port: Number(process.env.MAIL_PORT) || 587,
+    // Railway often blocks/times out SMTP 587; 2525 is the usual workaround.
+    port: Number(process.env.MAIL_PORT) || (isProduction ? 2525 : 587),
     secure: String(process.env.MAIL_SECURE || "").toLowerCase() === "true",
     user: process.env.MAIL_USER || "",
     password: process.env.MAIL_PASSWORD || "",
     from: process.env.MAIL_FROM || "EduWow <noreply@eduwow.local>",
+    // Preferred on Railway: Brevo HTTP API (avoids SMTP port blocks).
+    brevoApiKey: (process.env.BREVO_API_KEY || "").trim(),
   },
   passwordReset: {
     // ~30 minutes
