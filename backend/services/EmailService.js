@@ -5,7 +5,7 @@ let transporter = null;
 
 function getTransporter() {
   if (!env.mail.host) return null;
-  if (!transporter) {
+    if (!transporter) {
     transporter = nodemailer.createTransport({
       host: env.mail.host,
       port: env.mail.port,
@@ -16,6 +16,13 @@ function getTransporter() {
             pass: env.mail.password,
           }
         : undefined,
+      // Fail faster on bad/slow SMTP instead of hanging the request path.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
+      pool: true,
+      maxConnections: 1,
+      maxMessages: 20,
     });
   }
   return transporter;
