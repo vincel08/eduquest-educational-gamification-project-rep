@@ -74,6 +74,59 @@ async function countClassSections(filters = {}) {
   return Number(rows[0]?.total) || 0;
 }
 
+/**
+ * Teacher-scoped section count: advisee sections plus distinct class
+ * sections that match enrolled students in the teacher's subjects.
+ */
+async function countTeacherRelevantSections(teacherId, filters = {}) {
+  const schoolYear = normalizeRosterFilterValue(filters.schoolYear);
+  const gradeLevel = normalizeRosterFilterValue(filters.gradeLevel);
+  const params = { teacherId: Number(teacherId) };
+  const csFilters = [];
+  const enrollFilters = [
+    "c.teacher_id = :teacherId",
+    "sp.section IS NOT NULL",
+    "TRIM(sp.section) <> ''",
+    "u.is_active = 1",
+  ];
+
+  if (schoolYear) {
+    csFilters.push("cs.school_year = :sectionSchoolYear");
+    enrollFilters.push("sp.school_year = :sectionSchoolYear");
+    params.sectionSchoolYear = schoolYear;
+  }
+  if (gradeLevel) {
+    csFilters.push("cs.grade_level = :sectionGradeLevel");
+    enrollFilters.push("sp.grade_level = :sectionGradeLevel");
+    params.sectionGradeLevel = gradeLevel;
+  }
+
+  const csWhere = csFilters.length ? `AND ${csFilters.join(" AND ")}` : "";
+
+  const rows = await query(
+    `SELECT COUNT(*) AS total FROM (
+       SELECT cs.id
+       FROM class_sections cs
+       WHERE cs.adviser_id = :teacherId
+         ${csWhere}
+       UNION
+       SELECT cs.id
+       FROM class_sections cs
+       INNER JOIN student_profiles sp
+         ON sp.section = cs.name
+        AND sp.school_year = cs.school_year
+        AND sp.grade_level = cs.grade_level
+       INNER JOIN users u ON u.id = sp.user_id
+       INNER JOIN course_enrollments ce ON ce.student_id = sp.user_id
+       INNER JOIN courses c ON c.id = ce.course_id
+       WHERE ${enrollFilters.join(" AND ")}
+         ${csWhere}
+     ) relevant`,
+    params,
+  );
+  return Number(rows[0]?.total) || 0;
+}
+
 const AnalyticsService = {
   async getAdminOverview(filters = {}) {
     const rosterActive = hasRosterFilters(filters);
@@ -317,7 +370,10 @@ const AnalyticsService = {
 
     const courses = await CourseModel.findAll(courseFilters);
     const courseIds = courses.courses.map((course) => course.id);
-    const totalSections = await countClassSections(rosterFilters);
+    const totalSections = await countTeacherRelevantSections(
+      teacherId,
+      rosterFilters,
+    );
 
     if (!courseIds.length) {
       return {

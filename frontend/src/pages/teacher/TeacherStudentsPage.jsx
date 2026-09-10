@@ -90,6 +90,72 @@ function SubjectsCell({ student }) {
   );
 }
 
+function ScoresAction({ student }) {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+  const subjects = student.subjects || [];
+
+  if (!subjects.length) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        —
+      </Typography>
+    );
+  }
+
+  if (subjects.length === 1) {
+    return (
+      <Button
+        component={RouterLink}
+        to={`/teacher/courses/${subjects[0].id}/scores`}
+        size="small"
+        variant="outlined"
+      >
+        Scores
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        size="small"
+        variant="outlined"
+        endIcon={<ExpandMoreIcon />}
+        onClick={(event) => setAnchorEl(event.currentTarget)}
+        sx={{ textTransform: "none" }}
+      >
+        Scores
+      </Button>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        slotProps={{
+          paper: { sx: { minWidth: 220, maxHeight: 320 } },
+        }}
+      >
+        {subjects.map((subject) => (
+          <MenuItem
+            key={`scores-${student.studentId}-${subject.id}`}
+            component={RouterLink}
+            to={`/teacher/courses/${subject.id}/scores`}
+            onClick={() => setAnchorEl(null)}
+          >
+            <ListItemText
+              primary={subject.title}
+              secondary="Open class scores"
+              primaryTypographyProps={{ fontWeight: 700 }}
+            />
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
+  );
+}
+
 export default function TeacherStudentsPage() {
   const { toQueryParams, schoolYear, gradeLevel, section } = useTeacherFilters();
   const [students, setStudents] = useState([]);
@@ -276,14 +342,7 @@ export default function TeacherStudentsPage() {
                         <SubjectsCell student={student} />
                       </TableCell>
                       <TableCell align="right">
-                        <Button
-                          component={RouterLink}
-                          to={`/teacher/courses/${student.subjects[0].id}/scores`}
-                          size="small"
-                          variant="outlined"
-                        >
-                          Scores
-                        </Button>
+                        <ScoresAction student={student} />
                       </TableCell>
                     </TableRow>
                   );

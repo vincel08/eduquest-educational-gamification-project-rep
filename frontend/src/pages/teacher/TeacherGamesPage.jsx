@@ -164,7 +164,7 @@ export default function TeacherGamesPage() {
             <Typography color="text.secondary">
               No games for the selected school year
               {gradeLevel && gradeLevel !== "all" ? ` / ${gradeLevel}` : ""}.
-              Create one or change the sidebar filters.
+              Generate one with AI or change the sidebar filters.
             </Typography>
             <Button
               component={RouterLink}
@@ -172,7 +172,7 @@ export default function TeacherGamesPage() {
               variant="contained"
               startIcon={<SportsEsportsIcon />}
             >
-              Create Game
+              AI Game Generator
             </Button>
           </Stack>
         ) : (

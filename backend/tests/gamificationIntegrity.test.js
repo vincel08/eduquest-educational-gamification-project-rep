@@ -33,7 +33,24 @@ describe('gamification integrity - game scoring', () => {
     assert.equal(calculateGameScore('quiz_show', gameData, { choices: [0, 0] }), 50);
   });
 
-  it('computes flashcard score from remembered flags', () => {
+  it('computes flashcard score from typed terms', () => {
+    const gameData = {
+      items: [
+        { term: 'A', definition: 'one' },
+        { term: 'B', definition: 'two' },
+        { term: 'C', definition: 'three' },
+        { term: 'D', definition: 'four' },
+      ],
+    };
+    assert.equal(
+      calculateGameScore('flashcards', gameData, {
+        responses: ['A', 'b', 'nope', 'D'],
+      }),
+      75,
+    );
+  });
+
+  it('still accepts legacy flashcard remembered flags', () => {
     const gameData = {
       items: [
         { term: 'A', definition: '1' },
@@ -43,8 +60,10 @@ describe('gamification integrity - game scoring', () => {
       ],
     };
     assert.equal(
-      calculateGameScore('flashcards', gameData, { remembered: [true, true, false, false] }),
-      50
+      calculateGameScore('flashcards', gameData, {
+        remembered: [true, true, false, false],
+      }),
+      50,
     );
   });
 

@@ -113,6 +113,10 @@ export default function StudentLessonPage() {
   if (error && !lesson) return <Alert severity="error">{error}</Alert>;
 
   const completed = lesson.progress?.status === "completed";
+  const hasContent = Boolean(String(lesson.content || "").trim());
+  const materialCount = (lesson.materials || []).length;
+  const lessonReady = hasContent || materialCount > 0;
+  const completeBlocked = !completed && !lessonReady;
 
   return (
     <PageContainer>
@@ -156,9 +160,18 @@ export default function StudentLessonPage() {
               <Typography variant="h6" fontWeight={800} gutterBottom>
                 Lesson Content
               </Typography>
-              <Typography sx={{ whiteSpace: "pre-wrap", lineHeight: 1.75 }}>
-                {lesson.content}
-              </Typography>
+              {hasContent ? (
+                <Typography sx={{ whiteSpace: "pre-wrap", lineHeight: 1.75 }}>
+                  {lesson.content}
+                </Typography>
+              ) : (
+                <Typography color="text.secondary">
+                  No written content for this lesson yet.
+                  {materialCount
+                    ? " Use the materials on the right."
+                    : " Your teacher still needs to add content or materials."}
+                </Typography>
+              )}
             </Paper>
 
             {lesson.learning_objectives ? (
@@ -211,7 +224,9 @@ export default function StudentLessonPage() {
                   >
                     {completed
                       ? "Lesson completed"
-                      : "Finish reading, then mark complete"}
+                      : completeBlocked
+                        ? "Waiting for lesson content"
+                        : "Finish reading, then mark complete"}
                   </Typography>
                 </Stack>
                 <Typography
@@ -316,7 +331,7 @@ export default function StudentLessonPage() {
                 <Button
                   variant="contained"
                   size="large"
-                  disabled={completing || completed}
+                  disabled={completing || completed || completeBlocked}
                   onClick={handleComplete}
                   fullWidth
                 >
@@ -326,7 +341,13 @@ export default function StudentLessonPage() {
                       ? "Completing..."
                       : `Complete Lesson (+${lesson.xp_reward || 25} XP)`}
                 </Button>
-                {(lesson.materials || []).length && !completed ? (
+                {completeBlocked ? (
+                  <Typography variant="caption" color="text.secondary">
+                    This lesson isn’t ready yet — wait for your teacher to add
+                    content or materials.
+                  </Typography>
+                ) : null}
+                {materialCount > 0 && !completed && lessonReady ? (
                   <Typography variant="caption" color="text.secondary">
                     Tip: use View or Download on a material first if Complete is
                     blocked.

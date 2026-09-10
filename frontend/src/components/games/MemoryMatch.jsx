@@ -6,6 +6,10 @@ import { firstNonEmptyList } from '../../utils/gameDataLists';
 import { playSound, SOUND_KEYS } from '../../utils/soundEffects';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
+import {
   MotionBox,
   choiceListProps,
   gridItemVariants,
@@ -27,17 +31,37 @@ export default function MemoryMatch({ gameData, onComplete, xpReward = 50 }) {
     () => firstNonEmptyList(gameData?.items, gameData?.pairs),
     [gameData]
   );
+  const saved = useRestoredGameProgress();
   const cards = useMemo(() => {
+    const expectedCount = pairs.length * 2;
+    if (
+      Array.isArray(saved.cards) &&
+      saved.cards.length === expectedCount &&
+      expectedCount > 0
+    ) {
+      return saved.cards;
+    }
     const built = pairs.flatMap((pair, index) => ([
       { id: `t-${index}`, pairId: index, text: pair.term, kind: 'term' },
       { id: `d-${index}`, pairId: index, text: pair.definition, kind: 'definition' },
     ]));
     return shuffle(built);
-  }, [pairs]);
+  }, [pairs, saved.cards]);
 
   const [flipped, setFlipped] = useState([]);
-  const [matched, setMatched] = useState([]);
-  const [moves, setMoves] = useState(0);
+  const [matched, setMatched] = useState(() => {
+    if (!Array.isArray(saved.matched) || !Array.isArray(saved.cards)) return [];
+    if (saved.cards.length !== pairs.length * 2) return [];
+    const validIds = new Set(saved.cards.map((card) => card.id));
+    return saved.matched.filter((id) => validIds.has(id));
+  });
+  const [moves, setMoves] = useState(() => {
+    if (!Array.isArray(saved.cards) || saved.cards.length !== pairs.length * 2) {
+      return 0;
+    }
+    return Number(saved.moves) || 0;
+  });
+
   const [lock, setLock] = useState(false);
   const [shakeIds, setShakeIds] = useState([]);
   const { feedback, showFeedback, handleNext } = useAnswerFeedback({ autoAdvanceMs: 1800 });
@@ -51,6 +75,10 @@ export default function MemoryMatch({ gameData, onComplete, xpReward = 50 }) {
     };
   });
 
+  useSaveGameProgress(
+    () => ({ cards, matched, moves }),
+    [cards, matched, moves],
+  );
   const totalPairs = pairs.length || Math.floor(cards.length / 2);
   const perPairXp = Math.max(5, Math.round(Number(xpReward) / Math.max(totalPairs, 1)));
   const matchedPairs = matched.length / 2;
@@ -130,14 +158,9 @@ export default function MemoryMatch({ gameData, onComplete, xpReward = 50 }) {
   return (
     <Stack spacing={2}>
       <Stack spacing={1}>
-        <Stack direction="row" justifyContent="space-between">
-          <Typography variant="body2" color="text.secondary" fontWeight={700}>
-            Moves: {moves}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" fontWeight={700}>
-            Matched: {matchedPairs}/{totalPairs}
-          </Typography>
-        </Stack>
+        <Typography variant="body2" color="text.secondary" fontWeight={700}>
+          Moves: {moves} · Matched: {matchedPairs}/{totalPairs}
+        </Typography>
         <LinearProgress
           variant="determinate"
           value={totalPairs ? (matchedPairs / totalPairs) * 100 : 0}

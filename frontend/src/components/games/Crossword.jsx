@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Button, Stack, TextField, Typography } from '@mui/material';
 import AnswerFeedback from './AnswerFeedback';
 import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { buildCrosswordBoard, normalizeAnswer, syncCrosswordGameData } from '../../utils/crosswordGrid';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
+import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
 import { MotionBox } from './GameMotion';
 
 export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
@@ -14,8 +18,20 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
     [clues],
   );
   const board = useMemo(() => buildCrosswordBoard(clues), [clues, boardKey]);
-  const [letters, setLetters] = useState({});
-  const [activeEntry, setActiveEntry] = useState(board.entries[0]?.index ?? 0);
+  const saved = useRestoredGameProgress();
+  const restoredOnceRef = useRef(
+    Boolean(
+      saved.letters &&
+        typeof saved.letters === 'object' &&
+        Object.keys(saved.letters).length > 0,
+    ),
+  );
+  const [letters, setLetters] = useState(() =>
+    saved.letters && typeof saved.letters === 'object' ? saved.letters : {},
+  );
+  const [activeEntry, setActiveEntry] = useState(
+    () => Number(saved.activeEntry) || board.entries[0]?.index || 0,
+  );
   const { feedback, showFeedback, handleNext } = useAnswerFeedback();
   useRegisterTimeoutSubmit(() => {
     const answers = {};
@@ -35,7 +51,16 @@ export default function Crossword({ gameData, onComplete, xpReward = 50 }) {
     return { score, answers: { answers } };
   });
 
+  useSaveGameProgress(
+    () => ({ letters, activeEntry }),
+    [letters, activeEntry],
+  );
+
   useEffect(() => {
+    if (restoredOnceRef.current) {
+      restoredOnceRef.current = false;
+      return;
+    }
     setLetters({});
     setActiveEntry(board.entries[0]?.index ?? 0);
   }, [boardKey]);

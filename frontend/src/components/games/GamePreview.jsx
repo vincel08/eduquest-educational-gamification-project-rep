@@ -20,6 +20,11 @@ import { firstNonEmptyList } from '../../utils/gameDataLists';
 import { playSound, SOUND_KEYS, stopAmbient, syncAmbientForGame, unlockAudio } from '../../utils/soundEffects';
 import useSessionCountdown, { resolveTimeLimitMinutes } from '../../hooks/useSessionCountdown';
 import { GameSessionProvider } from '../../contexts/GameSessionContext';
+import {
+  clearPlaySession,
+  readPlaySession,
+  writePlaySession,
+} from '../../utils/playSessionStorage';
 
 const COMPONENT_MAP = {
   flashcards: Flashcards,
@@ -56,12 +61,43 @@ function prepareGameData(gameType, gameData) {
   return gameData;
 }
 
+function resolveInitialDeadline(persistKey, contentStamp, limitMinutes) {
+  const limitMs = resolveTimeLimitMinutes(limitMinutes, 10) * 60 * 1000;
+  if (!persistKey) return Date.now() + limitMs;
+  const saved = readPlaySession(persistKey);
+  if (
+    saved &&
+    String(saved.contentStamp || '') === String(contentStamp || '') &&
+    Number.isFinite(Number(saved.deadlineAt))
+  ) {
+    return Number(saved.deadlineAt);
+  }
+  return Date.now() + limitMs;
+}
+
+function resolveInitialProgress(persistKey, contentStamp) {
+  if (!persistKey) return {};
+  const saved = readPlaySession(persistKey);
+  if (
+    saved &&
+    String(saved.contentStamp || '') === String(contentStamp || '') &&
+    saved.progress &&
+    typeof saved.progress === 'object'
+  ) {
+    return saved.progress;
+  }
+  return {};
+}
+
 export default function GamePreview({
   gameType,
   gameData,
   onComplete,
   xpReward = 50,
   timeLimitMinutes = null,
+  persistKey = null,
+  contentStamp = null,
+  snapshotRef = null,
 }) {
   const Component = COMPONENT_MAP[gameType];
   const prepared = prepareGameData(gameType, gameData);
@@ -71,6 +107,16 @@ export default function GamePreview({
   const [timedOut, setTimedOut] = useState(false);
   const [sessionDone, setSessionDone] = useState(false);
 
+  const bootRef = useRef(null);
+  if (bootRef.current === null) {
+    bootRef.current = {
+      deadlineAt: resolveInitialDeadline(persistKey, contentStamp, limitMinutes),
+      progress: resolveInitialProgress(persistKey, contentStamp),
+    };
+  }
+  const [deadlineAt] = useState(bootRef.current.deadlineAt);
+  const initialProgress = bootRef.current.progress;
+
   const registerSubmit = useCallback((fn) => {
     submitRef.current = fn;
     return () => {
@@ -78,11 +124,34 @@ export default function GamePreview({
     };
   }, []);
 
+  useEffect(() => {
+    if (!snapshotRef) return undefined;
+    snapshotRef.current = () =>
+      submitRef.current?.() || { score: 0, answers: { abandoned: true } };
+    return () => {
+      snapshotRef.current = null;
+    };
+  }, [snapshotRef]);
+
+  const saveProgress = useCallback((progress) => {
+    if (!persistKey) return;
+    writePlaySession(persistKey, {
+      contentStamp: contentStamp ?? null,
+      deadlineAt,
+      progress: progress && typeof progress === 'object' ? progress : {},
+    });
+  }, [persistKey, contentStamp, deadlineAt]);
+
+  const clearPersisted = useCallback(() => {
+    clearPlaySession(persistKey);
+  }, [persistKey]);
+
   const handleExpire = useCallback(() => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     setTimedOut(true);
     setSessionDone(true);
+    clearPersisted();
     playSound(SOUND_KEYS.timeout);
     const payload = submitRef.current?.() || {
       score: 0,
@@ -95,18 +164,20 @@ export default function GamePreview({
         timedOut: true,
       },
     });
-  }, [onComplete]);
+  }, [onComplete, clearPersisted]);
 
   const countdown = useSessionCountdown(limitMinutes, {
     enabled: Boolean(Component && gameData) && !sessionDone,
     onExpire: handleExpire,
     fallbackMinutes: 10,
+    deadlineAt,
   });
 
   const wrapComplete = useCallback((payload) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     setSessionDone(true);
+    clearPersisted();
     const next = typeof payload === 'number'
       ? { score: payload, durationSeconds: countdown.elapsedSeconds }
       : {
@@ -114,13 +185,7 @@ export default function GamePreview({
           durationSeconds: payload?.durationSeconds ?? countdown.elapsedSeconds,
         };
     onComplete?.(next);
-  }, [onComplete, countdown.elapsedSeconds]);
-
-  useEffect(() => {
-    finishedRef.current = false;
-    setTimedOut(false);
-    setSessionDone(false);
-  }, [gameType, gameData, limitMinutes]);
+  }, [onComplete, countdown.elapsedSeconds, clearPersisted]);
 
   useEffect(() => {
     const unlock = () => unlockAudio();
@@ -163,6 +228,9 @@ export default function GamePreview({
         registerSubmit={registerSubmit}
         timedOut={timedOut}
         elapsedSeconds={countdown.elapsedSeconds}
+        persistEnabled={Boolean(persistKey)}
+        initialProgress={initialProgress}
+        saveProgress={saveProgress}
       >
         <Component
           gameData={prepared}

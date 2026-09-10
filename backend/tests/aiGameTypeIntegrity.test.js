@@ -160,7 +160,10 @@ describe('AI game type integrity - scoring', () => {
     );
     assert.equal(
       calculateGameScore('flashcards', VALID_BY_TYPE.flashcards, {
-        remembered: [true, false],
+        responses: [
+          VALID_BY_TYPE.flashcards.items[0].term,
+          'wrong',
+        ],
       }),
       50
     );

@@ -6,6 +6,10 @@ import { firstNonEmptyList } from '../../utils/gameDataLists';
 import { playSound, SOUND_KEYS, syncMillionaireMusic } from '../../utils/soundEffects';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
 import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
+import {
   AnimatePresence,
   MotionBox,
   MotionButton,
@@ -30,10 +34,24 @@ export default function Millionaire({
     () => firstNonEmptyList(gameData?.items, gameData?.rounds),
     [gameData],
   );
-  const [index, setIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [choices, setChoices] = useState([]);
-  const [attemptsLeft, setAttemptsLeft] = useState(ATTEMPTS_PER_QUESTION);
+  const saved = useRestoredGameProgress();
+  const restoredChoices = Array.isArray(saved.choices) ? saved.choices : [];
+  const [index, setIndex] = useState(() => {
+    const maxIdx = Math.max(0, items.length - 1);
+    const fromSaved = Number(saved.index);
+    const aligned =
+      Number.isFinite(fromSaved) && fromSaved === restoredChoices.length
+        ? fromSaved
+        : restoredChoices.length;
+    return Math.max(0, Math.min(aligned, maxIdx));
+  });
+  const [score, setScore] = useState(() => Number(saved.score) || 0);
+  const [choices, setChoices] = useState(() => restoredChoices);
+  const [attemptsLeft, setAttemptsLeft] = useState(() =>
+    Number.isFinite(Number(saved.attemptsLeft))
+      ? Number(saved.attemptsLeft)
+      : ATTEMPTS_PER_QUESTION,
+  );
   const [nextLabel, setNextLabel] = useState('Next Question');
   const submittedRef = useRef(false);
   const { feedback, showFeedback, clearFeedback, handleNext } = useAnswerFeedback();
@@ -43,6 +61,10 @@ export default function Millionaire({
     answers: { choices, completed: false },
   }));
 
+  useSaveGameProgress(
+    () => ({ index, score, choices, attemptsLeft }),
+    [index, score, choices, attemptsLeft],
+  );
   const finish = useCallback((finalScore, finalChoices, reason) => {
     if (submittedRef.current) return;
     submittedRef.current = true;

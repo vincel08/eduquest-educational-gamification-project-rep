@@ -772,7 +772,7 @@ const QuizService = {
       };
     }
 
-    if (user.role === "teacher" && quiz.teacher_id !== user.id) {
+    if (user.role === "teacher" && Number(quiz.teacher_id) !== Number(user.id)) {
       throw new AppError("Access denied", 403);
     }
 
@@ -786,6 +786,8 @@ const QuizService = {
   async listByCourse(courseId, user) {
     if (user.role === "student") {
       await CourseService.assertStudentCourseAccess(courseId, user.id);
+    } else if (user.role === "teacher" || user.role === "administrator") {
+      await CourseService.assertStaffCourseAccess(courseId, user);
     }
     const publishedOnly = user.role === "student";
     const quizzes = await QuizModel.findByCourse(courseId, { publishedOnly });

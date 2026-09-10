@@ -320,8 +320,8 @@ export default function TeacherGradebookPage() {
                               {selectedQuiz.title}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              Pass {selectedQuiz.passingScore}% · best attempt
-                              per student
+                              Pass {selectedQuiz.passingScore}% · submitted
+                              result (best score)
                               {selectedQuiz.dueAt || selectedQuiz.due_at
                                 ? ` · Class due ${formatWhen(selectedQuiz.dueAt || selectedQuiz.due_at)}`
                                 : ""}
@@ -528,8 +528,8 @@ export default function TeacherGradebookPage() {
                               {selectedGame.title}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              Pass 70% · best score per student · 3 attempts
-                              default
+                              Pass 70% · submitted result (best score) · 3
+                              attempts default
                             </Typography>
                           </Box>
                           <Button
@@ -574,10 +574,7 @@ export default function TeacherGradebookPage() {
                                 <TableCell sx={{ fontWeight: 800 }}>
                                   Played
                                 </TableCell>
-                                <TableCell
-                                  sx={{ fontWeight: 800 }}
-                                  align="right"
-                                >
+                                <TableCell sx={{ fontWeight: 800 }}>
                                   Actions
                                 </TableCell>
                               </TableRow>

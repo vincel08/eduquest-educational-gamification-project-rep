@@ -5,6 +5,10 @@ import useAnswerFeedback from '../../hooks/useAnswerFeedback';
 import { resolveWordSearchPuzzle } from '../../utils/wordSearchGrid';
 import { SOUND_KEYS } from '../../utils/soundEffects';
 import { useRegisterTimeoutSubmit } from '../../contexts/GameSessionContext';
+import {
+  useRestoredGameProgress,
+  useSaveGameProgress,
+} from '../../hooks/useGamePlayProgress';
 import { MotionBox } from './GameMotion';
 
 function cellsToWord(path, grid) {
@@ -37,9 +41,15 @@ export default function WordSearch({ gameData, onComplete, xpReward = 50 }) {
   const puzzle = useMemo(() => resolveWordSearchPuzzle(gameData), [gameData]);
   const { grid, words } = puzzle;
   const size = grid.length;
+  const saved = useRestoredGameProgress();
 
-  const [found, setFound] = useState([]);
-  const [foundCells, setFoundCells] = useState(() => new Set());
+  const [found, setFound] = useState(() =>
+    Array.isArray(saved.found) ? saved.found : [],
+  );
+  const [foundCells, setFoundCells] = useState(() => {
+    if (Array.isArray(saved.foundCellList)) return new Set(saved.foundCellList);
+    return new Set();
+  });
   const [selecting, setSelecting] = useState(false);
   const [startCell, setStartCell] = useState(null);
   const [activePath, setActivePath] = useState([]);
@@ -49,6 +59,10 @@ export default function WordSearch({ gameData, onComplete, xpReward = 50 }) {
     answers: { foundWords: found },
   }));
 
+  useSaveGameProgress(
+    () => ({ found, foundCellList: [...foundCells] }),
+    [found, foundCells],
+  );
   const perWordXp = Math.max(5, Math.round(Number(xpReward) / Math.max(words.length, 1)));
   const pathSet = useMemo(
     () => new Set(activePath.map(([r, c]) => `${r}:${c}`)),

@@ -144,15 +144,38 @@ export function buildGameAnswerReviewItems(gameType, gameData, answers) {
 
     case 'flashcards': {
       const items = getItems(gameData);
+      const responses = Array.isArray(answers.responses) ? answers.responses : null;
+      if (responses) {
+        return items.map((item, index) => {
+          const expected = item?.term || item?.front || item?.prompt || '—';
+          const promptText =
+            item?.definition || item?.back || item?.answer || itemPrompt(item, index);
+          const studentAnswer =
+            responses[index] != null && String(responses[index]).trim() !== ''
+              ? String(responses[index])
+              : '—';
+          const isCorrect =
+            String(studentAnswer).trim().toLowerCase() ===
+            String(expected).trim().toLowerCase();
+          return {
+            prompt: promptText,
+            studentAnswer,
+            correctAnswer: expected,
+            isCorrect,
+            answerStored: true,
+          };
+        });
+      }
       const remembered = Array.isArray(answers.remembered)
         ? answers.remembered
         : [];
       return items.map((item, index) => {
         const known = Boolean(remembered[index]);
         return {
-          prompt: itemPrompt(item, index),
+          prompt:
+            item?.definition || item?.back || item?.answer || itemPrompt(item, index),
           studentAnswer: known ? 'Marked as remembered' : 'Not remembered',
-          correctAnswer: item?.definition || item?.back || item?.answer || '—',
+          correctAnswer: item?.term || item?.front || item?.prompt || '—',
           isCorrect: known,
           answerStored: true,
         };

@@ -124,17 +124,36 @@ const CourseService = {
     if (user?.role === "student") {
       await this.assertStudentCourseAccess(id, user.id);
       course = await CourseModel.findById(id);
+    } else if (user?.role === "teacher") {
+      if (Number(course.teacher_id) !== Number(user.id)) {
+        throw new AppError("Access denied", 403);
+      }
     }
 
     const lessons = await LessonModel.findByCourse(id);
     return { ...course, lessons };
   },
 
+  /**
+   * Teachers may only access their own subjects; admins may access any.
+   */
+  async assertStaffCourseAccess(courseId, user) {
+    const course = await CourseModel.findById(courseId);
+    if (!course) throw new AppError("Course not found", 404);
+    if (
+      user?.role === "teacher" &&
+      Number(course.teacher_id) !== Number(user.id)
+    ) {
+      throw new AppError("Access denied", 403);
+    }
+    return course;
+  },
+
   async updateCourse(id, data, user) {
     const course = await CourseModel.findById(id);
     if (!course) throw new AppError("Course not found", 404);
 
-    if (user.role === "teacher" && course.teacher_id !== user.id) {
+    if (user.role === "teacher" && Number(course.teacher_id) !== Number(user.id)) {
       throw new AppError("You can only update your own courses", 403);
     }
 
@@ -201,7 +220,7 @@ const CourseService = {
     const course = await CourseModel.findById(id);
     if (!course) throw new AppError("Course not found", 404);
 
-    if (user.role === "teacher" && course.teacher_id !== user.id) {
+    if (user.role === "teacher" && Number(course.teacher_id) !== Number(user.id)) {
       throw new AppError("You can only delete your own courses", 403);
     }
 

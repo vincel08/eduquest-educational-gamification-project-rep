@@ -81,10 +81,29 @@ function scoreSpinRounds(items, answers) {
   return totalRounds ? Math.round((correct / totalRounds) * 100) : 0;
 }
 
-function scoreRemembered(items, answers) {
+function scoreFlashcards(items, answers) {
+  const responses = Array.isArray(answers?.responses) ? answers.responses : null;
+  if (responses) {
+    if (responses.length > items.length) {
+      throw new AppError('Invalid game answers: too many flashcard responses', 400);
+    }
+    let correct = 0;
+    items.forEach((item, index) => {
+      const expected = item.term || item.front || item.prompt;
+      if (normalizeText(responses[index]) === normalizeText(expected)) {
+        correct += 1;
+      }
+    });
+    return items.length ? Math.round((correct / items.length) * 100) : 0;
+  }
+
+  // Legacy self-check submissions (pre typed-recall).
   const remembered = Array.isArray(answers?.remembered) ? answers.remembered : null;
   if (!remembered || remembered.length !== items.length) {
-    throw new AppError('Invalid game answers: remembered flags must match item count', 400);
+    throw new AppError(
+      'Invalid game answers: typed terms (responses) are required',
+      400,
+    );
   }
   const known = remembered.filter(Boolean).length;
   return items.length ? Math.round((known / items.length) * 100) : 0;
@@ -262,7 +281,7 @@ export function calculateGameScore(gameType, gameData, answers) {
       score = scoreTextItems(getItems(gameData), answers, { compact: true });
       break;
     case 'flashcards':
-      score = scoreRemembered(getItems(gameData), answers);
+      score = scoreFlashcards(getItems(gameData), answers);
       break;
     case 'drag_drop':
       score = scoreMatches(getItems(gameData), answers);
