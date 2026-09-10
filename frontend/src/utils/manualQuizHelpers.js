@@ -184,6 +184,7 @@ export function validateEditorQuiz(form, questions) {
 
   if (!String(form.title || '').trim()) errors.push('Quiz title is required.');
   if (!form.courseId) errors.push('Subject is required.');
+  if (!form.lessonId) errors.push('Link to lesson is required.');
   if (!questions.length) errors.push('Add at least one question.');
 
   questions.forEach((question, index) => {

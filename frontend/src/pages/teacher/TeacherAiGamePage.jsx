@@ -190,10 +190,16 @@ export default function TeacherAiGamePage() {
       .then((response) => {
         const list = response.data.data || [];
         setLessons(list);
-        setForm((prev) => ({
-          ...prev,
-          lessonId: "",
-        }));
+        setForm((prev) => {
+          const stillValid = list.some(
+            (lesson) => String(lesson.id) === String(prev.lessonId),
+          );
+          if (stillValid) return prev;
+          return {
+            ...prev,
+            lessonId: list[0] ? String(list[0].id) : "",
+          };
+        });
       })
       .catch((err) => setError(getErrorMessage(err)));
   }, [form.courseId]);
@@ -201,6 +207,10 @@ export default function TeacherAiGamePage() {
   async function handleGenerate(event) {
     event.preventDefault();
     if (generateInFlight.current) return;
+    if (!form.lessonId) {
+      setError("Link to lesson is required.");
+      return;
+    }
     generateInFlight.current = true;
     setLoading(true);
     setError("");
@@ -210,7 +220,7 @@ export default function TeacherAiGamePage() {
     try {
       const response = await aiReviewService.createFromGame({
         courseId: Number(form.courseId),
-        lessonId: form.lessonId ? Number(form.lessonId) : null,
+        lessonId: Number(form.lessonId),
         topic: form.topic.trim() || undefined,
         lessonContent:
           form.lessonContent.trim() || form.topic.trim() || undefined,
@@ -251,9 +261,7 @@ export default function TeacherAiGamePage() {
     }
   }
 
-  const freeText = `${form.topic} ${form.lessonContent}`.trim();
-  const canGenerate =
-    Boolean(form.courseId) && (Boolean(form.lessonId) || freeText.length >= 3);
+  const canGenerate = Boolean(form.courseId) && Boolean(form.lessonId);
   const itemMin = getMinItemsForGameType(form.gameType);
   const itemMax = getMaxItemsForGameType(form.gameType);
 
@@ -261,7 +269,7 @@ export default function TeacherAiGamePage() {
     <PageContainer>
       <PageHeader
         title="AI Game Generator"
-        subtitle="Choose a game template, paste lesson text or link a lesson, then review and publish as a game (not a quiz)."
+        subtitle="Choose a game template, link a lesson, then review and publish as a game (not a quiz)."
       />
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -358,7 +366,7 @@ export default function TeacherAiGamePage() {
             value={form.topic}
             onChange={(e) => setForm((p) => ({ ...p, topic: e.target.value }))}
             placeholder="e.g. Fractions"
-            helperText="Optional short title. You can generate from topic alone."
+            helperText="Optional short title for the generated game."
           />
 
           <TextField
@@ -370,12 +378,13 @@ export default function TeacherAiGamePage() {
             multiline
             minRows={6}
             maxRows={14}
-            placeholder="Paste lesson content used to generate the game…"
-            helperText="Optional. Topic, lesson text, or a linked lesson — at least one is required."
+            placeholder="Paste extra lesson content used to generate the game…"
+            helperText="Optional. Adds extra context on top of the linked lesson."
           />
 
           <TextField
             select
+            required
             label="Link to lesson"
             value={form.lessonId}
             onChange={(e) =>
@@ -383,11 +392,13 @@ export default function TeacherAiGamePage() {
             }
             helperText={
               !lessons.length
-                ? "No lessons in this subject yet — use topic or lesson text above."
-                : "Optional. Links generation to an existing lesson."
+                ? "No lessons in this subject yet. Create a lesson first."
+                : "Required. Generation is linked to this lesson."
             }
           >
-            <MenuItem value="">None</MenuItem>
+            {!lessons.length ? (
+              <MenuItem value="">No lessons available</MenuItem>
+            ) : null}
             {lessons.map((lesson) => (
               <MenuItem key={lesson.id} value={String(lesson.id)}>
                 {lesson.title}
@@ -424,8 +435,9 @@ export default function TeacherAiGamePage() {
           </Button>
           {!canGenerate ? (
             <Typography variant="caption" color="text.secondary">
-              Enter a topic or lesson text, or link a lesson, to enable
-              Generate.
+              {lessons.length
+                ? "Select a lesson to enable Generate."
+                : "Create a lesson in this subject to enable Generate."}
             </Typography>
           ) : null}
         </Stack>

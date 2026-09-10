@@ -161,7 +161,7 @@ export default function ManualQuizEditor({
                 setForm((prev) => ({ ...prev, description: e.target.value }))
               }
             />
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="flex-start">
               <TextField
                 select
                 label="Subject"
@@ -179,40 +179,58 @@ export default function ManualQuizEditor({
                 helperText={
                   courseLocked
                     ? "Subject cannot be changed after the quiz is created"
-                    : undefined
+                    : selectedCourse?.grade_level
+                      ? `${selectedCourse.grade_level}${selectedCourse.school_year ? ` · ${selectedCourse.school_year}` : ""}`
+                      : "Select a subject to set grade level"
                 }
               >
                 {courses.map((course) => (
                   <MenuItem key={course.id} value={String(course.id)}>
                     {course.subject || course.title}
+                    {course.grade_level ? ` · ${course.grade_level}` : ""}
                   </MenuItem>
                 ))}
               </TextField>
               <TextField
                 select
-                label="Lesson (optional)"
+                label="Link to lesson"
                 fullWidth
+                required
                 value={form.lessonId}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, lessonId: e.target.value }))
                 }
+                helperText={
+                  !lessons.length
+                    ? "No lessons in this subject yet. Create a lesson first."
+                    : selectedCourse?.grade_level
+                      ? `Lessons for ${selectedCourse.grade_level}`
+                      : "Required. The quiz is linked to this lesson."
+                }
               >
-                <MenuItem value="">None</MenuItem>
+                {!lessons.length ? (
+                  <MenuItem value="">No lessons available</MenuItem>
+                ) : null}
                 {lessons.map((lesson) => (
                   <MenuItem key={lesson.id} value={String(lesson.id)}>
                     {lesson.title}
                   </MenuItem>
                 ))}
               </TextField>
-            </Stack>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
               <TextField
                 label="Grade level"
                 fullWidth
-                value={selectedCourse?.grade_level || "From selected subject"}
+                value={selectedCourse?.grade_level || ""}
+                placeholder="Matches subject"
                 InputProps={{ readOnly: true }}
-                helperText="Taken from the selected subject"
+                helperText={
+                  selectedCourse?.grade_level
+                    ? "From the selected subject (and its lessons)"
+                    : "Select a subject first"
+                }
               />
+            </Stack>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
               <TextField
                 select
                 label="Default difficulty"
@@ -226,8 +244,6 @@ export default function ManualQuizEditor({
                 <MenuItem value="medium">Medium</MenuItem>
                 <MenuItem value="hard">Hard</MenuItem>
               </TextField>
-            </Stack>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
               <TextField
                 label="Passing score (%)"
                 type="number"

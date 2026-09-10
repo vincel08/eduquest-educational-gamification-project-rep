@@ -12,6 +12,12 @@ import PsychologyIcon from "@mui/icons-material/Psychology";
 import Diversity3Icon from "@mui/icons-material/Diversity3";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import DiamondIcon from "@mui/icons-material/Diamond";
+import CakeIcon from "@mui/icons-material/Cake";
+import CelebrationIcon from "@mui/icons-material/Celebration";
+import CardGiftcardIcon from "@mui/icons-material/CardGiftcard";
+import WavingHandIcon from "@mui/icons-material/WavingHand";
+import PartyModeIcon from "@mui/icons-material/PartyMode";
+import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
 
 export const BADGE_ICON_OPTIONS = [
   { key: "emoji_events", label: "Trophy", Icon: EmojiEventsIcon },
@@ -28,6 +34,12 @@ export const BADGE_ICON_OPTIONS = [
   { key: "diversity_3", label: "Team", Icon: Diversity3Icon },
   { key: "sports_esports", label: "Games", Icon: SportsEsportsIcon },
   { key: "diamond", label: "Diamond", Icon: DiamondIcon },
+  { key: "cake", label: "Birthday", Icon: CakeIcon },
+  { key: "celebration", label: "Celebration", Icon: CelebrationIcon },
+  { key: "card_giftcard", label: "Gift", Icon: CardGiftcardIcon },
+  { key: "waving_hand", label: "Welcome", Icon: WavingHandIcon },
+  { key: "party_mode", label: "Party", Icon: PartyModeIcon },
+  { key: "emoji_emotions", label: "Smile", Icon: EmojiEmotionsIcon },
 ];
 
 const ICON_BY_KEY = Object.fromEntries(

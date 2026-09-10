@@ -21,6 +21,7 @@ function itemCountForGameType(value, req) {
 
 export const createFromQuizReviewValidation = [
   body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
+  body('lessonId').isInt({ min: 1 }).withMessage('Link to lesson is required'),
   body('topic').trim().notEmpty().withMessage('Topic is required'),
   body('difficulty').optional().isIn(['easy', 'medium', 'hard', 'Easy', 'Medium', 'Hard']),
   body('questionCount')
@@ -39,7 +40,7 @@ export const createFromQuizReviewValidation = [
 
 export const createFromGameReviewValidation = [
   body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
-  body('lessonId').optional({ nullable: true }).isInt({ min: 1 }),
+  body('lessonId').isInt({ min: 1 }).withMessage('Link to lesson is required'),
   body('topic').optional({ nullable: true }).isString().isLength({ max: 500 }),
   body('lessonContent')
     .optional({ nullable: true })
@@ -60,16 +61,6 @@ export const createFromGameReviewValidation = [
     .isInt({ min: 1, max: 50 })
     .custom((value, { req }) => itemCountForGameType(value, req)),
   body('requestId').optional({ nullable: true }).isString().isLength({ max: 80 }),
-  body().custom((_, { req }) => {
-    const hasLesson = Boolean(req.body?.lessonId);
-    const topic = String(req.body?.topic || '').trim();
-    const lessonContent = String(req.body?.lessonContent || '').trim();
-    const hasText = topic.length >= 3 || lessonContent.length >= 3;
-    if (!hasLesson && !hasText) {
-      throw new Error('Provide a topic, lesson text, or select a lesson to generate a game.');
-    }
-    return true;
-  }),
 ];
 
 export const createFromContentReviewValidation = [

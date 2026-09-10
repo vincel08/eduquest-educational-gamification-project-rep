@@ -111,9 +111,23 @@ export default function TeacherQuizEditorPage() {
     }
     courseService
       .lessons(form.courseId)
-      .then((response) => setLessons(response.data.data || []))
+      .then((response) => {
+        const list = response.data.data || [];
+        setLessons(list);
+        setForm((prev) => {
+          const stillValid = list.some(
+            (lesson) => String(lesson.id) === String(prev.lessonId),
+          );
+          if (stillValid) return prev;
+          if (!isNew && prev.lessonId) return prev;
+          return {
+            ...prev,
+            lessonId: list[0] ? String(list[0].id) : "",
+          };
+        });
+      })
       .catch((err) => setError(getErrorMessage(err)));
-  }, [form.courseId]);
+  }, [form.courseId, isNew]);
 
   // Keep the quiz's subject selectable when editing outside current sidebar filters.
   useEffect(() => {
@@ -183,7 +197,7 @@ export default function TeacherQuizEditorPage() {
 
   function buildMetaPayload() {
     const payload = {
-      lessonId: form.lessonId ? Number(form.lessonId) : null,
+      lessonId: Number(form.lessonId),
       title: String(form.title || "").trim(),
       description: form.description || null,
       passingScore: Number(form.passingScore) || 70,

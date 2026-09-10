@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -17,6 +17,7 @@ import {
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import QuizIcon from "@mui/icons-material/Quiz";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
@@ -25,6 +26,7 @@ import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ContentTimestamp from "../../components/common/ContentTimestamp";
+import courseService from "../../services/courseService";
 import lessonService from "../../services/lessonService";
 import { getErrorMessage } from "../../services/api";
 import { pickMotivationalMessage } from "../../utils/feedbackMessages";
@@ -39,11 +41,33 @@ import {
   materialViewUrl,
 } from "../../utils/materialActions";
 
+function isQuizTakeable(quiz) {
+  if (!quiz) return false;
+  return !(
+    quiz.locked ||
+    quiz.isClosed ||
+    quiz.outOfAttempts ||
+    quiz.gradeReleased ||
+    quiz.unavailable
+  );
+}
+
+function pickAvailableQuiz(quizzes, currentLessonId) {
+  const takeable = (quizzes || []).filter(isQuizTakeable);
+  if (!takeable.length) return null;
+  const linked = takeable.find(
+    (quiz) =>
+      String(quiz.lesson_id || quiz.lessonId || "") === String(currentLessonId),
+  );
+  return linked || takeable[0];
+}
+
 export default function StudentLessonPage() {
   const { lessonId } = useParams();
   const { updateProfile } = useAuth();
   const { notifyReward } = useRewards();
   const [lesson, setLesson] = useState(null);
+  const [quizzes, setQuizzes] = useState([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -63,6 +87,27 @@ export default function StudentLessonPage() {
     }
     load();
   }, [lessonId]);
+
+  useEffect(() => {
+    const courseId = lesson?.course_id;
+    if (!courseId) {
+      setQuizzes([]);
+      return undefined;
+    }
+
+    let active = true;
+    courseService
+      .quizzes(courseId)
+      .then((response) => {
+        if (active) setQuizzes(response.data.data || []);
+      })
+      .catch(() => {
+        if (active) setQuizzes([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [lesson?.course_id, lesson?.progress?.status]);
 
   async function handleComplete() {
     setCompleting(true);
@@ -108,6 +153,11 @@ export default function StudentLessonPage() {
       setDownloadingId(null);
     }
   }
+
+  const availableQuiz = useMemo(
+    () => pickAvailableQuiz(quizzes, lessonId),
+    [quizzes, lessonId],
+  );
 
   if (loading) return <LoadingScreen />;
   if (error && !lesson) return <Alert severity="error">{error}</Alert>;
@@ -364,6 +414,21 @@ export default function StudentLessonPage() {
                     Back to Subject
                   </Button>
                 ) : null}
+                <Button
+                  component={availableQuiz ? RouterLink : "button"}
+                  to={
+                    availableQuiz
+                      ? `/student/quizzes/${availableQuiz.id}`
+                      : undefined
+                  }
+                  variant="outlined"
+                  color="success"
+                  startIcon={<AssignmentOutlinedIcon />}
+                  fullWidth
+                  disabled={!availableQuiz}
+                >
+                  Take a quiz
+                </Button>
                 <Button
                   component={RouterLink}
                   to="/student/games"

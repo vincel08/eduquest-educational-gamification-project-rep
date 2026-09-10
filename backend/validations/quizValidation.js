@@ -12,7 +12,7 @@ export const createQuizValidation = [
   body("courseId").isInt({ min: 1 }).withMessage("courseId is required"),
   body("title").trim().notEmpty().withMessage("Title is required"),
   body("description").optional({ nullable: true }).isString(),
-  body("lessonId").optional({ nullable: true }).isInt({ min: 1 }),
+  body("lessonId").isInt({ min: 1 }).withMessage("Link to lesson is required"),
   body("passingScore").optional().isInt({ min: 1, max: 100 }),
   body("xpReward").optional().isInt({ min: 1 }),
   body("timeLimitMinutes").optional({ nullable: true }).isInt({ min: 1 }),
@@ -39,7 +39,10 @@ export const updateQuizValidation = [
     .notEmpty()
     .withMessage("Title cannot be empty"),
   body("description").optional({ nullable: true }).isString(),
-  body("lessonId").optional({ nullable: true }).isInt({ min: 1 }),
+  body("lessonId")
+    .optional({ values: "undefined" })
+    .isInt({ min: 1 })
+    .withMessage("Link to lesson is required"),
   body("passingScore").optional().isInt({ min: 1, max: 100 }),
   body("xpReward").optional().isInt({ min: 1 }),
   body("timeLimitMinutes").optional({ nullable: true }).isInt({ min: 1 }),
