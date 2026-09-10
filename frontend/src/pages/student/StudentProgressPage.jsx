@@ -579,19 +579,6 @@ export default function StudentProgressPage() {
                       &lt;50%
                     </Typography>
                   </Stack>
-                  <Stack direction="row" spacing={0.75} alignItems="center">
-                    <Box
-                      sx={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: 0,
-                        bgcolor: "#94A3B8",
-                      }}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      No attempts
-                    </Typography>
-                  </Stack>
                 </Stack>
               }
               icon={<QuizIcon color="secondary" />}
@@ -623,7 +610,7 @@ export default function StudentProgressPage() {
                 </Typography>
                 <Typography fontWeight={900} sx={{
                   color: !quizAttempts
-                    ? "#94A3B8"
+                    ? "text.secondary"
                     : averageQuizScore >= 70
                       ? "#10B981"
                       : averageQuizScore >= 50
