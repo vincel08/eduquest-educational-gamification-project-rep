@@ -567,27 +567,32 @@ const AuthService = {
 
     const resetUrl = `${env.clientUrl.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(rawToken)}`;
 
-    let delivered = false;
-    try {
-      const result = await EmailService.sendPasswordResetEmail({
-        to: user.email,
-        firstName: user.first_name,
-        resetUrl,
-      });
-      delivered = Boolean(result?.delivered);
-    } catch (error) {
-      console.error(
-        "[AuthService] Password reset email delivery failed:",
-        error?.message || error,
+    // Respond immediately; deliver email in the background so SMTP latency
+    // does not block the forgot-password API (especially on Railway → Brevo).
+    if (!env.isProduction) {
+      console.info(
+        `[AuthService] Password reset link for ${user.email}:\n${resetUrl}`,
       );
     }
 
-    // Always print in non-production so local testing never depends on SMTP.
-    if (!env.isProduction) {
-      console.info(
-        `[AuthService] Password reset link for ${user.email}${delivered ? "" : " (email not delivered)"}:\n${resetUrl}`,
-      );
-    }
+    void EmailService.sendPasswordResetEmail({
+      to: user.email,
+      firstName: user.first_name,
+      resetUrl,
+    })
+      .then((result) => {
+        if (!result?.delivered) {
+          console.error(
+            "[AuthService] Password reset email was not delivered via SMTP.",
+          );
+        }
+      })
+      .catch((error) => {
+        console.error(
+          "[AuthService] Password reset email delivery failed:",
+          error?.message || error,
+        );
+      });
 
     return {
       message: FORGOT_PASSWORD_SENT_MESSAGE,
