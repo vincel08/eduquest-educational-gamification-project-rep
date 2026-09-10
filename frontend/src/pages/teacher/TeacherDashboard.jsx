@@ -51,10 +51,17 @@ function truncateLabel(text, max = 28) {
 
 function scoreBarColor(score) {
   const value = Number(score) || 0;
-  if (value >= 70) return "#10B981";
-  if (value >= 50) return "#F59E0B";
+  if (value >= 70) return "#10B981"; // green
+  if (value >= 50) return "#F59E0B"; // amber
   if (value > 0) return "#F97316";
   return "#94A3B8";
+}
+
+function scoreTextSx(score) {
+  return {
+    color: scoreBarColor(score),
+    fontWeight: 800,
+  };
 }
 
 export default function TeacherDashboard() {
@@ -99,7 +106,13 @@ export default function TeacherDashboard() {
           data: quizRows.map((item) =>
             Number(Math.min(100, Math.max(0, item.average_score)).toFixed(1)),
           ),
-          backgroundColor: quizRows.map((item) => scoreBarColor(item.average_score)),
+          backgroundColor: quizRows.map((item) =>
+            scoreBarColor(item.average_score),
+          ),
+          borderColor: quizRows.map((item) =>
+            scoreBarColor(item.average_score),
+          ),
+          borderWidth: 1,
           borderRadius: 8,
           borderSkipped: false,
           barThickness: 22,
@@ -296,7 +309,12 @@ export default function TeacherDashboard() {
                           <Typography variant="caption" color="text.secondary">
                             {quiz.attempts || 0} attempt
                             {quiz.attempts === 1 ? "" : "s"} · avg{" "}
-                            {Number(quiz.average_score || 0).toFixed(1)}%
+                            <Box
+                              component="span"
+                              sx={scoreTextSx(quiz.average_score)}
+                            >
+                              {Number(quiz.average_score || 0).toFixed(1)}%
+                            </Box>
                             {!quiz.attempts ? " · no submissions yet" : ""}
                           </Typography>
                           <ContentTimestamp item={quiz} dense />
