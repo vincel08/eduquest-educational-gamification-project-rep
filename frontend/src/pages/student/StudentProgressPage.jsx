@@ -566,6 +566,32 @@ export default function StudentProgressPage() {
                       ≥50%
                     </Typography>
                   </Stack>
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Box
+                      sx={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 0,
+                        bgcolor: "#F97316",
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      &lt;50%
+                    </Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Box
+                      sx={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 0,
+                        bgcolor: "#94A3B8",
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      No attempts
+                    </Typography>
+                  </Stack>
                 </Stack>
               }
               icon={<QuizIcon color="secondary" />}
@@ -596,15 +622,15 @@ export default function StudentProgressPage() {
                   Avg score
                 </Typography>
                 <Typography fontWeight={900} sx={{
-                  color: averageQuizScore >= 70
-                    ? "#10B981"
-                    : averageQuizScore >= 50
-                      ? "#F59E0B"
-                      : averageQuizScore > 0
-                        ? "#F97316"
-                        : "text.primary",
+                  color: !quizAttempts
+                    ? "#94A3B8"
+                    : averageQuizScore >= 70
+                      ? "#10B981"
+                      : averageQuizScore >= 50
+                        ? "#F59E0B"
+                        : "#F97316",
                 }}>
-                  {averageQuizScore ? `${averageQuizScore.toFixed(0)}%` : "—"}
+                  {quizAttempts ? `${averageQuizScore.toFixed(0)}%` : "—"}
                 </Typography>
               </Grid>
             </Grid>
