@@ -10,6 +10,8 @@ import {
   updateCourseValidation,
   gradebookQuizScoreValidation,
   gradebookGameScoreValidation,
+  joinCourseValidation,
+  joinRequestIdValidation,
 } from "../validations/courseValidation.js";
 
 const router = Router();
@@ -17,6 +19,11 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/mine/enrolled", authorize("student"), CourseController.myCourses);
+router.get(
+  "/join-requests/mine",
+  authorize("student"),
+  CourseController.myJoinRequests,
+);
 router.get(
   "/teacher/sections",
   authorize("teacher", "administrator"),
@@ -44,6 +51,32 @@ router.delete(
   CourseController.remove,
 );
 router.post("/:id/enroll", authorize("student"), CourseController.enroll);
+router.post(
+  "/:id/join",
+  authorize("student"),
+  joinCourseValidation,
+  validate,
+  CourseController.requestJoin,
+);
+router.get(
+  "/:id/join-requests",
+  authorize("teacher", "administrator"),
+  CourseController.joinRequests,
+);
+router.post(
+  "/:id/join-requests/:requestId/approve",
+  authorize("teacher", "administrator"),
+  joinRequestIdValidation,
+  validate,
+  CourseController.approveJoinRequest,
+);
+router.post(
+  "/:id/join-requests/:requestId/reject",
+  authorize("teacher", "administrator"),
+  joinRequestIdValidation,
+  validate,
+  CourseController.rejectJoinRequest,
+);
 router.get(
   "/:id/enrollments",
   authorize("teacher", "administrator"),

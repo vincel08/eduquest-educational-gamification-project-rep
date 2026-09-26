@@ -144,12 +144,27 @@ const CourseModel = {
 
   async enroll(courseId, studentId) {
     await query(
-      `INSERT INTO course_enrollments (course_id, student_id)
-       VALUES (:courseId, :studentId)
-       ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP`,
+      `INSERT INTO course_enrollments (course_id, student_id, school_year)
+       SELECT :courseId, :studentId, c.school_year
+       FROM courses c
+       WHERE c.id = :courseId
+       ON DUPLICATE KEY UPDATE
+         school_year = COALESCE(course_enrollments.school_year, VALUES(school_year)),
+         updated_at = CURRENT_TIMESTAMP`,
       { courseId, studentId },
     );
     return true;
+  },
+
+  async findEnrollment(courseId, studentId) {
+    const rows = await query(
+      `SELECT *
+       FROM course_enrollments
+       WHERE course_id = :courseId AND student_id = :studentId
+       LIMIT 1`,
+      { courseId, studentId },
+    );
+    return rows[0] || null;
   },
 
   async unenroll(courseId, studentId) {
@@ -162,36 +177,29 @@ const CourseModel = {
   },
 
   /**
-   * Remove enrollments that no longer match the student's grade and/or school year.
-   * Returns the removed course rows (for notifications).
+   * Drop current-year enrollments that no longer match the student's grade.
+   * Enrollments from another school year stay so those records remain available.
    */
   async unenrollWherePlacementMismatch(
     studentId,
     { gradeLevel, schoolYear } = {},
   ) {
-    const filters = ["ce.student_id = :studentId"];
-    const params = { studentId };
+    if (!gradeLevel) return [];
 
-    if (gradeLevel) {
-      filters.push(
-        "(c.grade_level IS NULL OR TRIM(c.grade_level) = '' OR c.grade_level <> :gradeLevel)",
-      );
-      params.gradeLevel = gradeLevel;
-    }
+    const params = { studentId, gradeLevel };
+    const filters = [
+      "ce.student_id = :studentId",
+      "(c.grade_level IS NOT NULL AND TRIM(c.grade_level) <> '' AND c.grade_level <> :gradeLevel)",
+    ];
     if (schoolYear) {
-      filters.push(
-        "(c.school_year IS NULL OR TRIM(c.school_year) = '' OR c.school_year <> :schoolYear)",
-      );
       params.schoolYear = schoolYear;
-    }
-    if (!gradeLevel && !schoolYear) {
-      return [];
+      filters.push(`(
+        COALESCE(NULLIF(TRIM(ce.school_year), ''), NULLIF(TRIM(c.school_year), '')) IS NULL
+        OR COALESCE(NULLIF(TRIM(ce.school_year), ''), c.school_year) = :schoolYear
+      )`);
     }
 
-    // Match if ANY provided placement axis is mismatched.
-    const mismatchSql = filters.slice(1).join(" OR ");
-    const whereSql = `ce.student_id = :studentId AND (${mismatchSql})`;
-
+    const whereSql = filters.join(" AND ");
     const rows = await query(
       `SELECT c.id, c.title, c.subject, c.grade_level, c.school_year
        FROM course_enrollments ce
@@ -199,7 +207,6 @@ const CourseModel = {
        WHERE ${whereSql}`,
       params,
     );
-
     if (!rows.length) return [];
 
     await query(
@@ -209,7 +216,6 @@ const CourseModel = {
        WHERE ${whereSql}`,
       params,
     );
-
     return rows;
   },
 
@@ -316,6 +322,116 @@ const CourseModel = {
        WHERE course_id = :courseId AND student_id = :studentId`,
       { courseId, studentId, progressPercent },
     );
+  },
+
+  async listMissingJoinCodes() {
+    return query(
+      `SELECT id FROM courses
+       WHERE join_code IS NULL OR TRIM(join_code) = ''
+       ORDER BY id ASC`,
+    );
+  },
+
+  async setJoinCode(courseId, joinCode) {
+    await query(
+      `UPDATE courses
+       SET join_code = :joinCode
+       WHERE id = :courseId
+         AND (join_code IS NULL OR TRIM(join_code) = '')`,
+      { courseId, joinCode },
+    );
+  },
+
+  async findByJoinCode(joinCode) {
+    const rows = await query(
+      `SELECT c.*, u.first_name AS teacher_first_name, u.last_name AS teacher_last_name
+       FROM courses c
+       INNER JOIN users u ON u.id = c.teacher_id
+       WHERE c.join_code = :joinCode
+       LIMIT 1`,
+      { joinCode },
+    );
+    return rows[0] || null;
+  },
+
+  async findJoinRequest(courseId, studentId) {
+    const rows = await query(
+      `SELECT * FROM course_join_requests
+       WHERE course_id = :courseId AND student_id = :studentId
+       LIMIT 1`,
+      { courseId, studentId },
+    );
+    return rows[0] || null;
+  },
+
+  async findJoinRequestById(requestId) {
+    const rows = await query(
+      `SELECT r.*, u.first_name, u.last_name, u.username, u.email,
+              sp.grade_level, sp.section, sp.school_year
+       FROM course_join_requests r
+       INNER JOIN users u ON u.id = r.student_id
+       LEFT JOIN student_profiles sp ON sp.user_id = r.student_id
+       WHERE r.id = :requestId
+       LIMIT 1`,
+      { requestId },
+    );
+    return rows[0] || null;
+  },
+
+  async upsertJoinRequest(courseId, studentId) {
+    await query(
+      `INSERT INTO course_join_requests (course_id, student_id, status, reviewed_by, reviewed_at)
+       VALUES (:courseId, :studentId, 'pending', NULL, NULL)
+       ON DUPLICATE KEY UPDATE
+         status = 'pending',
+         reviewed_by = NULL,
+         reviewed_at = NULL`,
+      { courseId, studentId },
+    );
+    return this.findJoinRequest(courseId, studentId);
+  },
+
+  async listJoinRequests(courseId, status = null) {
+    const filters = ["r.course_id = :courseId"];
+    const params = { courseId };
+    if (status) {
+      filters.push("r.status = :status");
+      params.status = status;
+    }
+    return query(
+      `SELECT r.*, u.first_name, u.last_name, u.username, u.email,
+              sp.grade_level, sp.section, sp.school_year
+       FROM course_join_requests r
+       INNER JOIN users u ON u.id = r.student_id
+       LEFT JOIN student_profiles sp ON sp.user_id = r.student_id
+       WHERE ${filters.join(" AND ")}
+       ORDER BY r.created_at ASC`,
+      params,
+    );
+  },
+
+  async listStudentJoinRequests(studentId) {
+    return query(
+      `SELECT r.id, r.course_id, r.status, r.created_at, r.reviewed_at,
+              c.subject, c.title, c.grade_level, c.school_year
+       FROM course_join_requests r
+       INNER JOIN courses c ON c.id = r.course_id
+       WHERE r.student_id = :studentId
+       ORDER BY r.created_at DESC`,
+      { studentId },
+    );
+  },
+
+  async reviewJoinRequest(requestId, { status, reviewedBy }) {
+    await query(
+      `UPDATE course_join_requests
+       SET status = :status,
+           reviewed_by = :reviewedBy,
+           reviewed_at = NOW()
+       WHERE id = :requestId`,
+      { requestId, status, reviewedBy },
+    );
+    return this.findJoinRequestById(requestId);
   },
 };
 

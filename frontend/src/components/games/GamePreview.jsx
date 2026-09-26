@@ -43,6 +43,19 @@ const COMPONENT_MAP = {
   word_scramble: WordSearch,
 };
 
+function hasPlayableContent(gameType, data) {
+  if (!data || typeof data !== 'object') return false;
+  if (gameType === 'escape_room') return Array.isArray(data.stages) && data.stages.length > 0;
+  if (gameType === 'mission_adventure') return Array.isArray(data.missions) && data.missions.length > 0;
+  if (gameType === 'jeopardy') {
+    return (data.categories || []).some((category) => (category?.clues || []).length > 0);
+  }
+  if (gameType === 'word_search' || gameType === 'word_scramble') {
+    return (data.words || data.items || []).length > 0;
+  }
+  return (data.items || data.pairs || data.rounds || data.clues || []).length > 0;
+}
+
 function prepareGameData(gameType, gameData) {
   if (!gameData || typeof gameData !== 'object') return { items: [] };
   if (gameType === 'crossword') return syncCrosswordGameData(gameData);
@@ -207,7 +220,19 @@ export default function GamePreview({
   }
 
   if (!gameData) {
-    return <Typography color="text.secondary">No game data to preview.</Typography>;
+    return (
+      <Alert severity="error">
+        This game has no content yet. Ask your teacher to add items before students can play.
+      </Alert>
+    );
+  }
+
+  if (!hasPlayableContent(gameType, prepared)) {
+    return (
+      <Alert severity="error">
+        This game cannot be played yet. It needs at least one question, term, or stage.
+      </Alert>
+    );
   }
 
   return (

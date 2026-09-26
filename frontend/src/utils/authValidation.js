@@ -15,6 +15,16 @@ import { isValidSchoolYearLabel } from "./schoolYears";
 const MIN_PASSWORD_LENGTH = 8;
 const USERNAME_MIN = 3;
 const USERNAME_MAX = 64;
+const NAME_PATTERN = /^[\p{L}][\p{L}\s.'’-]*$/u;
+
+export function getPersonNameError(value, label) {
+  const name = String(value || "").trim().replace(/\s+/g, " ");
+  if (!name) return `${label} is required`;
+  if (name.length > 50 || !NAME_PATTERN.test(name)) {
+    return `${label} can only include letters, spaces, apostrophes, or hyphens`;
+  }
+  return "";
+}
 
 export function getPasswordError(password) {
   if (!password || !String(password).trim()) {
@@ -60,12 +70,14 @@ export function getUsernameError(username) {
 export function validateRegistrationForm(form) {
   const errors = {};
 
-  if (!form.firstName?.trim()) {
-    errors.firstName = "First name is required";
+  const firstNameError = getPersonNameError(form.firstName, "First name");
+  if (firstNameError) {
+    errors.firstName = firstNameError;
   }
 
-  if (!form.lastName?.trim()) {
-    errors.lastName = "Last name is required";
+  const lastNameError = getPersonNameError(form.lastName, "Last name");
+  if (lastNameError) {
+    errors.lastName = lastNameError;
   }
 
   const usernameError = getUsernameError(form.username);

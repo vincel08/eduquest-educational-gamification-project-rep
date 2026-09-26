@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Grid } from "@mui/material";
 import QuizIcon from "@mui/icons-material/Quiz";
 import PageHeader from "../../components/common/PageHeader";
+import StatusSnackbar from "../../components/common/StatusSnackbar";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import QuestCard from "../../components/common/QuestCard";
 import EmptyState from "../../components/common/EmptyState";
@@ -11,7 +12,7 @@ import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
 
-export default function StudentQuizzesPage() {
+export default function StudentQuizzesPage({ embedded = false }) {
   const [quizzes, setQuizzes] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -75,15 +76,18 @@ export default function StudentQuizzesPage() {
 
   return (
     <>
-      <PageHeader
-        title="Quiz Arena"
-        subtitle="Complete required lessons first, then test your knowledge for XP."
-      />
+      {embedded ? null : (
+        <PageHeader
+          title="Quiz Arena"
+          subtitle="Complete required lessons first, then test your knowledge for XP."
+        />
+      )}
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       ) : null}
+      <StatusSnackbar message={error} onClose={() => setError("")} />
       <ContentTimestampToolbar
         sort={sort}
         onSortChange={setSort}

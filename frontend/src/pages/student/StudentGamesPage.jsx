@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Grid } from "@mui/material";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import PageHeader from "../../components/common/PageHeader";
+import StatusSnackbar from "../../components/common/StatusSnackbar";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import QuestCard from "../../components/common/QuestCard";
 import EmptyState from "../../components/common/EmptyState";
@@ -12,7 +13,7 @@ import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
 import { formatGameTypeLabel } from "../../utils/gameTypes";
 
-export default function StudentGamesPage() {
+export default function StudentGamesPage({ embedded = false }) {
   const [games, setGames] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -77,15 +78,18 @@ export default function StudentGamesPage() {
 
   return (
     <>
-      <PageHeader
-        title="Game Zone"
-        subtitle="Complete the lessons first, then play for bonus XP."
-      />
+      {embedded ? null : (
+        <PageHeader
+          title="Game Zone"
+          subtitle="Complete the lessons first, then play for bonus XP."
+        />
+      )}
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       ) : null}
+      <StatusSnackbar message={error} onClose={() => setError("")} />
       <ContentTimestampToolbar
         sort={sort}
         onSortChange={setSort}

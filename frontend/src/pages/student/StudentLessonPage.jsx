@@ -381,11 +381,15 @@ export default function StudentLessonPage() {
                 <Button
                   variant="contained"
                   size="large"
-                  disabled={completing || completed || completeBlocked}
+                  disabled={
+                    completing || completed || completeBlocked || Boolean(lesson.recordOnly)
+                  }
                   onClick={handleComplete}
                   fullWidth
                 >
-                  {completed
+                  {lesson.recordOnly
+                    ? "Previous school year record"
+                    : completed
                     ? "Completed"
                     : completing
                       ? "Completing..."
@@ -431,7 +435,7 @@ export default function StudentLessonPage() {
                 </Button>
                 <Button
                   component={RouterLink}
-                  to="/student/games"
+                  to="/student/courses?view=games"
                   variant="outlined"
                   color="secondary"
                   startIcon={<SportsEsportsIcon />}

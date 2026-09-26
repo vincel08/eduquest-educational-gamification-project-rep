@@ -11,6 +11,10 @@ import {
   defaultSchoolYearValue,
   listSchoolYearOptions,
 } from "../utils/schoolYears";
+import {
+  SCHOOL_YEAR_CHANGED_EVENT,
+  useSchoolYear,
+} from "./SchoolYearContext";
 
 const STORAGE_KEY = "eduwow_teacher_filters";
 
@@ -42,6 +46,7 @@ function readStoredFilters() {
 }
 
 export function TeacherFiltersProvider({ children }) {
+  const { schoolYear: currentSchoolYear } = useSchoolYear();
   const [filters, setFilters] = useState(
     () =>
       readStoredFilters() || {
@@ -58,6 +63,17 @@ export function TeacherFiltersProvider({ children }) {
   const setSchoolYear = useCallback((schoolYear) => {
     setFilters((prev) => ({ ...prev, schoolYear, section: "all" }));
   }, []);
+
+  useEffect(() => {
+    function onSchoolYearChanged(event) {
+      const next = event.detail?.schoolYear;
+      if (next) setSchoolYear(next);
+    }
+    window.addEventListener(SCHOOL_YEAR_CHANGED_EVENT, onSchoolYearChanged);
+    return () => {
+      window.removeEventListener(SCHOOL_YEAR_CHANGED_EVENT, onSchoolYearChanged);
+    };
+  }, [setSchoolYear]);
 
   const setGradeLevel = useCallback((gradeLevel) => {
     setFilters((prev) => ({ ...prev, gradeLevel, section: "all" }));
@@ -88,7 +104,10 @@ export function TeacherFiltersProvider({ children }) {
     return params;
   }, [filters]);
 
-  const schoolYearOptions = useMemo(() => schoolYearChoices(), []);
+  const schoolYearOptions = useMemo(
+    () => listSchoolYearOptions({ includeAll: false }),
+    [currentSchoolYear],
+  );
 
   const value = useMemo(
     () => ({

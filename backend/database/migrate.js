@@ -45,6 +45,11 @@ const MIGRATION_FILES = [
   "030_medal_major_criteria.sql",
   "031_badge_more_criteria.sql",
   "032_refresh_tokens.sql",
+  "033_sync_achievement_values.sql",
+  "034_system_settings.sql",
+  "035_enrollment_school_year.sql",
+  "036_school_year_closures.sql",
+  "037_subject_join_codes.sql",
 ];
 
 async function main() {

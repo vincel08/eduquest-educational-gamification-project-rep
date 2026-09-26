@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ContentTimestamp from "../../components/common/ContentTimestamp";
+import StatusSnackbar from "../../components/common/StatusSnackbar";
 import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
 import { celebrateAchievement } from "../../utils/confetti";
@@ -42,6 +43,23 @@ import {
   writePlaySession,
 } from "../../utils/playSessionStorage";
 import { useRegisterLeavePlayGuard } from "../../contexts/LeavePlayGuardContext";
+
+function questionIsAnswered(question, answer) {
+  if (!question) return false;
+  const type = question.question_type || "multiple_choice";
+  if (type === "identification") {
+    return Boolean(String(answer?.textAnswer || "").trim());
+  }
+  if (type === "matching") {
+    const payload = answer?.answerPayload || {};
+    const lefts = (question.options || []).filter((option) => option.side === "left");
+    if (!lefts.length) return Object.keys(payload).length > 0;
+    return lefts.every(
+      (left) => payload[String(left.id)] != null || payload[left.id] != null,
+    );
+  }
+  return Boolean(answer?.selectedOptionId);
+}
 
 export default function StudentQuizPage() {
   const { quizId } = useParams();
@@ -201,6 +219,19 @@ export default function StudentQuizPage() {
     if (submitting) {
       throw new Error('Submit already in progress');
     }
+    if (!abandoned) {
+      const missing = questions.filter(
+        (item) => !questionIsAnswered(item, answers[item.id]),
+      );
+      if (missing.length) {
+        setError(
+          missing.length === 1
+            ? "Answer every question before submitting. 1 question is still blank."
+            : `Answer every question before submitting. ${missing.length} questions are still blank.`,
+        );
+        return false;
+      }
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -294,7 +325,7 @@ export default function StudentQuizPage() {
           unavailable: true,
         }));
       }
-      navigate("/student/quizzes");
+      navigate("/student/courses?view=quizzes");
     } catch (err) {
       setError(getErrorMessage(err));
       setReleasingGrade(false);
@@ -429,7 +460,7 @@ export default function StudentQuizPage() {
 
   useRegisterLeavePlayGuard(quizActive && Boolean(attemptId), {
     activityLabel: "this quiz",
-    exitPath: "/student/quizzes",
+    exitPath: "/student/courses?view=quizzes",
     onAbandon: async () => {
       if (submitOnceRef.current) return;
       submitOnceRef.current = true;
@@ -847,6 +878,11 @@ export default function StudentQuizPage() {
               <Button
                 variant="contained"
                 onClick={() => {
+                  if (!questionIsAnswered(question, answers[question?.id])) {
+                    setError("Answer this question before continuing.");
+                    return;
+                  }
+                  setError("");
                   setCurrentIndex((i) =>
                     Math.min(questions.length - 1, i + 1),
                   );
@@ -868,6 +904,7 @@ export default function StudentQuizPage() {
           </Stack>
         </Stack>
       )}
+      <StatusSnackbar message={error} onClose={() => setError("")} />
     </>
   );
 }

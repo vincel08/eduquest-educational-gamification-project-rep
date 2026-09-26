@@ -3,19 +3,38 @@
  * Labels look like "2026-2027" (starts June 2026, ends April 2027).
  * May is the break between school years and still belongs to the SY that started the previous June.
  *
- * EduWow launched in SY 2026-2027. A new SY option is added only after the
- * current year ends (June 1 rollover) — never ahead of time.
- * Keep aligned with frontend/src/utils/schoolYears.js.
+ * EduWow launched in SY 2026-2027. Until an administrator sets a school year,
+ * the current year follows the June 1 rollover. Keep aligned with
+ * frontend/src/utils/schoolYears.js.
  */
 
 /** First school-year start year shipped with EduWow. */
 export const FIRST_SCHOOL_YEAR_START = 2026;
 
-export function currentSchoolYearStartYear(now = new Date()) {
+/** Administrator-selected start year. Null uses the calendar rollover. */
+let overrideStartYear = null;
+
+export function calendarSchoolYearStartYear(now = new Date()) {
   const year = now.getFullYear();
   const month = now.getMonth(); // 0-based; June = 5
   // June–December → this calendar year's SY start; January–May → previous June's SY.
   return month >= 5 ? year : year - 1;
+}
+
+export function setCurrentSchoolYearOverride(startYear) {
+  if (startYear == null || startYear === "") {
+    overrideStartYear = null;
+    return;
+  }
+  const year = Number(startYear);
+  overrideStartYear = Number.isInteger(year) && year >= FIRST_SCHOOL_YEAR_START
+    ? year
+    : null;
+}
+
+export function currentSchoolYearStartYear(now = new Date()) {
+  if (overrideStartYear != null) return overrideStartYear;
+  return calendarSchoolYearStartYear(now);
 }
 
 export function formatSchoolYearLabel(startYear) {
@@ -72,8 +91,22 @@ export function getSchoolYearEndExclusiveForDate(date = new Date()) {
 }
 
 /**
- * List selectable school years from launch through the current SY only.
- * Future years are not listed until the current SY is done (June rollover).
+ * School years an administrator may set: launch through the calendar school year.
+ * A later year is not valid until that school year begins on June 1.
+ */
+export function listCalendarSchoolYearOptions(now = new Date()) {
+  const calendarStart = calendarSchoolYearStartYear(now);
+  const years = [];
+  for (let startYear = FIRST_SCHOOL_YEAR_START; startYear <= calendarStart; startYear += 1) {
+    const value = formatSchoolYearLabel(startYear);
+    years.push({ value, label: `SY ${value}` });
+  }
+  return years;
+}
+
+/**
+ * List selectable school years from launch through the current SY.
+ * The current SY is the administrator setting when one exists, otherwise the June rollover.
  */
 export function listSchoolYearOptions({
   includeAll = true,

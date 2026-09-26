@@ -7,11 +7,16 @@ import {
 } from "../utils/gradeLevels.js";
 import {
   SCHOOL_YEAR_INVALID_MESSAGE,
+  SCHOOL_YEAR_REQUIRED_MESSAGE,
   SECTION_INVALID_MESSAGE,
   SECTION_REQUIRED_MESSAGE,
   isValidSection,
 } from "../utils/classSections.js";
 import { isValidSchoolYearLabel } from "../utils/schoolYears.js";
+import {
+  getPersonNameError,
+  normalizePersonName,
+} from "../utils/personName.js";
 import {
   isValidUsername,
   USERNAME_INVALID_MESSAGE,
@@ -39,8 +44,16 @@ export const registerValidation = [
     if (error) throw new Error(error);
     return true;
   }),
-  body("firstName").trim().notEmpty().withMessage("First name is required"),
-  body("lastName").trim().notEmpty().withMessage("Last name is required"),
+  body("firstName").custom((value) => {
+    const error = getPersonNameError(normalizePersonName(value), "First name");
+    if (error) throw new Error(error);
+    return true;
+  }),
+  body("lastName").custom((value) => {
+    const error = getPersonNameError(normalizePersonName(value), "Last name");
+    if (error) throw new Error(error);
+    return true;
+  }),
   body("role")
     .optional()
     .custom((value) => {
@@ -69,14 +82,15 @@ export const registerValidation = [
     }
     return true;
   }),
-  body("schoolYear")
-    .optional({ values: "falsy" })
-    .custom((value) => {
-      if (!isValidSchoolYearLabel(value)) {
-        throw new Error(SCHOOL_YEAR_INVALID_MESSAGE);
-      }
-      return true;
-    }),
+  body("schoolYear").custom((value) => {
+    if (value === undefined || value === null || String(value).trim() === "") {
+      throw new Error(SCHOOL_YEAR_REQUIRED_MESSAGE);
+    }
+    if (!isValidSchoolYearLabel(value)) {
+      throw new Error(SCHOOL_YEAR_INVALID_MESSAGE);
+    }
+    return true;
+  }),
   body("schoolName").optional().isString(),
 ];
 

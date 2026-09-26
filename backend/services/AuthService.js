@@ -21,10 +21,7 @@ import {
   SCHOOL_YEAR_INVALID_MESSAGE,
   SCHOOL_YEAR_LOCKED_MESSAGE,
   SCHOOL_YEAR_REQUIRED_MESSAGE,
-  SECTION_INVALID_MESSAGE,
   SECTION_LOCKED_MESSAGE,
-  SECTION_REQUIRED_MESSAGE,
-  isValidSection,
   normalizeSection,
 } from "../utils/classSections.js";
 import {
@@ -33,6 +30,10 @@ import {
   isValidSchoolYearLabel,
 } from "../utils/schoolYears.js";
 import ClassSectionService from "./ClassSectionService.js";
+import {
+  getPersonNameError,
+  normalizePersonName,
+} from "../utils/personName.js";
 import {
   avatarFileApiPath,
   publicUploadUrl,
@@ -170,6 +171,90 @@ async function assertEmailAvailable(email, excludeUserId = null) {
 }
 
 const AuthService = {
+  /**
+   * Verify student identity and class placement before any account is created.
+   * Returns normalized fields used by register.
+   */
+  async validateStudentRegistration({
+    username,
+    email,
+    password,
+    firstName,
+    lastName,
+    gradeLevel,
+    section,
+    schoolYear,
+  }) {
+    const passwordError = validateNewPassword(password);
+    if (passwordError) {
+      throw new AppError(passwordError, 400);
+    }
+
+    const normalizedFirstName = normalizePersonName(firstName);
+    const firstNameError = getPersonNameError(normalizedFirstName, "First name");
+    if (firstNameError) throw new AppError(firstNameError, 400);
+
+    const normalizedLastName = normalizePersonName(lastName);
+    const lastNameError = getPersonNameError(normalizedLastName, "Last name");
+    if (lastNameError) throw new AppError(lastNameError, 400);
+
+    const normalizedUsername = normalizeUsername(username);
+    if (!normalizedUsername) {
+      throw new AppError(USERNAME_REQUIRED_MESSAGE, 400);
+    }
+    if (!isValidUsername(normalizedUsername)) {
+      throw new AppError(USERNAME_INVALID_MESSAGE, 400);
+    }
+
+    const normalizedEmail = normalizeOptionalEmail(email);
+    if (
+      email !== undefined &&
+      email !== null &&
+      String(email).trim() !== "" &&
+      !normalizedEmail
+    ) {
+      throw new AppError(
+        "Enter a valid email address, or leave it blank.",
+        400,
+      );
+    }
+
+    const normalizedGrade = normalizeGradeLevel(gradeLevel);
+    if (!normalizedGrade) {
+      throw new AppError(GRADE_LEVEL_REQUIRED_MESSAGE, 400);
+    }
+    if (!isValidGradeLevel(normalizedGrade)) {
+      throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
+    }
+
+    const resolvedSchoolYear = String(schoolYear || "").trim();
+    if (!resolvedSchoolYear) {
+      throw new AppError(SCHOOL_YEAR_REQUIRED_MESSAGE, 400);
+    }
+    if (!isValidSchoolYearLabel(resolvedSchoolYear)) {
+      throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
+    }
+
+    const catalogSection = await ClassSectionService.assertSectionInCatalog(
+      resolvedSchoolYear,
+      normalizedGrade,
+      section,
+    );
+
+    await assertUsernameAvailable(normalizedUsername);
+    await assertEmailAvailable(normalizedEmail);
+
+    return {
+      username: normalizedUsername,
+      email: normalizedEmail,
+      firstName: normalizedFirstName,
+      lastName: normalizedLastName,
+      gradeLevel: normalizedGrade,
+      section: catalogSection,
+      schoolYear: resolvedSchoolYear,
+    };
+  },
+
   async register({
     username,
     email,
@@ -195,82 +280,33 @@ const AuthService = {
       throw new AppError("Invalid registration role", 400);
     }
 
-    const passwordError = validateNewPassword(password);
-    if (passwordError) {
-      throw new AppError(passwordError, 400);
-    }
-
-    const normalizedUsername = normalizeUsername(username);
-    if (!normalizedUsername) {
-      throw new AppError(USERNAME_REQUIRED_MESSAGE, 400);
-    }
-    if (!isValidUsername(normalizedUsername)) {
-      throw new AppError(USERNAME_INVALID_MESSAGE, 400);
-    }
-
-    const normalizedEmail = normalizeOptionalEmail(email);
-    if (
-      email !== undefined &&
-      email !== null &&
-      String(email).trim() !== "" &&
-      !normalizedEmail
-    ) {
-      throw new AppError(
-        "Enter a valid email address, or leave it blank.",
-        400,
-      );
-    }
-    if (
-      normalizedEmail &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
-    ) {
-      throw new AppError(
-        "Enter a valid email address, or leave it blank.",
-        400,
-      );
-    }
-
-    const normalizedGrade = normalizeGradeLevel(gradeLevel);
-    if (!normalizedGrade) {
-      throw new AppError(GRADE_LEVEL_REQUIRED_MESSAGE, 400);
-    }
-    if (!isValidGradeLevel(normalizedGrade)) {
-      throw new AppError(GRADE_LEVEL_INVALID_MESSAGE, 400);
-    }
-
-    const resolvedSchoolYear =
-      schoolYear && String(schoolYear).trim()
-        ? String(schoolYear).trim()
-        : formatSchoolYearLabel(currentSchoolYearStartYear());
-    if (!isValidSchoolYearLabel(resolvedSchoolYear)) {
-      throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
-    }
-
-    const catalogSection = await ClassSectionService.assertSectionInCatalog(
-      resolvedSchoolYear,
-      normalizedGrade,
+    const student = await this.validateStudentRegistration({
+      username,
+      email,
+      password,
+      firstName,
+      lastName,
+      gradeLevel,
       section,
-    );
-
-    await assertUsernameAvailable(normalizedUsername);
-    await assertEmailAvailable(normalizedEmail);
+      schoolYear,
+    });
 
     const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await UserModel.create({
-      username: normalizedUsername,
-      email: normalizedEmail,
+      username: student.username,
+      email: student.email,
       passwordHash,
-      firstName,
-      lastName,
+      firstName: student.firstName,
+      lastName: student.lastName,
       role: "student",
     });
 
     await StudentProfileModel.create(user.id, {
-      gradeLevel: normalizedGrade,
+      gradeLevel: student.gradeLevel,
       schoolName: schoolName || null,
-      section: catalogSection,
-      schoolYear: resolvedSchoolYear,
+      section: student.section,
+      schoolYear: student.schoolYear,
     });
 
     return buildAuthPayload(user);

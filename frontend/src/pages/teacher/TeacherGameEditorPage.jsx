@@ -18,6 +18,7 @@ import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
+import StatusSnackbar from "../../components/common/StatusSnackbar";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import GamePreview from "../../components/games/GamePreview";
@@ -214,6 +215,7 @@ export default function TeacherGameEditorPage() {
           {error}
         </Alert>
       ) : null}
+      <StatusSnackbar message={error} onClose={() => setError("")} />
       {message ? (
         <Alert severity="success" sx={{ mb: 2 }}>
           {message}

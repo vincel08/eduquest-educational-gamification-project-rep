@@ -17,6 +17,7 @@ import {
 import TimelineIcon from "@mui/icons-material/Timeline";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import QuizIcon from "@mui/icons-material/Quiz";
+import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import LocalFireDepartmentIcon from "@mui/icons-material/LocalFireDepartment";
 import StarIcon from "@mui/icons-material/Star";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
@@ -90,6 +91,37 @@ function xpForNextLevel(xp) {
   const level = Math.max(1, Math.floor(Number(xp || 0) / XP_PER_LEVEL) + 1);
   return level * XP_PER_LEVEL;
 }
+
+function scoreTrendChart(trend, label, color) {
+  const points = Array.isArray(trend) ? trend : [];
+  return {
+    labels: points.map((item) => formatChartDay(item.day)),
+    datasets: [
+      {
+        label,
+        data: points.map((item) => Number(item.score) || 0),
+        borderColor: color,
+        backgroundColor: `${color}33`,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+      },
+    ],
+  };
+}
+
+const scoreTrendOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    y: {
+      beginAtZero: true,
+      max: 100,
+      ticks: { callback: (value) => `${value}%` },
+    },
+  },
+};
 
 export default function StudentProgressPage() {
   const theme = useTheme();
@@ -188,6 +220,15 @@ export default function StudentProgressPage() {
       ],
     };
   }, [analytics, theme.palette.primary.main, todayXp]);
+
+  const quizTrendChart = useMemo(
+    () => scoreTrendChart(analytics?.quizTrend, "Average quiz score", "#7C3AED"),
+    [analytics],
+  );
+  const gameTrendChart = useMemo(
+    () => scoreTrendChart(analytics?.gameTrend, "Average game score", "#0EA5E9"),
+    [analytics],
+  );
 
   if (loading) {
     return <LoadingScreen label="Loading progress..." showCards />;
@@ -479,6 +520,12 @@ export default function StudentProgressPage() {
                           {subject.gradeLevel ? (
                             <Chip size="small" label={subject.gradeLevel} />
                           ) : null}
+                          {subject.schoolYear ? (
+                            <Chip size="small" label={`SY ${subject.schoolYear}`} />
+                          ) : null}
+                          {subject.recordOnly ? (
+                            <Chip size="small" color="info" label="Previous year" />
+                          ) : null}
                           <Chip
                             size="small"
                             color={percent >= 100 ? "success" : "default"}
@@ -512,7 +559,7 @@ export default function StudentProgressPage() {
                         variant="contained"
                         size="small"
                       >
-                        {percent >= 100 ? "Review" : "Continue"}
+                        {subject.recordOnly ? "View record" : percent >= 100 ? "Review" : "Continue"}
                       </Button>
                     </Stack>
                   </Paper>
@@ -583,7 +630,7 @@ export default function StudentProgressPage() {
               }
               icon={<QuizIcon color="secondary" />}
               actionLabel="All quizzes"
-              actionTo="/student/quizzes"
+              actionTo="/student/courses?view=quizzes"
             />
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid size={{ xs: 6, sm: 3 }}>
@@ -780,6 +827,45 @@ export default function StudentProgressPage() {
                 your result when you are ready.
               </Typography>
             </Stack>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper sx={{ p: { xs: 2, md: 2.5 }, height: "100%" }}>
+            <SectionHeader
+              title="Quiz Progress Trend"
+              subtitle="Average score of completed quizzes over the last 14 days"
+              icon={<QuizIcon color="secondary" />}
+            />
+            {(analytics?.quizTrend || []).length ? (
+              <Box sx={{ height: 220 }}>
+                <Line data={quizTrendChart} options={scoreTrendOptions} />
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Finish a quiz to see your quiz score trend.
+              </Typography>
+            )}
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper sx={{ p: { xs: 2, md: 2.5 }, height: "100%" }}>
+            <SectionHeader
+              title="Game Progress Trend"
+              subtitle="Average score of games played over the last 14 days"
+              icon={<SportsEsportsIcon color="primary" />}
+            />
+            {(analytics?.gameTrend || []).length ? (
+              <Box sx={{ height: 220 }}>
+                <Line data={gameTrendChart} options={scoreTrendOptions} />
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Play a game to see your game score trend.
+              </Typography>
+            )}
           </Paper>
         </Grid>
       </Grid>

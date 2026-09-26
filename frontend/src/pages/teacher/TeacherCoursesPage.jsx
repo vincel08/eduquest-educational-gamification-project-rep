@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Box,
   Button,
   Card,
   CardActions,
@@ -41,13 +42,15 @@ import {
 } from "../../utils/schoolYears";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
-const emptyForm = {
-  subject: "",
-  description: "",
-  gradeLevel: "Grade 10",
-  schoolYear: defaultSchoolYearValue(),
-  isPublished: true,
-};
+function createEmptyForm() {
+  return {
+    subject: "",
+    description: "",
+    gradeLevel: "Grade 10",
+    schoolYear: defaultSchoolYearValue(),
+    isPublished: true,
+  };
+}
 
 function courseToForm(course) {
   return {
@@ -63,7 +66,7 @@ export default function TeacherCoursesPage() {
   const { toQueryParams, schoolYear, gradeLevel } = useTeacherFilters();
   const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [courses, setCourses] = useState([]);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(createEmptyForm());
   const [open, setOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
   const [error, setError] = useState("");
@@ -104,7 +107,7 @@ export default function TeacherCoursesPage() {
 
   function openCreate() {
     setEditingCourse(null);
-    setForm(emptyForm);
+    setForm(createEmptyForm());
     setError("");
     setOpen(true);
   }
@@ -120,7 +123,7 @@ export default function TeacherCoursesPage() {
     if (saving) return;
     setOpen(false);
     setEditingCourse(null);
-    setForm(emptyForm);
+    setForm(createEmptyForm());
   }
 
   async function handleSave() {
@@ -146,7 +149,7 @@ export default function TeacherCoursesPage() {
       }
       setOpen(false);
       setEditingCourse(null);
-      setForm(emptyForm);
+      setForm(createEmptyForm());
       await load();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -273,6 +276,17 @@ export default function TeacherCoursesPage() {
                   <Typography variant="body2" sx={{ mt: 1 }}>
                     {course.lesson_count || 0} lessons
                   </Typography>
+                  {course.join_code ? (
+                    <Typography variant="body2" sx={{ mt: 1, fontWeight: 800 }}>
+                      Join code{" "}
+                      <Box
+                        component="span"
+                        sx={{ fontFamily: "monospace", letterSpacing: 1 }}
+                      >
+                        {course.join_code}
+                      </Box>
+                    </Typography>
+                  ) : null}
                   <ContentTimestamp item={course} dense />
                 </CardContent>
                 <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 1.5 }}>
@@ -431,7 +445,7 @@ export default function TeacherCoursesPage() {
         description={
           publishTarget?.is_published
             ? "Students will no longer see this subject in the catalog until you publish it again."
-            : "Students matching this grade and school year will be able to enroll."
+            : "Students with this grade and school year can request to join using the subject code."
         }
         details={
           publishTarget

@@ -9,6 +9,7 @@ import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import StatusSnackbar from "../../components/common/StatusSnackbar";
 import ManualQuizEditor from "../../components/quiz/ManualQuizEditor";
 import QuizPreviewDialog from "../../components/quiz/QuizPreviewDialog";
 import courseService from "../../services/courseService";
@@ -404,6 +405,7 @@ export default function TeacherQuizEditorPage() {
 
         {error ? <Alert severity="error">{error}</Alert> : null}
         {message ? <Alert severity="success">{message}</Alert> : null}
+        <StatusSnackbar message={error} onClose={() => setError("")} />
 
         <ManualQuizEditor
           form={form}

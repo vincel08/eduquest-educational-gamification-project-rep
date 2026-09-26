@@ -27,6 +27,7 @@ import { GRADE_LEVELS } from "../../utils/gradeLevels";
 import { listSchoolYearOptions } from "../../utils/schoolYears";
 import { notifyClassSectionsChanged } from "../../utils/classSectionsEvents";
 import { useAdminFilters } from "../../contexts/AdminFiltersContext";
+import { useSchoolYear } from "../../contexts/SchoolYearContext";
 
 export default function AdminSectionsPage() {
   const {
@@ -39,9 +40,10 @@ export default function AdminSectionsPage() {
     setSection,
   } = useAdminFilters();
 
+  const { schoolYear: currentSchoolYear } = useSchoolYear();
   const schoolYearOptions = useMemo(
     () => listSchoolYearOptions({ includeAll: false }),
-    [],
+    [currentSchoolYear],
   );
 
   const defaultForm = useCallback(

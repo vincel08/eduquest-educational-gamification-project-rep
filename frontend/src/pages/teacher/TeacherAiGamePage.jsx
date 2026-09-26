@@ -29,6 +29,7 @@ import ExtensionIcon from "@mui/icons-material/Extension";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
+import StatusSnackbar from "../../components/common/StatusSnackbar";
 import AiGeneratedReviewPanel from "../../components/ai-review/AiGeneratedReviewPanel";
 import courseService from "../../services/courseService";
 import aiReviewService from "../../services/aiReviewService";
@@ -276,6 +277,7 @@ export default function TeacherAiGamePage() {
           {error}
         </Alert>
       ) : null}
+      <StatusSnackbar message={error} onClose={() => setError("")} />
       {message ? (
         <Alert severity="success" sx={{ mb: 2 }}>
           {message}

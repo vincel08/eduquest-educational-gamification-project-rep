@@ -1,5 +1,6 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { SchoolYearProvider } from './contexts/SchoolYearContext';
 import { ThemeModeProvider } from './contexts/ThemeModeContext';
 import { RewardsProvider } from './contexts/RewardsContext';
 import { LeavePlayGuardProvider } from './contexts/LeavePlayGuardContext';
@@ -17,11 +18,13 @@ export default function App() {
     <ThemeModeProvider>
       <AuthProvider>
         <BrowserRouter>
-          <RewardsProvider>
-            <LeavePlayGuardProvider>
-              <AppRoutes />
-            </LeavePlayGuardProvider>
-          </RewardsProvider>
+          <SchoolYearProvider>
+            <RewardsProvider>
+              <LeavePlayGuardProvider>
+                <AppRoutes />
+              </LeavePlayGuardProvider>
+            </RewardsProvider>
+          </SchoolYearProvider>
         </BrowserRouter>
       </AuthProvider>
     </ThemeModeProvider>

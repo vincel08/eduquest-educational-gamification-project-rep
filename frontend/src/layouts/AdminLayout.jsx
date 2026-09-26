@@ -5,6 +5,7 @@ import LeaderboardIcon from "@mui/icons-material/Leaderboard";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import GroupsIcon from "@mui/icons-material/Groups";
 import HistoryIcon from "@mui/icons-material/History";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import DashboardLayout from "./DashboardLayout";
 import { AdminFiltersProvider } from "../contexts/AdminFiltersContext";
 import AdminSidebarFilters from "../components/admin/AdminSidebarFilters";
@@ -12,6 +13,7 @@ import AdminSidebarFilters from "../components/admin/AdminSidebarFilters";
 const navItems = [
   { label: "Dashboard", path: "/admin/dashboard", icon: <DashboardIcon /> },
   { label: "Sections", path: "/admin/sections", icon: <GroupsIcon /> },
+  { label: "School Year", path: "/admin/school-year", icon: <CalendarMonthIcon /> },
   { label: "Subjects", path: "/admin/courses", icon: <MenuBookIcon /> },
   { label: "Badges & Medals", path: "/admin/badges", icon: <EmojiEventsIcon /> },
   {

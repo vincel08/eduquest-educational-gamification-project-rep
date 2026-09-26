@@ -1,6 +1,7 @@
 import CourseService from "../services/CourseService.js";
 import GradebookService from "../services/GradebookService.js";
 import { successResponse } from "../utils/apiResponse.js";
+import AppError from "../utils/AppError.js";
 
 const CourseController = {
   async create(req, res, next) {
@@ -64,13 +65,75 @@ const CourseController = {
     }
   },
 
-  async enroll(req, res, next) {
+  async enroll(_req, _res, next) {
+    return next(
+      new AppError(
+        "Ask your teacher for the subject code, then request to join.",
+        400,
+      ),
+    );
+  },
+
+  async requestJoin(req, res, next) {
     try {
-      const data = await CourseService.enrollStudent(
-        Number(req.params.id),
+      const data = await CourseService.requestJoin(
         req.user.id,
+        Number(req.params.id),
+        req.body.code,
       );
-      return successResponse(res, "Enrolled successfully", data);
+      const message = data.alreadyPending
+        ? "Your request is already waiting for your teacher."
+        : "Request sent. Your teacher will review it.";
+      return successResponse(res, message, data, data.alreadyPending ? 200 : 201);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async myJoinRequests(req, res, next) {
+    try {
+      const data = await CourseService.listMyJoinRequests(req.user.id);
+      return successResponse(res, "Join requests retrieved", data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async joinRequests(req, res, next) {
+    try {
+      const data = await CourseService.listJoinRequests(
+        Number(req.params.id),
+        req.user,
+      );
+      return successResponse(res, "Join requests retrieved", data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async approveJoinRequest(req, res, next) {
+    try {
+      const data = await CourseService.reviewJoinRequest(
+        Number(req.params.id),
+        Number(req.params.requestId),
+        req.user,
+        "approve",
+      );
+      return successResponse(res, "Student approved", data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async rejectJoinRequest(req, res, next) {
+    try {
+      const data = await CourseService.reviewJoinRequest(
+        Number(req.params.id),
+        Number(req.params.requestId),
+        req.user,
+        "reject",
+      );
+      return successResponse(res, "Request declined", data);
     } catch (error) {
       return next(error);
     }

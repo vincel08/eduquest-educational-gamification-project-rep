@@ -205,7 +205,7 @@ export default function StudentDashboard() {
           </Button>
           <Button
             component={RouterLink}
-            to="/student/games"
+            to="/student/courses?view=games"
             size="small"
             startIcon={<SportsEsportsIcon />}
             sx={{ color: "rgba(255,255,255,0.92)" }}
@@ -372,7 +372,7 @@ export default function StudentDashboard() {
               title="Up Next"
               subtitle="One challenge ready when you are"
               actionLabel="All quizzes"
-              actionTo="/student/quizzes"
+              actionTo="/student/courses?view=quizzes"
               icon={<QuizIcon color="primary" />}
             />
             {upcomingQuiz ? (

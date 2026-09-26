@@ -4,6 +4,7 @@ import NotificationModel from "../models/NotificationModel.js";
 import StudentProfileModel from "../models/StudentProfileModel.js";
 import UserModel from "../models/UserModel.js";
 import AppError from "../utils/AppError.js";
+import { generateJoinCode, normalizeJoinCode } from "../utils/joinCode.js";
 import {
   GRADE_LEVEL_MISMATCH_MESSAGE,
   GRADE_LEVEL_REQUIRED_FOR_ENROLL_MESSAGE,
@@ -57,6 +58,13 @@ function resolveScheduleFields(data = {}) {
   return { schoolYear, endsAt };
 }
 
+function withoutJoinCode(course) {
+  if (!course) return course;
+  const next = { ...course };
+  delete next.join_code;
+  return next;
+}
+
 const CourseService = {
   /**
    * If the subject is past ends_at / school-year end, unpublish it (auto-deactivate).
@@ -81,6 +89,8 @@ const CourseService = {
       title,
       teacherId,
     });
+    const joinCode = await this.assignJoinCode(course.id);
+    course.join_code = joinCode;
     await ActivityLogService.log({
       actorId: actor?.id || teacherId || null,
       action: "course.created",
@@ -111,9 +121,187 @@ const CourseService = {
       if (user?.role === "student" && (!next.is_published || isCourseExpired(next))) {
         continue;
       }
-      courses.push(next);
+      courses.push(
+        user?.role === "student" ? withoutJoinCode(next) : next,
+      );
     }
     return { courses, total: courses.length };
+  },
+
+  async assignJoinCode(courseId) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const joinCode = generateJoinCode();
+      try {
+        await CourseModel.setJoinCode(courseId, joinCode);
+      } catch (error) {
+        if (error?.code === "ER_DUP_ENTRY") continue;
+        throw error;
+      }
+      const course = await CourseModel.findById(courseId);
+      if (course?.join_code) return course.join_code;
+    }
+    throw new AppError("Could not generate a subject code.", 500);
+  },
+
+  async ensureJoinCodes() {
+    let missing = [];
+    try {
+      missing = await CourseModel.listMissingJoinCodes();
+    } catch (error) {
+      if (error?.code === "ER_BAD_FIELD_ERROR" || error?.code === "ER_NO_SUCH_TABLE") {
+        return;
+      }
+      throw error;
+    }
+    for (const row of missing) {
+      await this.assignJoinCode(row.id);
+    }
+  },
+
+  async requestJoin(studentId, courseId, rawCode) {
+    const code = normalizeJoinCode(rawCode);
+    if (code.length < 6) {
+      throw new AppError("Enter the subject code from your teacher.", 400);
+    }
+
+    let course = await CourseModel.findByJoinCode(code);
+    if (!course || Number(course.id) !== Number(courseId)) {
+      throw new AppError("That code is not for this subject.", 400);
+    }
+    course = await this.deactivateIfExpired(course);
+    if (isCourseExpired(course) || !course.is_published) {
+      throw new AppError("That subject is not open for new students.", 404);
+    }
+
+    const placement = await getStudentPlacement(studentId);
+    if (!placement.gradeLevel) {
+      throw new AppError(GRADE_LEVEL_REQUIRED_FOR_ENROLL_MESSAGE, 400);
+    }
+    if (!isValidSchoolYearLabel(placement.schoolYear)) {
+      throw new AppError(SCHOOL_YEAR_REQUIRED_FOR_ACCESS_MESSAGE, 400);
+    }
+    if (!gradesMatch(placement.gradeLevel, course.grade_level)) {
+      throw new AppError(GRADE_LEVEL_MISMATCH_MESSAGE, 403);
+    }
+    if (!schoolYearsMatch(placement.schoolYear, course.school_year)) {
+      throw new AppError(SCHOOL_YEAR_MISMATCH_MESSAGE, 403);
+    }
+
+    if (await CourseModel.isEnrolled(course.id, studentId)) {
+      throw new AppError("You are already enrolled in this subject.", 409);
+    }
+
+    const existing = await CourseModel.findJoinRequest(course.id, studentId);
+    if (existing?.status === "pending") {
+      return {
+        request: existing,
+        course: withoutJoinCode(course),
+        alreadyPending: true,
+      };
+    }
+
+    const request = await CourseModel.upsertJoinRequest(course.id, studentId);
+    const student = await UserModel.findById(studentId);
+    const studentName = `${student?.first_name || ""} ${student?.last_name || ""}`.trim() || "A student";
+    const subjectName = course.subject || course.title;
+
+    await NotificationModel.create({
+      userId: course.teacher_id,
+      title: "Subject join request",
+      message: `${studentName} asked to join "${subjectName}".`,
+      type: "course",
+      link: `/teacher/courses/${course.id}`,
+    });
+    await ActivityLogService.log({
+      actorId: studentId,
+      action: "course.join_requested",
+      entityType: "course",
+      entityId: course.id,
+      summary: `${studentName} requested to join "${subjectName}"`,
+      metadata: { requestId: request?.id || null },
+    });
+
+    return {
+      request,
+      course: withoutJoinCode(course),
+      alreadyPending: false,
+    };
+  },
+
+  async listMyJoinRequests(studentId) {
+    const rows = await CourseModel.listStudentJoinRequests(studentId);
+    return rows.filter((row) => row.status !== "approved");
+  },
+
+  async listJoinRequests(courseId, user) {
+    await this.assertStaffCourseAccess(courseId, user);
+    return CourseModel.listJoinRequests(courseId, "pending");
+  },
+
+  async reviewJoinRequest(courseId, requestId, user, decision) {
+    const course = await this.assertStaffCourseAccess(courseId, user);
+    const request = await CourseModel.findJoinRequestById(requestId);
+    if (!request || Number(request.course_id) !== Number(courseId)) {
+      throw new AppError("Join request not found", 404);
+    }
+    if (request.status !== "pending") {
+      throw new AppError("This request has already been reviewed.", 409);
+    }
+
+    const subjectName = course.subject || course.title;
+    const studentName = `${request.first_name || ""} ${request.last_name || ""}`.trim();
+
+    if (decision === "reject") {
+      const reviewed = await CourseModel.reviewJoinRequest(requestId, {
+        status: "rejected",
+        reviewedBy: user.id,
+      });
+      await NotificationModel.create({
+        userId: request.student_id,
+        title: "Join request declined",
+        message: `Your request to join "${subjectName}" was declined.`,
+        type: "course",
+        link: `/student/courses/${courseId}`,
+      });
+      await ActivityLogService.log({
+        actorId: user.id,
+        action: "course.join_rejected",
+        entityType: "course",
+        entityId: courseId,
+        summary: `Declined ${studentName}'s request to join "${subjectName}"`,
+        metadata: { requestId, studentId: request.student_id },
+      });
+      return reviewed;
+    }
+
+    if (await CourseModel.isEnrolled(courseId, request.student_id)) {
+      return CourseModel.reviewJoinRequest(requestId, {
+        status: "approved",
+        reviewedBy: user.id,
+      });
+    }
+
+    await this.enrollStudent(courseId, request.student_id, { notify: false });
+    const reviewed = await CourseModel.reviewJoinRequest(requestId, {
+      status: "approved",
+      reviewedBy: user.id,
+    });
+    await NotificationModel.create({
+      userId: request.student_id,
+      title: "Joined subject",
+      message: `Your teacher approved your request to join "${subjectName}".`,
+      type: "course",
+      link: `/student/courses/${courseId}`,
+    });
+    await ActivityLogService.log({
+      actorId: user.id,
+      action: "course.join_approved",
+      entityType: "course",
+      entityId: courseId,
+      summary: `Approved ${studentName}'s request to join "${subjectName}"`,
+      metadata: { requestId, studentId: request.student_id },
+    });
+    return reviewed;
   },
 
   async getCourseById(id, user = null) {
@@ -122,14 +310,30 @@ const CourseService = {
     course = await this.deactivateIfExpired(course);
 
     if (user?.role === "student") {
-      await this.assertStudentCourseAccess(id, user.id);
-      course = await CourseModel.findById(id);
+      const access = await this.resolveStudentCourseAccess(id, user.id);
+      course = access.course;
+      const enrollment = access.enrolled
+        ? await CourseModel.findEnrollment(id, user.id)
+        : null;
+      const lessons = await LessonModel.getStudentProgressForCourse(id, user.id);
+      const request = await CourseModel.findJoinRequest(id, user.id);
+      return {
+        ...withoutJoinCode(course),
+        lessons,
+        enrolled: access.enrolled,
+        recordOnly: access.recordOnly,
+        progress_percent: enrollment?.progress_percent ?? null,
+        joinRequestStatus: request?.status || null,
+      };
     } else if (user?.role === "teacher") {
       if (Number(course.teacher_id) !== Number(user.id)) {
         throw new AppError("Access denied", 403);
       }
     }
 
+    if (!course.join_code) {
+      course.join_code = await this.assignJoinCode(course.id);
+    }
     const lessons = await LessonModel.findByCourse(id);
     return { ...course, lessons };
   },
@@ -235,7 +439,7 @@ const CourseService = {
     return true;
   },
 
-  async enrollStudent(courseId, studentId) {
+  async enrollStudent(courseId, studentId, { notify = true } = {}) {
     let course = await CourseModel.findById(courseId);
     if (!course) {
       throw new AppError("Course not available for enrollment", 404);
@@ -263,13 +467,15 @@ const CourseService = {
     }
 
     await CourseModel.enroll(courseId, studentId);
-    await NotificationModel.create({
-      userId: studentId,
-      title: "Enrolled in Course",
-      message: `You enrolled in "${course.title}".`,
-      type: "course",
-      link: `/student/courses/${courseId}`,
-    });
+    if (notify) {
+      await NotificationModel.create({
+        userId: studentId,
+        title: "Enrolled in Course",
+        message: `You enrolled in "${course.title}".`,
+        type: "course",
+        link: `/student/courses/${courseId}`,
+      });
+    }
 
     return CourseModel.findById(courseId);
   },
@@ -385,9 +591,38 @@ const CourseService = {
   },
 
   /**
-   * After grade / school year / section changes, drop enrollments that no longer
-   * match the student's placement so teacher rosters and student access stay aligned.
-   * Quiz/game history is retained; only course_enrollments rows are removed.
+   * Live subjects use the student's current grade and school year.
+   * An enrollment from another school year, or a closed subject the student
+   * already joined, stays readable. New quizzes and games stay closed.
+   */
+  async resolveStudentCourseAccess(courseId, studentId) {
+    let course = await CourseModel.findById(courseId);
+    if (!course) throw new AppError("Course not found", 404);
+    course = await this.deactivateIfExpired(course);
+
+    const enrolled = await CourseModel.isEnrolled(courseId, studentId);
+    try {
+      const live = await this.assertStudentCourseAccess(courseId, studentId);
+      return { course: live, enrolled, recordOnly: false };
+    } catch (error) {
+      if (!enrolled) throw error;
+      const placement = await getStudentPlacement(studentId);
+      const courseYear = String(course.school_year || "").trim();
+      const studentYear = String(placement.schoolYear || "").trim();
+      const previousYear = Boolean(
+        courseYear && studentYear && courseYear !== studentYear,
+      );
+      const closed = !course.is_published || isCourseExpired(course);
+      if (previousYear || closed) {
+        return { course, enrolled: true, recordOnly: true };
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * After a grade change, drop current-year enrollments that no longer match.
+   * Previous school year enrollments stay so those records remain available.
    */
   async alignStudentAccessAfterPlacementChange(studentId, actorId = null) {
     const placement = await getStudentPlacement(studentId);

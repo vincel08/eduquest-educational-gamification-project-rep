@@ -63,6 +63,19 @@ export const gradebookQuizScoreValidation = [
   body('score').optional(),
 ];
 
+export const joinCourseValidation = [
+  param("id").isInt({ min: 1 }).withMessage("Invalid course id"),
+  body("code")
+    .trim()
+    .notEmpty()
+    .withMessage("Enter the subject code from your teacher."),
+];
+
+export const joinRequestIdValidation = [
+  param("id").isInt({ min: 1 }).withMessage("Invalid course id"),
+  param("requestId").isInt({ min: 1 }).withMessage("Invalid join request"),
+];
+
 export const gradebookGameScoreValidation = [
   param('id').isInt({ min: 1 }).withMessage('Invalid course id'),
   param('gameId').isInt({ min: 1 }).withMessage('Invalid game id'),

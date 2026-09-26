@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import { useNavigate, useParams, Link as RouterLink } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
+import StatusSnackbar from "../../components/common/StatusSnackbar";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ContentTimestamp from "../../components/common/ContentTimestamp";
 import GamePreview from "../../components/games/GamePreview";
@@ -192,7 +193,7 @@ export default function StudentGamePage() {
 
   useRegisterLeavePlayGuard(playActive, {
     activityLabel: "this game",
-    exitPath: "/student/games",
+    exitPath: "/student/courses?view=games",
     onAbandon: async () => {
       const payload = snapshotRef.current?.() || {
         score: 0,
@@ -243,7 +244,7 @@ export default function StudentGamePage() {
           unavailable: true,
         }));
       }
-      navigate("/student/games");
+      navigate("/student/courses?view=games");
     } catch (err) {
       setError(getErrorMessage(err));
       setReleasingGrade(false);
@@ -255,8 +256,8 @@ export default function StudentGamePage() {
     return (
       <Stack spacing={2}>
         <PageHeader
-          title="Game locked"
-          subtitle="Finish the lesson work first."
+          title="Game unavailable"
+          subtitle="This game may be locked, closed, or out of attempts."
         />
         <Alert severity="warning">{error}</Alert>
         <Button component={RouterLink} to="/student/courses" variant="contained">
@@ -321,7 +322,7 @@ export default function StudentGamePage() {
             </Alert>
             <Button
               component={RouterLink}
-              to="/student/games"
+              to="/student/courses?view=games"
               variant="contained"
             >
               Browse games
@@ -377,6 +378,7 @@ export default function StudentGamePage() {
           <Typography>Finishing game...</Typography>
         )}
       </Paper>
+      <StatusSnackbar message={error} onClose={() => setError("")} />
     </>
   );
 }

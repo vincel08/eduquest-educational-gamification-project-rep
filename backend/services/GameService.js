@@ -328,7 +328,7 @@ const GameService = {
 
   async listByCourse(courseId, user) {
     if (user.role === "student") {
-      await CourseService.assertStudentCourseAccess(courseId, user.id);
+      await CourseService.resolveStudentCourseAccess(courseId, user.id);
     } else if (user.role === "teacher" || user.role === "administrator") {
       await CourseService.assertStaffCourseAccess(courseId, user);
     }
@@ -354,8 +354,10 @@ const GameService = {
             user.id,
           );
           const unavailable = attemptMeta.outOfAttempts || gradeReleased;
+          const safeGame = { ...game };
+          delete safeGame.game_data;
           return {
-            ...game,
+            ...safeGame,
             ...attemptMeta,
             maxGameAttempts: MAX_GAME_ATTEMPTS,
             bestScore,

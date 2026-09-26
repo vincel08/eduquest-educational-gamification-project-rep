@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
-import { Alert, Grid, Typography } from "@mui/material";
+import { Alert, Grid, Tab, Tabs, Typography } from "@mui/material";
 import SchoolIcon from "@mui/icons-material/School";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
+import QuizIcon from "@mui/icons-material/Quiz";
+import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
+import { useSearchParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import QuestCard from "../../components/common/QuestCard";
 import EmptyState from "../../components/common/EmptyState";
 import SectionHeader from "../../components/common/SectionHeader";
+import StudentQuizzesPage from "./StudentQuizzesPage";
+import StudentGamesPage from "./StudentGamesPage";
 import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 
@@ -17,6 +22,46 @@ function courseAdviserName(course) {
 }
 
 export default function StudentCoursesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedView = searchParams.get("view");
+  const view =
+    requestedView === "quizzes" || requestedView === "games"
+      ? requestedView
+      : "subjects";
+
+  function changeView(_event, next) {
+    if (next === "subjects") {
+      setSearchParams({});
+      return;
+    }
+    setSearchParams({ view: next });
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="My Subjects"
+        subtitle="Open a subject, then take its quizzes and games from here."
+      />
+      <Tabs
+        value={view}
+        onChange={changeView}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{ mb: 2 }}
+      >
+        <Tab icon={<MenuBookIcon />} iconPosition="start" value="subjects" label="Subjects" />
+        <Tab icon={<QuizIcon />} iconPosition="start" value="quizzes" label="Quizzes" />
+        <Tab icon={<SportsEsportsIcon />} iconPosition="start" value="games" label="Games" />
+      </Tabs>
+      {view === "quizzes" ? <StudentQuizzesPage embedded /> : null}
+      {view === "games" ? <StudentGamesPage embedded /> : null}
+      {view === "subjects" ? <SubjectsPanel /> : null}
+    </>
+  );
+}
+
+function SubjectsPanel() {
   const [catalog, setCatalog] = useState([]);
   const [enrolled, setEnrolled] = useState([]);
   const [error, setError] = useState("");
@@ -51,10 +96,6 @@ export default function StudentCoursesPage() {
 
   return (
     <>
-      <PageHeader
-        title="Learning Quests"
-        subtitle="Browse subjects for your grade level and continue your adventure."
-      />
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}

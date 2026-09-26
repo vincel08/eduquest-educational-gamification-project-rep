@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import PageHeader from '../../components/common/PageHeader';
 import PageContainer from '../../components/common/PageContainer';
+import StatusSnackbar from '../../components/common/StatusSnackbar';
 import AiGeneratedReviewPanel from '../../components/ai-review/AiGeneratedReviewPanel';
 import courseService from '../../services/courseService';
 import aiReviewService from '../../services/aiReviewService';
@@ -128,6 +129,7 @@ export default function TeacherAiQuizPage() {
       />
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert> : null}
+      <StatusSnackbar message={error} onClose={() => setError('')} />
 
       <Box className="eq-stepper" sx={{ mb: 2 }}>
         {STEPS.map((step, index) => (

@@ -12,6 +12,10 @@ import {
   xpForNextLevel,
   xpProgressInLevel,
 } from "../utils/levelCalculator.js";
+import {
+  SYSTEM_BADGES,
+  SYSTEM_MEDALS,
+} from "../utils/achievementCatalog.js";
 
 async function assertAwardTargetStudent(studentId) {
   const student = await UserModel.findById(studentId);
@@ -412,186 +416,74 @@ function buildTeacherAwardedMedals(ownedRows) {
     });
 }
 
-const DEFAULT_STUDENT_BADGES = [
-  {
-    name: "First Steps",
-    description: "Complete your first lesson",
-    icon: "school",
-    color: "#42A5F5",
-    criteriaType: "lessons_completed",
-    criteriaValue: 1,
-    difficulty: null,
-    xpBonus: 10,
-  },
-  {
-    name: "Quiz Champion",
-    description: "Pass 3 quizzes",
-    icon: "quiz",
-    color: "#66BB6A",
-    criteriaType: "quizzes_passed",
-    criteriaValue: 3,
-    difficulty: "medium",
-    xpBonus: 20,
-  },
-  {
-    name: "XP Collector",
-    description: "Earn 100 XP",
-    icon: "star",
-    color: "#FFA726",
-    criteriaType: "xp",
-    criteriaValue: 100,
-    difficulty: null,
-    xpBonus: 15,
-  },
-  {
-    name: "Rising Star",
-    description: "Reach 500 XP",
-    icon: "auto_awesome",
-    color: "#AB47BC",
-    criteriaType: "xp",
-    criteriaValue: 500,
-    difficulty: null,
-    xpBonus: 50,
-  },
-  {
-    name: "Streak Starter",
-    description: "Learn 3 days in a row",
-    icon: "local_fire_department",
-    color: "#EF4444",
-    criteriaType: "streak",
-    criteriaValue: 3,
-    difficulty: null,
-    xpBonus: 15,
-  },
-];
-
-const DEFAULT_STUDENT_MEDALS = [
-  {
-    name: "Bronze Climber",
-    description: "Reach level 5",
-    tier: "bronze",
-    icon: "military_tech",
-    criteriaType: "level",
-    criteriaValue: 5,
-  },
-  {
-    name: "Silver Scholar",
-    description: "Reach level 8",
-    tier: "silver",
-    icon: "military_tech",
-    criteriaType: "level",
-    criteriaValue: 8,
-  },
-  {
-    name: "Perfect Score",
-    description: "Get a perfect quiz score",
-    tier: "gold",
-    icon: "workspace_premium",
-    criteriaType: "perfect_quiz",
-    criteriaValue: 1,
-  },
-  {
-    name: "Top Contender",
-    description: "Reach top 3 on the leaderboard",
-    tier: "platinum",
-    icon: "emoji_events",
-    criteriaType: "leaderboard_rank",
-    criteriaValue: 3,
-  },
-  {
-    name: "Diamond Achiever",
-    description: "Reach level 10",
-    tier: "diamond",
-    icon: "diamond",
-    criteriaType: "level",
-    criteriaValue: 10,
-  },
-  {
-    name: "Legendary Learner",
-    description: "Reach level 20",
-    tier: "legendary",
-    icon: "workspace_premium",
-    criteriaType: "level",
-    criteriaValue: 20,
-  },
-  {
-    name: "Campus Champion",
-    description: "Reach #1 on the leaderboard",
-    tier: "legendary",
-    icon: "emoji_events",
-    criteriaType: "leaderboard_rank",
-    criteriaValue: 1,
-  },
-  {
-    name: "XP Titan",
-    description: "Earn 1,000 XP — a major mastery milestone",
-    tier: "gold",
-    icon: "star",
-    criteriaType: "xp",
-    criteriaValue: 1000,
-  },
-  {
-    name: "Unstoppable Streak",
-    description: "Learn 14 days in a row",
-    tier: "platinum",
-    icon: "local_fire_department",
-    criteriaType: "streak",
-    criteriaValue: 14,
-  },
-  {
-    name: "Quiz Master",
-    description: "Pass 10 quizzes",
-    tier: "gold",
-    icon: "quiz",
-    criteriaType: "quizzes_passed",
-    criteriaValue: 10,
-  },
-  {
-    name: "Lesson Legend",
-    description: "Complete 15 lessons",
-    tier: "platinum",
-    icon: "school",
-    criteriaType: "lessons_completed",
-    criteriaValue: 15,
-  },
-  {
-    name: "Game Veteran",
-    description: "Complete 10 educational games",
-    tier: "diamond",
-    icon: "sports_esports",
-    criteriaType: "games_completed",
-    criteriaValue: 10,
-  },
-];
+const DEFAULT_STUDENT_BADGES = SYSTEM_BADGES;
+const DEFAULT_STUDENT_MEDALS = SYSTEM_MEDALS;
 
 async function ensureStudentAchievementCatalog() {
   const [badges, medals] = await Promise.all([
     GamificationModel.findAllBadges({ activeOnly: false }),
     GamificationModel.findAllMedals({ activeOnly: false }),
   ]);
-  const badgeNames = new Set(
-    badges.map((row) => String(row.name).toLowerCase()),
+  const systemBadges = badges.filter(
+    (row) => Number(row.owner_key) === 0 && row.created_by == null,
   );
-  const medalNames = new Set(
-    medals.map((row) => String(row.name).toLowerCase()),
+  const badgeByName = new Map(
+    systemBadges.map((row) => [String(row.name).toLowerCase(), row]),
+  );
+  const medalByName = new Map(
+    medals
+      .filter((row) => row.criteria_type !== "manual")
+      .map((row) => [String(row.name).toLowerCase(), row]),
   );
 
   for (const badge of DEFAULT_STUDENT_BADGES) {
-    if (badgeNames.has(badge.name.toLowerCase())) continue;
-    await GamificationModel.createBadge({
-      ...badge,
-      isActive: true,
-      createdBy: null,
-      ownerKey: 0,
-    });
+    const existing = badgeByName.get(badge.name.toLowerCase());
+    if (!existing) {
+      await GamificationModel.createBadge({
+        ...badge,
+        isActive: true,
+        createdBy: null,
+        ownerKey: 0,
+      });
+      continue;
+    }
+    const needsUpdate =
+      existing.criteria_type !== badge.criteriaType ||
+      Number(existing.criteria_value) !== Number(badge.criteriaValue) ||
+      Number(existing.xp_bonus) !== Number(badge.xpBonus) ||
+      (existing.difficulty || null) !== (badge.difficulty || null) ||
+      existing.description !== badge.description;
+    if (needsUpdate) {
+      await GamificationModel.updateBadge(existing.id, {
+        description: badge.description,
+        criteriaType: badge.criteriaType,
+        criteriaValue: badge.criteriaValue,
+        difficulty: badge.difficulty,
+        xpBonus: badge.xpBonus,
+      });
+    }
   }
 
   for (const medal of DEFAULT_STUDENT_MEDALS) {
-    if (medalNames.has(medal.name.toLowerCase())) continue;
-    await GamificationModel.createMedal({
-      ...medal,
-      isActive: true,
-    });
+    const existing = medalByName.get(medal.name.toLowerCase());
+    if (!existing) {
+      await GamificationModel.createMedal({
+        ...medal,
+        isActive: true,
+      });
+      continue;
+    }
+    const needsUpdate =
+      existing.criteria_type !== medal.criteriaType ||
+      Number(existing.criteria_value) !== Number(medal.criteriaValue) ||
+      existing.description !== medal.description;
+    if (needsUpdate) {
+      await GamificationModel.updateMedal(existing.id, {
+        description: medal.description,
+        criteriaType: medal.criteriaType,
+        criteriaValue: medal.criteriaValue,
+      });
+    }
   }
 }
 

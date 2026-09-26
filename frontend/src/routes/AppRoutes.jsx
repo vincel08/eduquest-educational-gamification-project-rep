@@ -12,9 +12,7 @@ import StudentDashboard from "../pages/student/StudentDashboard";
 import StudentCoursesPage from "../pages/student/StudentCoursesPage";
 import StudentCourseDetailPage from "../pages/student/StudentCourseDetailPage";
 import StudentLessonPage from "../pages/student/StudentLessonPage";
-import StudentQuizzesPage from "../pages/student/StudentQuizzesPage";
 import StudentQuizPage from "../pages/student/StudentQuizPage";
-import StudentGamesPage from "../pages/student/StudentGamesPage";
 import StudentGamePage from "../pages/student/StudentGamePage";
 import StudentAchievementsPage from "../pages/student/StudentAchievementsPage";
 import StudentProgressPage from "../pages/student/StudentProgressPage";
@@ -42,6 +40,7 @@ import AdminGamesPage from "../pages/admin/AdminGamesPage";
 import AdminLeaderboardPage from "../pages/admin/AdminLeaderboardPage";
 import AdminBadgesPage from "../pages/admin/AdminBadgesPage";
 import AdminSectionsPage from "../pages/admin/AdminSectionsPage";
+import AdminSchoolYearPage from "../pages/admin/AdminSchoolYearPage";
 import AdminActivityLogsPage from "../pages/admin/AdminActivityLogsPage";
 import StudentProfilePage from "../pages/student/StudentProfilePage";
 import { useAuth } from "../contexts/AuthContext";
@@ -78,9 +77,15 @@ export default function AppRoutes() {
             element={<StudentCourseDetailPage />}
           />
           <Route path="lessons/:lessonId" element={<StudentLessonPage />} />
-          <Route path="quizzes" element={<StudentQuizzesPage />} />
+          <Route
+            path="quizzes"
+            element={<Navigate to="/student/courses?view=quizzes" replace />}
+          />
           <Route path="quizzes/:quizId" element={<StudentQuizPage />} />
-          <Route path="games" element={<StudentGamesPage />} />
+          <Route
+            path="games"
+            element={<Navigate to="/student/courses?view=games" replace />}
+          />
           <Route path="games/:gameId" element={<StudentGamePage />} />
           <Route path="achievements" element={<StudentAchievementsPage />} />
           <Route path="progress" element={<StudentProgressPage />} />
@@ -132,6 +137,7 @@ export default function AppRoutes() {
           <Route path="leaderboard" element={<AdminLeaderboardPage />} />
           <Route path="badges" element={<AdminBadgesPage />} />
           <Route path="sections" element={<AdminSectionsPage />} />
+          <Route path="school-year" element={<AdminSchoolYearPage />} />
           <Route path="activity" element={<AdminActivityLogsPage />} />
         </Route>
       </Route>

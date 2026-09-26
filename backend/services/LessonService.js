@@ -74,11 +74,7 @@ const LessonService = {
     if (!course) throw new AppError("Course not found", 404);
 
     if (user.role === "student") {
-      const enrolled = await CourseModel.isEnrolled(courseId, user.id);
-      if (!enrolled && !course.is_published) {
-        throw new AppError("Access denied", 403);
-      }
-      await CourseService.assertStudentCourseAccess(courseId, user.id);
+      await CourseService.resolveStudentCourseAccess(courseId, user.id);
       return LessonModel.getStudentProgressForCourse(courseId, user.id);
     }
 
@@ -108,10 +104,29 @@ const LessonService = {
     if (!lesson) throw new AppError("Lesson not found", 404);
 
     if (user.role === "student") {
-      const enrolled = await CourseModel.isEnrolled(lesson.course_id, user.id);
-      if (!enrolled)
+      const access = await CourseService.resolveStudentCourseAccess(
+        lesson.course_id,
+        user.id,
+      );
+      if (!access.enrolled) {
         throw new AppError("Enroll in the course to view this lesson", 403);
-      await CourseService.assertStudentCourseAccess(lesson.course_id, user.id);
+      }
+      if (!lesson.is_published && !access.recordOnly) {
+        throw new AppError("Lesson not found", 404);
+      }
+      const materials = await LessonModel.getMaterials(id);
+      const materialsWithUrls = materials.map((material) => ({
+        ...material,
+        file_path: undefined,
+        download_url: materialFileApiPath(material.id),
+      }));
+      const progress = await LessonModel.getProgress(id, user.id);
+      return {
+        ...lesson,
+        materials: materialsWithUrls,
+        progress,
+        recordOnly: access.recordOnly,
+      };
     }
 
     if (user.role === "teacher" && lesson.teacher_id !== user.id) {

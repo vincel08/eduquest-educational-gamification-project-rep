@@ -10,10 +10,10 @@ import {
   ListItemText,
   Paper,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import HowToRegIcon from "@mui/icons-material/HowToReg";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import QuizIcon from "@mui/icons-material/Quiz";
@@ -40,10 +40,13 @@ export default function StudentCourseDetailPage() {
   const [games, setGames] = useState([]);
   const [enrolled, setEnrolled] = useState(false);
   const [enrolledProgress, setEnrolledProgress] = useState(0);
+  const [recordOnly, setRecordOnly] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [enrolling, setEnrolling] = useState(false);
+  const [joinRequestStatus, setJoinRequestStatus] = useState(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [requestingJoin, setRequestingJoin] = useState(false);
   const [submittingQuizId, setSubmittingQuizId] = useState(null);
   const [submittingGameId, setSubmittingGameId] = useState(null);
 
@@ -63,12 +66,17 @@ export default function StudentCourseDetailPage() {
       setQuizzes(quizzesRes.data.data || []);
       setGames(gamesRes.data.data || []);
 
+      const recordOnly = Boolean(courseRes.data.data?.recordOnly);
       const mine = (myCoursesRes.data.data || []).find(
         (item) => Number(item.id) === Number(courseId),
       );
-      const isEnrolled = Boolean(mine);
+      const isEnrolled = Boolean(mine) || Boolean(courseRes.data.data?.enrolled) || recordOnly;
       setEnrolled(isEnrolled);
-      setEnrolledProgress(Number(mine?.progress_percent || 0));
+      setRecordOnly(recordOnly);
+      setJoinRequestStatus(courseRes.data.data?.joinRequestStatus || null);
+      setEnrolledProgress(
+        Number(mine?.progress_percent ?? courseRes.data.data?.progress_percent ?? 0),
+      );
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -91,24 +99,24 @@ export default function StudentCourseDetailPage() {
     return Number(enrolledProgress || 0);
   }, [enrolled, lessons, enrolledProgress]);
 
-  const canEnroll = Boolean(course?.is_published) && !enrolled;
+  const waitingForApproval = !enrolled && joinRequestStatus === "pending";
+  const needsJoin = Boolean(course?.is_published) && !enrolled && !recordOnly;
 
-  async function handleEnroll() {
-    if (!canEnroll || enrolling) return;
-    setEnrolling(true);
+  async function handleRequestJoin(event) {
+    event.preventDefault();
+    if (!needsJoin || requestingJoin || waitingForApproval) return;
+    setRequestingJoin(true);
     setError("");
     setMessage("");
     try {
-      await courseService.enroll(courseId);
-      setMessage(
-        "Enrolled successfully. You can now start lessons and quizzes.",
-      );
-      setLoading(true);
+      const response = await courseService.requestJoin(courseId, joinCode);
+      setMessage(response.data.message || "Request sent. Your teacher will review it.");
+      setJoinCode("");
       await load();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
-      setEnrolling(false);
+      setRequestingJoin(false);
     }
   }
 
@@ -161,31 +169,32 @@ export default function StudentCourseDetailPage() {
         title={course.subject || course.title}
         subtitle={course.description || "Subject overview"}
         action={
-          canEnroll ? (
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<HowToRegIcon />}
-              disabled={enrolling}
-              onClick={handleEnroll}
-              sx={{
-                bgcolor: "#FACC15",
-                color: "#1E293B",
-                "&:hover": { bgcolor: "#FDE047" },
-              }}
-            >
-              {enrolling ? "Enrolling..." : "Enroll Now"}
-            </Button>
+          waitingForApproval ? (
+            <Chip
+              color="warning"
+              label="Waiting for approval"
+              sx={{ fontWeight: 800, bgcolor: "rgba(255,255,255,0.92)" }}
+            />
           ) : enrolled ? (
             <Chip
-              color="success"
+              color={recordOnly ? "info" : "success"}
               icon={<CheckCircleIcon />}
-              label="Enrolled"
+              label={
+                recordOnly
+                  ? `SY ${course.school_year || "record"}`
+                  : "Enrolled"
+              }
               sx={{ fontWeight: 800, bgcolor: "rgba(255,255,255,0.92)" }}
             />
           ) : null
         }
       />
+      {recordOnly ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          This is a record from SY {course.school_year || "a previous school year"}.
+          You can review lessons and scores. New quizzes and games are closed.
+        </Alert>
+      ) : null}
       <Stack
         direction="row"
         spacing={1}
@@ -273,11 +282,54 @@ export default function StudentCourseDetailPage() {
               sx={{ height: 10, borderRadius: 999 }}
             />
           </Paper>
-        ) : canEnroll ? (
-          <Alert severity="info">
-            Enroll in this subject to track learning progress and access lessons,
-            quizzes, and games.
-          </Alert>
+        ) : needsJoin ? (
+          waitingForApproval ? (
+            <Alert severity="warning">
+              Your teacher is reviewing your request to join this subject.
+            </Alert>
+          ) : (
+            <Paper sx={{ p: { xs: 2, md: 3 } }}>
+              <Typography variant="h6" fontWeight={900} gutterBottom>
+                Join this subject
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Enter the code from your teacher. They will approve the request
+                before you can open lessons, quizzes, and games.
+              </Typography>
+              {joinRequestStatus === "rejected" ? (
+                <Alert severity="info" sx={{ mb: 1.5 }}>
+                  Your last request was declined. You can send it again.
+                </Alert>
+              ) : null}
+              <Box
+                component="form"
+                noValidate
+                onSubmit={handleRequestJoin}
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1fr) auto" },
+                  gap: 1.5,
+                  alignItems: "end",
+                }}
+              >
+                <TextField
+                  label="Subject code"
+                  value={joinCode}
+                  onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                  autoComplete="off"
+                  fullWidth
+                />
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={requestingJoin || !joinCode.trim()}
+                  sx={{ minWidth: { sm: 168 }, height: 56 }}
+                >
+                  {requestingJoin ? "Sending..." : "Request to join"}
+                </Button>
+              </Box>
+            </Paper>
+          )
         ) : null}
 
         <Paper sx={{ p: { xs: 2, md: 3 } }}>
@@ -347,7 +399,7 @@ export default function StudentCourseDetailPage() {
                       Open
                     </Button>
                   ) : (
-                    <Chip size="small" label="Enroll to open" />
+                    <Chip size="small" label={waitingForApproval ? "Waiting for approval" : "Join to open"} />
                   )}
                 </Stack>
               </ListItem>
@@ -376,8 +428,19 @@ export default function StudentCourseDetailPage() {
                 gradeReleased ||
                 Boolean(quiz.unavailable);
               let actionChip = null;
-              if (!enrolled) {
-                actionChip = <Chip size="small" label="Enroll to take" />;
+              if (recordOnly) {
+                actionChip = (
+                  <Chip
+                    size="small"
+                    label={
+                      quiz.bestScore != null
+                        ? `Score ${Number(quiz.bestScore).toFixed(0)}%`
+                        : "No attempt"
+                    }
+                  />
+                );
+              } else if (!enrolled) {
+                actionChip = <Chip size="small" label={waitingForApproval ? "Waiting for approval" : "Join to take"} />;
               } else if (locked) {
                 actionChip = (
                   <Chip size="small" color="warning" label="Locked" />
@@ -546,8 +609,19 @@ export default function StudentCourseDetailPage() {
                 gradeReleased ||
                 Boolean(game.unavailable);
               let actionChip = null;
-              if (!enrolled) {
-                actionChip = <Chip size="small" label="Enroll to play" />;
+              if (recordOnly) {
+                actionChip = (
+                  <Chip
+                    size="small"
+                    label={
+                      game.bestScore != null
+                        ? `Score ${Number(game.bestScore).toFixed(0)}%`
+                        : "No attempt"
+                    }
+                  />
+                );
+              } else if (!enrolled) {
+                actionChip = <Chip size="small" label={waitingForApproval ? "Waiting for approval" : "Join to play"} />;
               } else if (locked) {
                 actionChip = (
                   <Chip size="small" color="warning" label="Locked" />

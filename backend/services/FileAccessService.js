@@ -14,17 +14,16 @@ function deny() {
 }
 
 async function assertStudentCanAccessCourseContent(user, courseId, { coursePublished, contentPublished }) {
-  if (!coursePublished || !contentPublished) {
-    deny();
-  }
+  let access;
   try {
     const CourseService = (await import('./CourseService.js')).default;
-    await CourseService.assertStudentCourseAccess(courseId, user.id, {
-      requireEnrollment: true,
-    });
+    access = await CourseService.resolveStudentCourseAccess(courseId, user.id);
   } catch {
     deny();
   }
+  if (!access?.enrolled) deny();
+  if (access.recordOnly) return;
+  if (!coursePublished || !contentPublished) deny();
 }
 
 const FileAccessService = {

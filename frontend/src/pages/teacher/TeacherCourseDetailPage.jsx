@@ -65,6 +65,8 @@ export default function TeacherCourseDetailPage() {
   const [quizzes, setQuizzes] = useState([]);
   const [games, setGames] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
+  const [joinRequests, setJoinRequests] = useState([]);
+  const [reviewingRequestId, setReviewingRequestId] = useState(null);
   const [open, setOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState(null);
   const [lessonToDelete, setLessonToDelete] = useState(null);
@@ -85,19 +87,21 @@ export default function TeacherCourseDetailPage() {
   async function load() {
     try {
       const filterParams = toQueryParams();
-      const [courseRes, lessonsRes, quizzesRes, gamesRes, enrollmentsRes] =
+      const [courseRes, lessonsRes, quizzesRes, gamesRes, enrollmentsRes, requestsRes] =
         await Promise.all([
           courseService.getById(courseId),
           courseService.lessons(courseId),
           courseService.quizzes(courseId),
           courseService.games(courseId),
           courseService.enrollments(courseId, filterParams),
+          courseService.joinRequests(courseId),
         ]);
       setCourse(courseRes.data.data);
       setLessons(lessonsRes.data.data || []);
       setQuizzes(quizzesRes.data.data || []);
       setGames(gamesRes.data.data || []);
       setEnrollments(enrollmentsRes.data.data || []);
+      setJoinRequests(requestsRes.data.data || []);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -108,6 +112,24 @@ export default function TeacherCourseDetailPage() {
   useEffect(() => {
     load();
   }, [courseId, schoolYear, gradeLevel, section]);
+
+  async function reviewJoinRequest(request, decision) {
+    setReviewingRequestId(request.id);
+    setError("");
+    setMessage("");
+    try {
+      const response =
+        decision === "approve"
+          ? await courseService.approveJoinRequest(courseId, request.id)
+          : await courseService.rejectJoinRequest(courseId, request.id);
+      setMessage(response.data.message || "Request updated.");
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setReviewingRequestId(null);
+    }
+  }
 
   const visibleLessons = useMemo(
     () => applyTimestampControls(lessons, { sort, filters }),
@@ -688,6 +710,78 @@ export default function TeacherCourseDetailPage() {
               No games match the current filters.
             </Typography>
           ) : null}
+        </Paper>
+
+        <Paper sx={{ p: { xs: 2, md: 3 } }}>
+          <Typography variant="h6" gutterBottom>
+            Subject code
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Share this code with students. They request to join, and you approve
+            them here.
+          </Typography>
+          <Typography
+            variant="h5"
+            fontWeight={900}
+            sx={{ fontFamily: "monospace", letterSpacing: 2 }}
+          >
+            {course.join_code || "—"}
+          </Typography>
+        </Paper>
+
+        <Paper sx={{ p: { xs: 2, md: 3 } }}>
+          <Typography variant="h6" gutterBottom>
+            Join requests ({joinRequests.length})
+          </Typography>
+          {!joinRequests.length ? (
+            <Typography color="text.secondary">
+              No students are waiting to join.
+            </Typography>
+          ) : (
+            <List>
+              {joinRequests.map((request) => (
+                <ListItem
+                  key={request.id}
+                  sx={{
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 1,
+                    py: 1.5,
+                  }}
+                >
+                  <ListItemText
+                    primary={`${request.first_name} ${request.last_name}`}
+                    secondary={[
+                      request.username,
+                      request.grade_level,
+                      request.section ? `Section ${request.section}` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  />
+                  <Stack direction="row" spacing={1} sx={{ flexShrink: 0, ml: 1 }}>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      disabled={Boolean(reviewingRequestId)}
+                      onClick={() => reviewJoinRequest(request, "approve")}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      disabled={Boolean(reviewingRequestId)}
+                      onClick={() => reviewJoinRequest(request, "reject")}
+                    >
+                      Decline
+                    </Button>
+                  </Stack>
+                </ListItem>
+              ))}
+            </List>
+          )}
         </Paper>
 
         <Paper sx={{ p: { xs: 2, md: 3 } }}>

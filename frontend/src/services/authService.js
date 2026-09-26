@@ -4,6 +4,9 @@ const authService = {
   register(payload) {
     return api.post('/auth/register', payload);
   },
+  validateRegistration(payload) {
+    return api.post('/auth/register/validate', payload);
+  },
   login(payload) {
     const identifier = String(payload.login || payload.username || payload.email || '').trim();
     const body = {

@@ -545,6 +545,8 @@ const AnalyticsService = {
       quizRows,
       badgeRows,
       recentXp,
+      quizTrend,
+      gameTrend,
       upcomingQuizzes,
       completedRows,
     ] = await Promise.all([
@@ -577,6 +579,29 @@ const AnalyticsService = {
          WHERE student_id = :studentId
            AND created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
          GROUP BY DATE(created_at)
+         ORDER BY day ASC`,
+        { studentId },
+      ),
+      query(
+        `SELECT DATE(completed_at) AS day,
+                ROUND(AVG(score), 2) AS score,
+                COUNT(*) AS attempts
+         FROM quiz_attempts
+         WHERE student_id = :studentId
+           AND completed_at IS NOT NULL
+           AND completed_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+         GROUP BY DATE(completed_at)
+         ORDER BY day ASC`,
+        { studentId },
+      ),
+      query(
+        `SELECT DATE(played_at) AS day,
+                ROUND(AVG(score), 2) AS score,
+                COUNT(*) AS plays
+         FROM game_scores
+         WHERE student_id = :studentId
+           AND played_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+         GROUP BY DATE(played_at)
          ORDER BY day ASC`,
         { studentId },
       ),
@@ -664,6 +689,8 @@ const AnalyticsService = {
       badges: badgeRows[0].badges,
       medals: badgeRows[0].medals,
       xpTrend: recentXp,
+      quizTrend,
+      gameTrend,
       upcomingQuizzes: unlockedUpcoming,
       completedCourses: completedRows[0]?.total || 0,
       quickStart: quickStartTarget,
@@ -681,7 +708,11 @@ const AnalyticsService = {
          c.title,
          c.subject,
          c.grade_level,
+         c.school_year,
+         c.is_published,
+         c.ends_at,
          ce.progress_percent,
+         sp.school_year AS student_school_year,
          COUNT(l.id) AS total_lessons,
          SUM(CASE WHEN COALESCE(lp.status, 'not_started') = 'completed' THEN 1 ELSE 0 END) AS completed,
          SUM(CASE WHEN lp.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress,
@@ -693,15 +724,26 @@ const AnalyticsService = {
            END
          ) AS not_started
        FROM course_enrollments ce
-       INNER JOIN courses c ON c.id = ce.course_id AND c.is_published = 1
+       INNER JOIN courses c ON c.id = ce.course_id
        INNER JOIN student_profiles sp ON sp.user_id = :studentId
        LEFT JOIN lessons l ON l.course_id = c.id AND l.is_published = 1
        LEFT JOIN lesson_progress lp
          ON lp.lesson_id = l.id AND lp.student_id = :studentId
        WHERE ce.student_id = :studentId
-         ${GRADE_MATCH_SQL}
+         AND (
+           (
+             c.grade_level = sp.grade_level
+             AND sp.grade_level IS NOT NULL
+             AND TRIM(sp.grade_level) <> ''
+           )
+           OR (
+             COALESCE(NULLIF(TRIM(ce.school_year), ''), NULLIF(TRIM(c.school_year), '')) IS NOT NULL
+             AND COALESCE(NULLIF(TRIM(ce.school_year), ''), c.school_year) <> sp.school_year
+           )
+         )
        GROUP BY
-         c.id, c.title, c.subject, c.grade_level, ce.progress_percent, ce.enrolled_at
+         c.id, c.title, c.subject, c.grade_level, c.school_year, c.is_published, c.ends_at,
+         ce.progress_percent, ce.enrolled_at, ce.school_year, sp.school_year
        ORDER BY ce.enrolled_at DESC`,
       { studentId },
     );
@@ -714,11 +756,19 @@ const AnalyticsService = {
       const percent = totalLessons
         ? Number(((completed / totalLessons) * 100).toFixed(0))
         : Number(Number(row.progress_percent || 0).toFixed(0));
+      const schoolYear = String(row.school_year || "").trim();
+      const studentYear = String(row.student_school_year || "").trim();
+      const recordOnly = Boolean(
+        (schoolYear && studentYear && schoolYear !== studentYear) ||
+          !Number(row.is_published),
+      );
       return {
         courseId: Number(row.course_id),
         title: row.title,
         subject: row.subject || row.title,
         gradeLevel: row.grade_level,
+        schoolYear: schoolYear || null,
+        recordOnly,
         totalLessons,
         completed,
         inProgress,

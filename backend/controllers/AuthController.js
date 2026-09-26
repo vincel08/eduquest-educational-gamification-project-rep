@@ -11,6 +11,22 @@ const AuthController = {
     }
   },
 
+  async validateRegistration(req, res, next) {
+    try {
+      const student = await AuthService.validateStudentRegistration(req.body);
+      return successResponse(res, 'Student information verified', {
+        firstName: student.firstName,
+        lastName: student.lastName,
+        username: student.username,
+        gradeLevel: student.gradeLevel,
+        section: student.section,
+        schoolYear: student.schoolYear,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async login(req, res, next) {
     try {
       const data = await AuthService.login(req.body);

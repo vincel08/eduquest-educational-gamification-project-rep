@@ -5,19 +5,18 @@ import LoadingScreen from "../../components/common/LoadingScreen";
 import LeaderboardCard from "../../components/gamification/LeaderboardCard";
 import gamificationService from "../../services/gamificationService";
 import { getErrorMessage } from "../../services/api";
-import {
-  defaultSchoolYearValue,
-  listSchoolYearOptions,
-} from "../../utils/schoolYears";
+import { listSchoolYearOptions } from "../../utils/schoolYears";
+import { useSchoolYear } from "../../contexts/SchoolYearContext";
 
 export default function StudentLeaderboardPage() {
+  const { schoolYear: currentSchoolYear } = useSchoolYear();
   const schoolYearOptions = useMemo(
     () => listSchoolYearOptions({ includeAll: false }),
-    [],
+    [currentSchoolYear],
   );
   const [entries, setEntries] = useState([]);
   const [period, setPeriod] = useState("overall");
-  const [schoolYear, setSchoolYear] = useState(() => defaultSchoolYearValue());
+  const [schoolYear, setSchoolYear] = useState(currentSchoolYear);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 

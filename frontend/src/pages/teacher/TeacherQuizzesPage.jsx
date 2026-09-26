@@ -30,10 +30,8 @@ import quizService from "../../services/quizService";
 import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
-import {
-  defaultSchoolYearValue,
-  listSchoolYearOptions,
-} from "../../utils/schoolYears";
+import { useSchoolYear } from "../../contexts/SchoolYearContext";
+import { listSchoolYearOptions } from "../../utils/schoolYears";
 
 function subjectKey(value) {
   return String(value || "")
@@ -68,11 +66,11 @@ export default function TeacherQuizzesPage() {
   const [deleteItem, setDeleteItem] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  const { schoolYear: currentSchoolYear } = useSchoolYear();
   const bankYearOptions = useMemo(
     () => listSchoolYearOptions({ includeAll: true }),
-    [],
+    [currentSchoolYear],
   );
-  const currentSchoolYear = useMemo(() => defaultSchoolYearValue(), []);
 
   useEffect(() => {
     setLoading(true);

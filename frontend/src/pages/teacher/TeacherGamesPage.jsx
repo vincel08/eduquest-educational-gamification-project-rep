@@ -29,7 +29,7 @@ import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 import { formatGameTypeLabel } from "../../utils/gameTypes";
-import { defaultSchoolYearValue } from "../../utils/schoolYears";
+import { useSchoolYear } from "../../contexts/SchoolYearContext";
 
 function subjectKey(value) {
   return String(value || "")
@@ -63,7 +63,7 @@ export default function TeacherGamesPage() {
   const [deleteItem, setDeleteItem] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const currentSchoolYear = useMemo(() => defaultSchoolYearValue(), []);
+  const { schoolYear: currentSchoolYear } = useSchoolYear();
 
   useEffect(() => {
     setLoading(true);

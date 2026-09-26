@@ -49,18 +49,20 @@ import {
 import { SECTION_PLACEHOLDER } from "../../utils/classSections";
 import { useSearchParams } from "react-router-dom";
 
-const emptyForm = {
-  firstName: "",
-  lastName: "",
-  username: "",
-  email: "",
-  password: "",
-  role: "student",
-  gradeLevel: "Grade 10",
-  schoolName: "EduWow High",
-  section: "",
-  schoolYear: defaultSchoolYearValue(),
-};
+function createEmptyForm() {
+  return {
+    firstName: "",
+    lastName: "",
+    username: "",
+    email: "",
+    password: "",
+    role: "student",
+    gradeLevel: "Grade 10",
+    schoolName: "EduWow High",
+    section: "",
+    schoolYear: defaultSchoolYearValue(),
+  };
+}
 
 const ROLE_FILTERS = new Set(["all", "administrator", "teacher", "student"]);
 
@@ -177,7 +179,7 @@ export default function AdminUsersPage() {
   const [open, setOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [deletingUserId, setDeletingUserId] = useState(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(createEmptyForm());
   const [sectionOptions, setSectionOptions] = useState([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -349,7 +351,7 @@ export default function AdminUsersPage() {
       };
       await userService.create(payload);
       setOpen(false);
-      setForm(emptyForm);
+      setForm(createEmptyForm());
       setMessage("User created");
       await reloadUsers();
     } catch (err) {

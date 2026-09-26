@@ -13,6 +13,7 @@ import notificationRoutes from './notificationRoutes.js';
 import aiContentRoutes from './aiContentRoutes.js';
 import aiReviewRoutes from './aiReviewRoutes.js';
 import fileRoutes from './fileRoutes.js';
+import academicYearRoutes from './academicYearRoutes.js';
 import pool from '../config/db.js';
 
 const router = Router();
@@ -31,6 +32,7 @@ router.use('/notifications', notificationRoutes);
 router.use('/ai-content', aiContentRoutes);
 router.use('/ai-review', aiReviewRoutes);
 router.use('/files', fileRoutes);
+router.use('/school-year', academicYearRoutes);
 
 router.get('/health', async (_req, res) => {
   try {

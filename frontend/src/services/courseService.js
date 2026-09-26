@@ -16,8 +16,20 @@ const courseService = {
   remove(id) {
     return api.delete(`/courses/${id}`);
   },
-  enroll(id) {
-    return api.post(`/courses/${id}/enroll`);
+  requestJoin(courseId, code) {
+    return api.post(`/courses/${courseId}/join`, { code });
+  },
+  myJoinRequests() {
+    return api.get("/courses/join-requests/mine");
+  },
+  joinRequests(courseId) {
+    return api.get(`/courses/${courseId}/join-requests`);
+  },
+  approveJoinRequest(courseId, requestId) {
+    return api.post(`/courses/${courseId}/join-requests/${requestId}/approve`);
+  },
+  rejectJoinRequest(courseId, requestId) {
+    return api.post(`/courses/${courseId}/join-requests/${requestId}/reject`);
   },
   myCourses() {
     return api.get("/courses/mine/enrolled");

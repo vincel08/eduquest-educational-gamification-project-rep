@@ -752,6 +752,8 @@ const QuizService = {
     }
 
     if (user.role === "student") {
+      const enrolled = await CourseModel.isEnrolled(quiz.course_id, user.id);
+      if (!enrolled) throw new AppError("Enroll in the course first", 403);
       await CourseService.assertStudentCourseAccess(quiz.course_id, user.id);
       const unlock = await getContentUnlockState({
         courseId: quiz.course_id,
@@ -785,7 +787,7 @@ const QuizService = {
 
   async listByCourse(courseId, user) {
     if (user.role === "student") {
-      await CourseService.assertStudentCourseAccess(courseId, user.id);
+      await CourseService.resolveStudentCourseAccess(courseId, user.id);
     } else if (user.role === "teacher" || user.role === "administrator") {
       await CourseService.assertStaffCourseAccess(courseId, user);
     }

@@ -9,6 +9,8 @@ import routes from './routes/index.js';
 import FileController from './controllers/FileController.js';
 import { errorHandler, notFoundHandler } from './middleware/errorMiddleware.js';
 import EmailService from './services/EmailService.js';
+import AcademicYearService from './services/AcademicYearService.js';
+import CourseService from './services/CourseService.js';
 
 const app = express();
 
@@ -49,6 +51,8 @@ async function start() {
     const connection = await pool.getConnection();
     await connection.ping();
     connection.release();
+    await AcademicYearService.loadCurrent();
+    await CourseService.ensureJoinCodes();
 
     const server = app.listen(env.port, () => {
       console.log(`EduWow API running on port ${env.port} (${env.nodeEnv})`);

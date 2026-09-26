@@ -17,6 +17,7 @@ import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { getErrorMessage } from "../../services/api";
+import authService from "../../services/authService";
 import BrandLogo from "../../components/common/BrandLogo";
 import AuthLiquidShell from "../../components/common/AuthLiquidShell";
 import classSectionService from "../../services/classSectionService";
@@ -33,6 +34,20 @@ import {
 } from "../../utils/schoolYears";
 import { SECTION_PLACEHOLDER } from "../../utils/classSections";
 import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
+
+function fieldErrorFromMessage(message) {
+  const text = String(message || "");
+  const lower = text.toLowerCase();
+  if (lower.includes("first name")) return { firstName: text };
+  if (lower.includes("last name")) return { lastName: text };
+  if (lower.includes("email")) return { email: text };
+  if (lower.includes("password")) return { password: text };
+  if (lower.includes("grade")) return { gradeLevel: text };
+  if (lower.includes("section")) return { section: text };
+  if (lower.includes("school year")) return { schoolYear: text };
+  if (lower.includes("username")) return { username: text };
+  return {};
+}
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -69,6 +84,7 @@ export default function RegisterPage() {
         if (!active) return;
         const options = response.data.data || [];
         setSectionOptions(options);
+        setError("");
         setForm((prev) =>
           prev.section && !options.includes(prev.section)
             ? { ...prev, section: "" }
@@ -78,6 +94,7 @@ export default function RegisterPage() {
       .catch(() => {
         if (!active) return;
         setSectionOptions([]);
+        setError("Could not load class sections. Check your connection and try again.");
       });
     return () => {
       active = false;
@@ -120,26 +137,40 @@ export default function RegisterPage() {
       return;
     }
 
+    if (form.gradeLevel && form.schoolYear && !sectionOptions.length) {
+      setFieldErrors({
+        section: "No sections yet for this grade — ask an admin to add one",
+      });
+      setError("No sections yet for this grade — ask an admin to add one");
+      return;
+    }
+
+    if (form.section && sectionOptions.length && !sectionOptions.includes(form.section)) {
+      setFieldErrors({ section: "Select a section from the list for this grade and school year." });
+      setError("Select a section from the list for this grade and school year.");
+      return;
+    }
+
     setFieldErrors({});
     setLoading(true);
 
+    const payload = {
+      ...form,
+      role: "student",
+      email: form.email.trim() || undefined,
+    };
+
     try {
-      await register({
-        ...form,
-        role: "student",
-        email: form.email.trim() || undefined,
-      });
+      await authService.validateRegistration(payload);
+      await register(payload);
       navigate("/student/dashboard");
     } catch (err) {
       const message = getErrorMessage(err, "Unable to register");
       setError(message);
-
-      if (message.toLowerCase().includes("password")) {
-        setFieldErrors((prev) => ({
-          ...prev,
-          password: message,
-        }));
-      }
+      setFieldErrors((prev) => ({
+        ...prev,
+        ...fieldErrorFromMessage(message),
+      }));
     } finally {
       setLoading(false);
     }
@@ -338,7 +369,7 @@ export default function RegisterPage() {
                 type="submit"
                 variant="contained"
                 size="large"
-                disabled={loading}
+                disabled={loading || !form.section || !sectionOptions.length}
               >
                 {loading ? "Creating account..." : "Register"}
               </Button>

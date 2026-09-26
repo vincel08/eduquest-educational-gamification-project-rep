@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Box,
   Button,
   Chip,
-  ListItemText,
-  Menu,
-  MenuItem,
   Paper,
   Stack,
   Table,
@@ -15,7 +13,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import MenuBookIcon from "@mui/icons-material/MenuBook";
 import { Link as RouterLink } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
@@ -26,139 +24,21 @@ import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
-function SubjectsCell({ student }) {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const open = Boolean(anchorEl);
-  const count = student.subjects.length;
-  const avgProgress = count
-    ? Math.round(
-        student.subjects.reduce((sum, item) => sum + item.progress, 0) / count,
-      )
-    : 0;
-
-  if (!count) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        No subjects
-      </Typography>
-    );
-  }
-
-  return (
-    <>
-      <Button
-        size="small"
-        variant="outlined"
-        endIcon={<ExpandMoreIcon />}
-        onClick={(event) => setAnchorEl(event.currentTarget)}
-        sx={{ textTransform: "none", fontWeight: 700 }}
-      >
-        {count} subject{count === 1 ? "" : "s"} · avg {avgProgress}%
-      </Button>
-      <Menu
-        anchorEl={anchorEl}
-        open={open}
-        onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-        transformOrigin={{ vertical: "top", horizontal: "left" }}
-        slotProps={{
-          paper: { sx: { minWidth: 240, maxHeight: 320 } },
-        }}
-      >
-        {student.subjects.map((subject) => (
-          <MenuItem
-            key={`${student.studentId}-${subject.id}`}
-            component={RouterLink}
-            to={`/teacher/courses/${subject.id}`}
-            onClick={() => setAnchorEl(null)}
-          >
-            <ListItemText
-              primary={subject.title}
-              secondary={`${subject.progress}% lesson progress`}
-              primaryTypographyProps={{ fontWeight: 700 }}
-            />
-            <Chip
-              size="small"
-              label={`${subject.progress}%`}
-              color={subject.progress >= 70 ? "success" : "default"}
-              sx={{ ml: 1, fontWeight: 700 }}
-            />
-          </MenuItem>
-        ))}
-      </Menu>
-    </>
-  );
+function compareNames(a, b) {
+  const last = String(a.lastName || "").localeCompare(String(b.lastName || ""));
+  if (last !== 0) return last;
+  return String(a.firstName || "").localeCompare(String(b.firstName || ""));
 }
 
-function ScoresAction({ student }) {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const open = Boolean(anchorEl);
-  const subjects = student.subjects || [];
-
-  if (!subjects.length) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        —
-      </Typography>
-    );
-  }
-
-  if (subjects.length === 1) {
-    return (
-      <Button
-        component={RouterLink}
-        to={`/teacher/courses/${subjects[0].id}/scores`}
-        size="small"
-        variant="outlined"
-      >
-        Scores
-      </Button>
-    );
-  }
-
-  return (
-    <>
-      <Button
-        size="small"
-        variant="outlined"
-        endIcon={<ExpandMoreIcon />}
-        onClick={(event) => setAnchorEl(event.currentTarget)}
-        sx={{ textTransform: "none" }}
-      >
-        Scores
-      </Button>
-      <Menu
-        anchorEl={anchorEl}
-        open={open}
-        onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-        slotProps={{
-          paper: { sx: { minWidth: 220, maxHeight: 320 } },
-        }}
-      >
-        {subjects.map((subject) => (
-          <MenuItem
-            key={`scores-${student.studentId}-${subject.id}`}
-            component={RouterLink}
-            to={`/teacher/courses/${subject.id}/scores`}
-            onClick={() => setAnchorEl(null)}
-          >
-            <ListItemText
-              primary={subject.title}
-              secondary="Open class scores"
-              primaryTypographyProps={{ fontWeight: 700 }}
-            />
-          </MenuItem>
-        ))}
-      </Menu>
-    </>
-  );
+function averageProgress(students) {
+  if (!students.length) return 0;
+  const total = students.reduce((sum, student) => sum + student.progress, 0);
+  return Math.round(total / students.length);
 }
 
 export default function TeacherStudentsPage() {
   const { toQueryParams, schoolYear, gradeLevel, section } = useTeacherFilters();
-  const [students, setStudents] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -187,15 +67,11 @@ export default function TeacherStudentsPage() {
           }),
         );
 
-        const map = new Map();
-        enrollmentGroups.forEach(({ course, enrollments }) => {
-          enrollments.forEach((row) => {
-            const id = row.student_id;
-            const existing = map.get(id);
-            const subjectTitle = course.subject || course.title || "Subject";
-            if (!existing) {
-              map.set(id, {
-                studentId: id,
+        const nextGroups = enrollmentGroups
+          .map(({ course, enrollments }) => {
+            const students = enrollments
+              .map((row) => ({
+                studentId: row.student_id,
                 firstName: row.first_name,
                 lastName: row.last_name,
                 username: row.username,
@@ -205,35 +81,26 @@ export default function TeacherStudentsPage() {
                 schoolYear: row.school_year,
                 level: row.level || 1,
                 xp: row.xp || 0,
-                subjects: [
-                  {
-                    id: course.id,
-                    title: subjectTitle,
-                    progress: Number(row.progress_percent) || 0,
-                  },
-                ],
-              });
-              return;
-            }
-            existing.subjects.push({
+                progress: Number(row.progress_percent) || 0,
+              }))
+              .sort(compareNames);
+
+            return {
               id: course.id,
-              title: subjectTitle,
-              progress: Number(row.progress_percent) || 0,
-            });
+              title: course.subject || course.title || "Subject",
+              gradeLevel: course.grade_level || "",
+              schoolYear: course.school_year || "",
+              students,
+            };
+          })
+          .filter((group) => group.students.length)
+          .sort((a, b) => {
+            const title = String(a.title).localeCompare(String(b.title));
+            if (title !== 0) return title;
+            return String(a.gradeLevel).localeCompare(String(b.gradeLevel));
           });
-        });
 
-        const list = Array.from(map.values()).sort((a, b) => {
-          const last = String(a.lastName || "").localeCompare(
-            String(b.lastName || ""),
-          );
-          if (last !== 0) return last;
-          return String(a.firstName || "").localeCompare(
-            String(b.firstName || ""),
-          );
-        });
-
-        if (active) setStudents(list);
+        if (active) setGroups(nextGroups);
       } catch (err) {
         if (active) setError(getErrorMessage(err));
       } finally {
@@ -257,13 +124,21 @@ export default function TeacherStudentsPage() {
       : "All school years, grades, and sections";
   }, [schoolYear, gradeLevel, section]);
 
+  const studentCount = useMemo(() => {
+    const ids = new Set();
+    groups.forEach((group) => {
+      group.students.forEach((student) => ids.add(student.studentId));
+    });
+    return ids.size;
+  }, [groups]);
+
   if (loading) return <LoadingScreen label="Loading students..." />;
 
   return (
     <PageContainer>
       <PageHeader
         title="My Students"
-        subtitle={`Enrolled learners across your subjects · ${filterHint}`}
+        subtitle={`Grouped by subject · ${studentCount} student${studentCount === 1 ? "" : "s"} · ${filterHint}`}
       />
 
       {error ? (
@@ -272,7 +147,7 @@ export default function TeacherStudentsPage() {
         </Alert>
       ) : null}
 
-      {!students.length ? (
+      {!groups.length ? (
         <EmptyState
           title="No students yet"
           description="Students appear here after they enroll in your subjects. Adjust sidebar filters if you expected to see someone."
@@ -280,77 +155,121 @@ export default function TeacherStudentsPage() {
           to="/teacher/courses"
         />
       ) : (
-        <Paper>
-          <ResponsiveTableContainer>
-            <Table size="small" sx={{ minWidth: 720 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Student</TableCell>
-                  <TableCell>Grade</TableCell>
-                  <TableCell>Section</TableCell>
-                  <TableCell>Level / XP</TableCell>
-                  <TableCell>Subjects</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {students.map((student) => {
-                  const avgProgress = student.subjects.length
-                    ? Math.round(
-                        student.subjects.reduce(
-                          (sum, item) => sum + item.progress,
-                          0,
-                        ) / student.subjects.length,
-                      )
-                    : 0;
-                  return (
-                    <TableRow key={student.studentId} hover>
-                      <TableCell>
-                        <Typography fontWeight={800}>
-                          {student.lastName}, {student.firstName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {student.username || student.email || "—"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Stack spacing={0.25}>
-                          <Typography variant="body2" fontWeight={700}>
-                            {student.gradeLevel || "—"}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {student.schoolYear
-                              ? `SY ${student.schoolYear}`
-                              : "No school year"}
-                          </Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={700}>
-                          {student.section || "—"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={700}>
-                          Level {student.level}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {student.xp} XP · ~{avgProgress}% progress
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <SubjectsCell student={student} />
-                      </TableCell>
-                      <TableCell align="right">
-                        <ScoresAction student={student} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </ResponsiveTableContainer>
-        </Paper>
+        <Stack spacing={2.5}>
+          {groups.map((group) => {
+            const progress = averageProgress(group.students);
+            const meta = [
+              group.gradeLevel,
+              group.schoolYear ? `SY ${group.schoolYear}` : "",
+              `${group.students.length} student${group.students.length === 1 ? "" : "s"}`,
+              `${progress}% average lesson progress`,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+
+            return (
+              <Paper key={group.id} sx={{ p: { xs: 1.5, sm: 2 } }}>
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1.5}
+                  justifyContent="space-between"
+                  alignItems={{ sm: "center" }}
+                  sx={{ mb: 1.5 }}
+                >
+                  <Box>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <MenuBookIcon color="primary" />
+                      <Typography variant="h6" fontWeight={900}>
+                        {group.title}
+                      </Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                      {meta}
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      component={RouterLink}
+                      to={`/teacher/courses/${group.id}`}
+                      size="small"
+                      variant="outlined"
+                    >
+                      Open subject
+                    </Button>
+                    <Button
+                      component={RouterLink}
+                      to={`/teacher/courses/${group.id}/scores`}
+                      size="small"
+                      variant="contained"
+                    >
+                      Class scores
+                    </Button>
+                  </Stack>
+                </Stack>
+                <ResponsiveTableContainer>
+                  <Table size="small" sx={{ minWidth: 640 }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Student</TableCell>
+                        <TableCell>Grade</TableCell>
+                        <TableCell>Section</TableCell>
+                        <TableCell>Level / XP</TableCell>
+                        <TableCell>Lesson progress</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {group.students.map((student) => (
+                        <TableRow key={`${group.id}-${student.studentId}`} hover>
+                          <TableCell>
+                            <Typography fontWeight={800}>
+                              {student.lastName}, {student.firstName}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {student.username || student.email || "—"}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Stack spacing={0.25}>
+                              <Typography variant="body2" fontWeight={700}>
+                                {student.gradeLevel || "—"}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {student.schoolYear
+                                  ? `SY ${student.schoolYear}`
+                                  : "No school year"}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={700}>
+                              {student.section || "—"}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={700}>
+                              Level {student.level}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {student.xp} XP
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={`${student.progress}%`}
+                              color={student.progress >= 70 ? "success" : "default"}
+                              sx={{ fontWeight: 700 }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ResponsiveTableContainer>
+              </Paper>
+            );
+          })}
+        </Stack>
       )}
     </PageContainer>
   );

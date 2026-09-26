@@ -53,6 +53,28 @@ CREATE TABLE IF NOT EXISTS class_sections (
     FOREIGN KEY (adviser_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS system_settings (
+  setting_key VARCHAR(64) NOT NULL PRIMARY KEY,
+  setting_value VARCHAR(255) NOT NULL,
+  updated_by INT UNSIGNED NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_system_settings_updated_by
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS school_year_closures (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  school_year VARCHAR(20) NOT NULL,
+  entity_type ENUM('course', 'quiz', 'game') NOT NULL,
+  entity_id INT UNSIGNED NOT NULL,
+  was_published TINYINT(1) NOT NULL DEFAULT 0,
+  ends_at DATETIME NULL,
+  closed_at DATETIME NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_school_year_closure (school_year, entity_type, entity_id),
+  INDEX idx_school_year_closures_year (school_year)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS courses (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
@@ -65,6 +87,7 @@ CREATE TABLE IF NOT EXISTS courses (
   teacher_id INT UNSIGNED NOT NULL,
   updated_by INT UNSIGNED NULL,
   is_published TINYINT(1) NOT NULL DEFAULT 0,
+  join_code VARCHAR(8) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_courses_teacher FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE RESTRICT,
@@ -73,18 +96,37 @@ CREATE TABLE IF NOT EXISTS courses (
   INDEX idx_courses_published (is_published),
   INDEX idx_courses_subject (subject),
   INDEX idx_courses_school_year (school_year),
-  INDEX idx_courses_ends_at (ends_at)
+  INDEX idx_courses_ends_at (ends_at),
+  UNIQUE KEY uq_courses_join_code (join_code)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS course_join_requests (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  course_id INT UNSIGNED NOT NULL,
+  student_id INT UNSIGNED NOT NULL,
+  status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+  reviewed_by INT UNSIGNED NULL,
+  reviewed_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_course_join_request (course_id, student_id),
+  INDEX idx_course_join_requests_status (course_id, status),
+  CONSTRAINT fk_join_requests_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+  CONSTRAINT fk_join_requests_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_join_requests_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS course_enrollments (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   course_id INT UNSIGNED NOT NULL,
   student_id INT UNSIGNED NOT NULL,
+  school_year VARCHAR(20) NULL,
   enrolled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   progress_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_course_student (course_id, student_id),
+  INDEX idx_course_enrollments_school_year (school_year),
   CONSTRAINT fk_enrollments_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
   CONSTRAINT fk_enrollments_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

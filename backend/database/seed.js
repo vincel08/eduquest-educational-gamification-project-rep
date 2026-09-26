@@ -5,6 +5,10 @@ import { fileURLToPath } from "url";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import {
+  SYSTEM_BADGES,
+  SYSTEM_MEDALS,
+} from "../utils/achievementCatalog.js";
+import {
   currentSchoolYearStartYear,
   formatSchoolYearLabel,
 } from "../utils/schoolYears.js";
@@ -597,30 +601,38 @@ async function run() {
   //   });
   // }
 
-  await connection.execute(
-    `INSERT INTO badges (name, description, icon, color, criteria_type, criteria_value, difficulty, xp_bonus, created_by, owner_key) VALUES
-     ('First Steps', 'Complete your first lesson', 'school', '#42A5F5', 'lessons_completed', 1, NULL, 10, NULL, 0),
-     ('Quiz Champion', 'Pass 3 quizzes', 'quiz', '#66BB6A', 'quizzes_passed', 3, 'medium', 20, NULL, 0),
-     ('XP Collector', 'Earn 100 XP', 'star', '#FFA726', 'xp', 100, NULL, 15, NULL, 0),
-     ('Rising Star', 'Reach 500 XP', 'auto_awesome', '#AB47BC', 'xp', 500, NULL, 50, NULL, 0),
-     ('Streak Starter', 'Learn 3 days in a row', 'local_fire_department', '#EF4444', 'streak', 3, NULL, 15, NULL, 0)`,
-  );
+  for (const badge of SYSTEM_BADGES) {
+    await connection.execute(
+      `INSERT INTO badges
+       (name, description, icon, color, criteria_type, criteria_value, difficulty, xp_bonus, created_by, owner_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)`,
+      [
+        badge.name,
+        badge.description,
+        badge.icon,
+        badge.color,
+        badge.criteriaType,
+        badge.criteriaValue,
+        badge.difficulty,
+        badge.xpBonus,
+      ],
+    );
+  }
 
-  await connection.execute(
-    `INSERT INTO medals (name, description, tier, icon, criteria_type, criteria_value) VALUES
-     ('Bronze Climber', 'Reach level 5', 'bronze', 'military_tech', 'level', 5),
-     ('Silver Scholar', 'Reach level 8', 'silver', 'military_tech', 'level', 8),
-     ('Perfect Score', 'Get a perfect quiz score', 'gold', 'workspace_premium', 'perfect_quiz', 1),
-     ('Top Contender', 'Reach top 3 on the leaderboard', 'platinum', 'emoji_events', 'leaderboard_rank', 3),
-     ('Diamond Achiever', 'Reach level 10', 'diamond', 'diamond', 'level', 10),
-     ('Legendary Learner', 'Reach level 20', 'legendary', 'workspace_premium', 'level', 20),
-     ('Campus Champion', 'Reach #1 on the leaderboard', 'legendary', 'emoji_events', 'leaderboard_rank', 1),
-     ('XP Titan', 'Earn 1,000 XP — a major mastery milestone', 'gold', 'star', 'xp', 1000),
-     ('Unstoppable Streak', 'Learn 14 days in a row', 'platinum', 'local_fire_department', 'streak', 14),
-     ('Quiz Master', 'Pass 10 quizzes', 'gold', 'quiz', 'quizzes_passed', 10),
-     ('Lesson Legend', 'Complete 15 lessons', 'platinum', 'school', 'lessons_completed', 15),
-     ('Game Veteran', 'Complete 10 educational games', 'diamond', 'sports_esports', 'games_completed', 10)`,
-  );
+  for (const medal of SYSTEM_MEDALS) {
+    await connection.execute(
+      `INSERT INTO medals (name, description, tier, icon, criteria_type, criteria_value)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        medal.name,
+        medal.description,
+        medal.tier,
+        medal.icon,
+        medal.criteriaType,
+        medal.criteriaValue,
+      ],
+    );
+  }
 
   // await connection.execute(
   //   `INSERT INTO notifications (user_id, title, message, type, link) VALUES

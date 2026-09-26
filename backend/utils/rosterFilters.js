@@ -27,7 +27,22 @@ export function appendStudentRosterFilters(
   const section = normalizeRosterFilterValue(options.section);
 
   if (schoolYear) {
-    filters.push(`${alias}.school_year = :rosterSchoolYear`);
+    filters.push(`(
+      ${alias}.school_year = :rosterSchoolYear
+      OR EXISTS (
+        SELECT 1
+        FROM course_enrollments ce_hist
+        INNER JOIN courses c_hist ON c_hist.id = ce_hist.course_id
+        WHERE ce_hist.student_id = ${alias}.user_id
+          AND (
+            ce_hist.school_year = :rosterSchoolYear
+            OR (
+              (ce_hist.school_year IS NULL OR TRIM(ce_hist.school_year) = '')
+              AND c_hist.school_year = :rosterSchoolYear
+            )
+          )
+      )
+    )`);
     params.rosterSchoolYear = schoolYear;
   }
   if (gradeLevel) {
