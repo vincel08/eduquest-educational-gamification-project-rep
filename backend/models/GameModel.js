@@ -23,7 +23,7 @@ const GameModel = {
         title: data.title,
         description: data.description || null,
         gameType: data.gameType,
-        difficulty: data.difficulty || 'medium',
+        difficulty: data.difficulty || 'average',
         estimatedTime: data.estimatedTime || 10,
         gameData: JSON.stringify(data.gameData),
         xpReward: data.xpReward || 30,

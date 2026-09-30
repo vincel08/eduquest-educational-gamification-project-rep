@@ -29,6 +29,7 @@ import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 import { formatGameTypeLabel } from "../../utils/gameTypes";
+import { formatContentDifficulty } from "../../utils/contentDifficulty";
 import { useSchoolYear } from "../../contexts/SchoolYearContext";
 
 function subjectKey(value) {
@@ -207,9 +208,7 @@ export default function TeacherGamesPage() {
                           ? ` · ~${game.estimated_time} min`
                           : ""}
                         {game.difficulty
-                          ? ` · ${String(game.difficulty).replace(/^\w/, (c) =>
-                              c.toUpperCase(),
-                            )}`
+                          ? ` · ${formatContentDifficulty(game.difficulty)}`
                           : ""}
                       </Typography>
                     </TableCell>

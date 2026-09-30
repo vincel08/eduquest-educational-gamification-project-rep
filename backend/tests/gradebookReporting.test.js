@@ -81,7 +81,7 @@ describe('teacher gradebook reporting', () => {
     const game = await query(
       `INSERT INTO educational_games
        (course_id, title, description, game_type, difficulty, estimated_time, game_data, xp_reward, is_published, created_by)
-       VALUES (:courseId, 'Cell Match', 'Practice', 'flashcards', 'medium', 10, :gameData, 40, 1, :teacherId)`,
+       VALUES (:courseId, 'Cell Match', 'Practice', 'flashcards', 'average', 10, :gameData, 40, 1, :teacherId)`,
       {
         courseId,
         teacherId: teacher.id,

@@ -16,6 +16,7 @@ import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { blankQuestion, newId } from "../../utils/manualQuizHelpers";
+import ContentDifficultyField from "../common/ContentDifficultyField";
 import { buildAuthenticatedFileUrl } from "../../utils/fileUrls";
 
 export default function ManualQuizEditor({
@@ -231,19 +232,14 @@ export default function ManualQuizEditor({
               />
             </Stack>
             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              <TextField
-                select
+              <ContentDifficultyField
                 label="Default difficulty"
                 fullWidth
                 value={form.difficulty}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, difficulty: e.target.value }))
                 }
-              >
-                <MenuItem value="easy">Easy</MenuItem>
-                <MenuItem value="medium">Medium</MenuItem>
-                <MenuItem value="hard">Hard</MenuItem>
-              </TextField>
+              />
               <TextField
                 label="Passing score (%)"
                 type="number"

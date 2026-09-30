@@ -10,6 +10,7 @@ import NotificationService from "./NotificationService.js";
 import StreakService from "./StreakService.js";
 import ActivityLogService from "./ActivityLogService.js";
 import AppError from "../utils/AppError.js";
+import { normalizeContentDifficulty } from "../utils/contentDifficulty.js";
 import {
   ALL_GAME_TYPES,
   GAME_TYPES,
@@ -31,6 +32,21 @@ import {
   MAX_GAME_ATTEMPTS,
   MAX_GAME_EXTRA_ATTEMPTS_GRANT,
 } from "../utils/gameAttemptRules.js";
+
+function normalizeGameDataDifficulty(gameData) {
+  if (!gameData || typeof gameData !== "object" || Array.isArray(gameData)) {
+    return gameData;
+  }
+  const next = { ...gameData };
+  for (const key of ["items", "rounds", "questions"]) {
+    if (!Array.isArray(next[key])) continue;
+    next[key] = next[key].map((item) => {
+      if (!item || typeof item !== "object" || item.difficulty == null) return item;
+      return { ...item, difficulty: normalizeContentDifficulty(item.difficulty) };
+    });
+  }
+  return next;
+}
 
 function assertCourseAccess(course, user) {
   if (!course) throw new AppError("Course not found", 404);
@@ -109,9 +125,9 @@ const GameService = {
       title: data.title,
       description: data.description || null,
       gameType,
-      difficulty: data.difficulty || "medium",
+      difficulty: normalizeContentDifficulty(data.difficulty),
       estimatedTime: data.estimatedTime || 10,
-      gameData: data.gameData,
+      gameData: normalizeGameDataDifficulty(data.gameData),
       xpReward: data.xpReward || 100,
       isAiGenerated: Boolean(data.isAiGenerated),
       isPublished: Boolean(data.isPublished),
@@ -185,7 +201,7 @@ const GameService = {
         title,
         description: source.description || null,
         gameType: source.game_type,
-        difficulty: source.difficulty || "medium",
+        difficulty: normalizeContentDifficulty(source.difficulty),
         estimatedTime: source.estimated_time || 10,
         gameData,
         xpReward: source.xp_reward || 100,
@@ -249,6 +265,7 @@ const GameService = {
       gradeLevel: payload.gradeLevel || course.grade_level || "junior high school",
       lessonContent,
       itemCount: payload.itemCount,
+      difficulty: payload.difficulty,
     });
 
     return {
@@ -391,6 +408,13 @@ const GameService = {
 
     if (user.role === "teacher" && game.teacher_id !== user.id) {
       throw new AppError("Access denied", 403);
+    }
+
+    if (data.difficulty !== undefined) {
+      data.difficulty = normalizeContentDifficulty(data.difficulty);
+    }
+    if (data.gameData) {
+      data.gameData = normalizeGameDataDifficulty(data.gameData);
     }
 
     if (data.gameType || data.gameData) {

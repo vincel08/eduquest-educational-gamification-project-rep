@@ -12,6 +12,7 @@ import gameService from "../../services/gameService";
 import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
 import { formatGameTypeLabel } from "../../utils/gameTypes";
+import { formatContentDifficulty } from "../../utils/contentDifficulty";
 
 export default function StudentGamesPage({ embedded = false }) {
   const [games, setGames] = useState([]);
@@ -161,7 +162,8 @@ export default function StudentGamesPage({ embedded = false }) {
                   icon={<SportsEsportsIcon />}
                   accent="orange"
                   difficulty={
-                    game.difficulty || formatGameTypeLabel(game.game_type)
+                    formatContentDifficulty(game.difficulty) ||
+                    formatGameTypeLabel(game.game_type)
                   }
                   xpReward={game.xp_reward}
                   estimatedTime={game.estimated_time}

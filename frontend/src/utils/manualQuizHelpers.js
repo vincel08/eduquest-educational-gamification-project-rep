@@ -8,7 +8,7 @@ export function blankQuestion(questionType = 'multiple_choice') {
     questionText: '',
     questionType,
     points: 1,
-    difficulty: 'medium',
+    difficulty: 'average',
     explanation: '',
     imageFile: null,
     imagePreviewUrl: null,
@@ -115,7 +115,7 @@ export function mapApiQuestionToEditor(question) {
     questionText: question.question_text || question.questionText || '',
     questionType: type,
     points: question.points || 1,
-    difficulty: question.difficulty || 'medium',
+    difficulty: question.difficulty || 'average',
     explanation: question.explanation || '',
     options: type === 'identification' || type === 'matching'
       ? options

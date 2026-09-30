@@ -27,7 +27,7 @@ export const generateAiContentValidation = [
   body('originalFileName').optional({ nullable: true }).isString(),
   body('uploadedFilePath').optional({ nullable: true }).isString(),
   body('topic').optional({ nullable: true }).isString(),
-  body('difficulty').optional().isIn(['easy', 'medium', 'hard', 'Easy', 'Medium', 'Hard']),
+  body('difficulty').optional().isIn(['easy', 'average', 'difficult', 'medium', 'hard', 'Easy', 'Average', 'Difficult', 'Medium', 'Hard']),
   body('questionCount')
     .optional()
     .isInt({ min: 1, max: 100 })

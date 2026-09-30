@@ -8,6 +8,10 @@ import { coerceGameDataToType, applyGameItemCountLimit } from '../utils/gameData
 import { ensureWordSearchData } from '../utils/wordSearchGrid.js';
 import { getMaxItemsForGameType } from '../utils/gameItemLimits.js';
 import {
+  contentDifficultyLabel,
+  normalizeContentDifficulty,
+} from '../utils/contentDifficulty.js';
+import {
   clampQuestionCount,
   clampGameItemRequestCount,
   sanitizeAiError,
@@ -257,11 +261,8 @@ function pickOptionText(option, fallback = '') {
     ?? fallback;
 }
 
-function normalizeDifficultyLabel(value, fallback = 'Medium') {
-  const raw = String(value || fallback).trim().toLowerCase();
-  if (raw === 'easy') return 'Easy';
-  if (raw === 'hard') return 'Hard';
-  return 'Medium';
+function normalizeDifficultyLabel(value, fallback = 'Average') {
+  return contentDifficultyLabel(value || fallback);
 }
 
 function normalizeContentQuiz(data, topic, difficulty, questionCount) {
@@ -503,9 +504,7 @@ function normalizeGeneratedGame(raw, requestedType, itemCount = null) {
     title: raw.title || 'Educational Game',
     description: raw.description || '',
     gameType: resolvedType,
-    difficulty: ['easy', 'medium', 'hard'].includes(String(raw.difficulty || '').toLowerCase())
-      ? String(raw.difficulty).toLowerCase()
-      : 'medium',
+    difficulty: normalizeContentDifficulty(raw.difficulty),
     estimatedTime: Number(raw.estimatedTime || raw.estimated_time) || 10,
     xpReward: Number(raw.xpReward || raw.xp_reward) || 100,
     gameData,
@@ -520,7 +519,7 @@ function rethrowProviderFailure(error) {
 const AiService = {
   async generateQuiz({
     topic,
-    difficulty = 'medium',
+    difficulty = 'average',
     questionCount = 5,
     gradeLevel = "junior high school",
     questionType = 'multiple_choice',
@@ -568,7 +567,7 @@ Return compact valid JSON only.`,
 Return JSON with keys: title, description, questions.
 ${typeInstruction}
 Every question must include: questionText, questionType, points, explanation.`,
-        `Create ${count} ${difficulty} ${selectedType.replace(/_/g, ' ')} quiz questions about "${topic}" for ${gradeLevel} students.
+        `Create ${count} ${contentDifficultyLabel(difficulty).toLowerCase()} ${selectedType.replace(/_/g, ' ')} quiz questions about "${topic}" for ${gradeLevel} students.
 ${contentSnippet ? `\nBase every question on this source material:\n${contentSnippet}` : ''}`
       );
 
@@ -593,7 +592,7 @@ ${contentSnippet ? `\nBase every question on this source material:\n${contentSni
   async generateContentQuiz({
     topic,
     lessonContent = '',
-    difficulty = 'medium',
+    difficulty = 'average',
     questionCount = 5,
     gradeLevel = "junior high school",
   }) {
@@ -613,7 +612,7 @@ JSON shape:
 {
   "title": "string",
   "description": "string",
-  "difficulty": "Easy|Medium|Hard",
+  "difficulty": "Easy|Average|Difficult",
   "timeLimit": 15,
   "passingScore": 70,
   "questions": [
@@ -627,7 +626,7 @@ JSON shape:
 }`,
         `Grade level: ${gradeLevel}
 Topic: ${topic || 'Lesson topic'}
-Difficulty: ${difficulty}
+Difficulty: ${contentDifficultyLabel(difficulty)}
 Question count: ${count}
 Lesson content:
 ${contentSnippet}`
@@ -651,6 +650,7 @@ ${contentSnippet}`
     gradeLevel = "junior high school",
     lessonContent = '',
     itemCount,
+    difficulty = 'average',
   }) {
     const requestedType = gameType === 'auto' ? 'auto' : (normalizeGameType(gameType) || gameType);
     if (requestedType !== 'auto' && !GAME_TYPES.includes(requestedType) && !normalizeGameType(requestedType)) {
@@ -679,7 +679,7 @@ Return ONLY valid JSON with this shape:
   "gameType": "memory_match",
   "title": "string",
   "description": "string",
-  "difficulty": "Easy|Medium|Hard",
+  "difficulty": "Easy|Average|Difficult",
   "estimatedTime": 10,
   "xpReward": 150,
   "gameData": {}
@@ -692,7 +692,7 @@ gameData requirements by gameType (use exactly ${count} items unless noted):
 - quiz_show: gameData.items or gameData.rounds [{question, choices[4], correctIndex}] (exactly ${count})
 - jeopardy: gameData.categories [{name, clues:[{points, clue, answer}]}] (1-3 categories; about ${count} clues total)
 - spin_wheel: gameData.items [{label, question, choices[4], correctIndex}] (exactly ${count})
-- millionaire: gameData.items [{question, choices[4], correctIndex, difficulty}] (exactly ${count})
+- millionaire: gameData.items [{question, choices[4], correctIndex, difficulty}] where difficulty is Easy, Average, or Difficult (exactly ${count})
 - escape_room: gameData.stages [{name, clue, answer, hint}] (exactly ${count} stages)
 - mission_adventure: gameData.missions [{title, prompt, choices[3], correctIndex, xp}] (exactly ${count})
 - puzzle_challenge: gameData.items [{prompt, answer, hint}] (exactly ${count} short answers)
@@ -702,6 +702,7 @@ Do not include markdown. Do not explain anything.`,
 Topic: ${topic || 'Lesson topic'}
 Requested game type: ${requestedType}
 Requested item count: ${count}
+Difficulty: ${contentDifficultyLabel(difficulty)}
 Lesson content:
 ${contentSnippet}`
       );

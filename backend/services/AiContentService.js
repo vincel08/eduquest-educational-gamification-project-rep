@@ -17,6 +17,7 @@ import {
   assertGameItemRequestCount,
   buildIdempotencyKey,
 } from '../utils/aiLimits.js';
+import { normalizeContentDifficulty } from '../utils/contentDifficulty.js';
 
 function assertCourseAccess(course, user) {
   if (!course) throw new AppError('Course not found', 404);
@@ -26,10 +27,7 @@ function assertCourseAccess(course, user) {
 }
 
 function difficultyToSlug(value) {
-  const raw = String(value || 'medium').trim().toLowerCase();
-  if (raw === 'easy') return 'easy';
-  if (raw === 'hard') return 'hard';
-  return 'medium';
+  return normalizeContentDifficulty(value);
 }
 
 function contentQuizToPersistableQuestions(quizJson) {
@@ -174,7 +172,7 @@ const AiContentService = {
         const generated = await AiService.generateContentQuiz({
           topic,
           lessonContent: extractedText,
-          difficulty: payload.difficulty || 'medium',
+          difficulty: payload.difficulty || 'average',
           questionCount,
           gradeLevel: payload.gradeLevel || course.grade_level || "junior high school",
         });
@@ -200,6 +198,7 @@ const AiContentService = {
           gradeLevel: payload.gradeLevel || course.grade_level || "junior high school",
           lessonContent: extractedText,
           itemCount,
+          difficulty: payload.difficulty,
         });
 
         generatedJson = {
@@ -282,6 +281,7 @@ const AiContentService = {
           timeLimitMinutes: generated.timeLimit || generated.time_limit || 15,
           passingScore: generated.passingScore || generated.passing_score || 70,
           xpReward: payload.xpReward || 50,
+          difficulty: difficultyToSlug(generated.difficulty),
           isAiGenerated: true,
           isPublished,
           questions: contentQuizToPersistableQuestions(generated),

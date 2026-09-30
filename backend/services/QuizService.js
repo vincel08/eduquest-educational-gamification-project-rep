@@ -10,6 +10,7 @@ import StreakService from "./StreakService.js";
 import NotificationService from "./NotificationService.js";
 import ActivityLogService from "./ActivityLogService.js";
 import AppError from "../utils/AppError.js";
+import { normalizeContentDifficulty } from "../utils/contentDifficulty.js";
 import {
   questionImageApiPath,
   safeUnlinkUpload,
@@ -591,6 +592,7 @@ const QuizService = {
       ...data,
       dueAt: normalizeDueAt(data.dueAt) ?? null,
       passingScore: data.passingScore ?? 70,
+      difficulty: normalizeContentDifficulty(data.difficulty),
       isPublished: false,
       isAiGenerated: Boolean(data.isAiGenerated),
       createdBy: user.id,
@@ -692,6 +694,7 @@ const QuizService = {
         timeLimitMinutes: source.time_limit_minutes || null,
         passingScore: source.passing_score ?? 70,
         xpReward: source.xp_reward || 50,
+        difficulty: normalizeContentDifficulty(source.difficulty),
         dueAt: null,
         isAiGenerated: Boolean(source.is_ai_generated),
         isPublished: false,
@@ -728,6 +731,7 @@ const QuizService = {
         timeLimitMinutes: payload.timeLimitMinutes || 15,
         passingScore: payload.passingScore ?? 70,
         xpReward: payload.xpReward || 50,
+        difficulty: normalizeContentDifficulty(payload.difficulty),
         dueAt: payload.dueAt ?? null,
         isAiGenerated: true,
         isPublished: payload.isPublished || false,
@@ -824,6 +828,9 @@ const QuizService = {
     delete meta.questions;
     if (meta.dueAt !== undefined) {
       meta.dueAt = normalizeDueAt(meta.dueAt);
+    }
+    if (meta.difficulty !== undefined) {
+      meta.difficulty = normalizeContentDifficulty(meta.difficulty);
     }
 
     if (meta.isPublished === true) {

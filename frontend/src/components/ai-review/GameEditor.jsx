@@ -14,6 +14,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import AddIcon from '@mui/icons-material/Add';
 import { formatGameTypeLabel } from '../../utils/gameTypes';
+import ContentDifficultyField from '../common/ContentDifficultyField';
 import { normalizeAnswer, resolveCrosswordClues, syncCrosswordGameData } from '../../utils/crosswordGrid';
 import {
   countGameItems,
@@ -261,7 +262,7 @@ export default function GameEditor({
                 label: '',
                 choices: ['', '', '', ''],
                 correctIndex: 0,
-                difficulty: 'medium',
+                difficulty: 'average',
               }],
             })}
           >
@@ -320,20 +321,14 @@ export default function GameEditor({
                   }}
                 />
                 {gameType === 'millionaire' ? (
-                  <TextField
-                    select
-                    label="Difficulty"
-                    value={item.difficulty || 'medium'}
+                  <ContentDifficultyField
+                    value={item.difficulty}
                     onChange={(e) => {
                       const next = [...list];
                       next[index] = { ...item, difficulty: e.target.value };
                       updateGameData({ [listKey]: next });
                     }}
-                  >
-                    <MenuItem value="easy">Easy</MenuItem>
-                    <MenuItem value="medium">Medium</MenuItem>
-                    <MenuItem value="hard">Hard</MenuItem>
-                  </TextField>
+                  />
                 ) : null}
               </Stack>
             </CardContent>
@@ -749,17 +744,11 @@ export default function GameEditor({
           value={game.title || ''}
           onChange={(e) => updateGame({ title: e.target.value })}
         />
-        <TextField
-          select
-          label="Difficulty"
-          value={game.difficulty || 'medium'}
+        <ContentDifficultyField
+          value={game.difficulty}
           onChange={(e) => updateGame({ difficulty: e.target.value })}
           sx={{ minWidth: 160 }}
-        >
-          <MenuItem value="easy">Easy</MenuItem>
-          <MenuItem value="medium">Medium</MenuItem>
-          <MenuItem value="hard">Hard</MenuItem>
-        </TextField>
+        />
       </Stack>
 
       <TextField

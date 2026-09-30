@@ -30,6 +30,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import PageContainer from "../../components/common/PageContainer";
 import StatusSnackbar from "../../components/common/StatusSnackbar";
+import ContentDifficultyField from "../../components/common/ContentDifficultyField";
 import AiGeneratedReviewPanel from "../../components/ai-review/AiGeneratedReviewPanel";
 import courseService from "../../services/courseService";
 import aiReviewService from "../../services/aiReviewService";
@@ -134,6 +135,7 @@ export default function TeacherAiGamePage() {
     topic: "",
     lessonContent: "",
     gameType: "auto",
+    difficulty: "average",
     itemCount: 6,
   });
   const [draft, setDraft] = useState(null);
@@ -226,6 +228,7 @@ export default function TeacherAiGamePage() {
         lessonContent:
           form.lessonContent.trim() || form.topic.trim() || undefined,
         gameType: form.gameType,
+        difficulty: form.difficulty,
         itemCount: Number(form.itemCount) || 6,
         requestId:
           typeof crypto !== "undefined" && crypto.randomUUID
@@ -407,6 +410,12 @@ export default function TeacherAiGamePage() {
               </MenuItem>
             ))}
           </TextField>
+
+          <ContentDifficultyField
+            value={form.difficulty}
+            onChange={(e) => setForm((p) => ({ ...p, difficulty: e.target.value }))}
+            sx={{ maxWidth: 240 }}
+          />
 
           <TextField
             label="Number of items"

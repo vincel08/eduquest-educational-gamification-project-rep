@@ -4,9 +4,9 @@ const QuizModel = {
   async create(data) {
     const result = await query(
       `INSERT INTO quizzes
-       (course_id, lesson_id, title, description, time_limit_minutes, due_at, passing_score, xp_reward, is_ai_generated, is_published, created_by)
+       (course_id, lesson_id, title, description, time_limit_minutes, due_at, passing_score, difficulty, xp_reward, is_ai_generated, is_published, created_by)
        VALUES
-       (:courseId, :lessonId, :title, :description, :timeLimitMinutes, :dueAt, :passingScore, :xpReward, :isAiGenerated, :isPublished, :createdBy)`,
+       (:courseId, :lessonId, :title, :description, :timeLimitMinutes, :dueAt, :passingScore, :difficulty, :xpReward, :isAiGenerated, :isPublished, :createdBy)`,
       {
         courseId: data.courseId,
         lessonId: data.lessonId || null,
@@ -15,6 +15,7 @@ const QuizModel = {
         timeLimitMinutes: data.timeLimitMinutes || null,
         dueAt: data.dueAt ?? null,
         passingScore: data.passingScore || 70,
+        difficulty: data.difficulty || "average",
         xpReward: data.xpReward || 50,
         isAiGenerated: data.isAiGenerated ? 1 : 0,
         isPublished: data.isPublished ? 1 : 0,
@@ -110,6 +111,7 @@ const QuizModel = {
       timeLimitMinutes: "time_limit_minutes",
       dueAt: "due_at",
       passingScore: "passing_score",
+      difficulty: "difficulty",
       xpReward: "xp_reward",
       isPublished: "is_published",
       updatedBy: "updated_by",

@@ -203,6 +203,7 @@ CREATE TABLE IF NOT EXISTS quizzes (
   time_limit_minutes INT UNSIGNED NULL,
   due_at DATETIME NULL,
   passing_score INT UNSIGNED NOT NULL DEFAULT 70,
+  difficulty ENUM('easy', 'average', 'difficult') NOT NULL DEFAULT 'average',
   xp_reward INT UNSIGNED NOT NULL DEFAULT 50,
   is_ai_generated TINYINT(1) NOT NULL DEFAULT 0,
   is_published TINYINT(1) NOT NULL DEFAULT 0,
@@ -405,7 +406,7 @@ CREATE TABLE IF NOT EXISTS educational_games (
     'word_scramble',
     'true_false_blitz'
   ) NOT NULL,
-  difficulty ENUM('easy', 'medium', 'hard') NOT NULL DEFAULT 'medium',
+  difficulty ENUM('easy', 'average', 'difficult') NOT NULL DEFAULT 'average',
   estimated_time INT UNSIGNED NOT NULL DEFAULT 10,
   game_data JSON NOT NULL,
   xp_reward INT UNSIGNED NOT NULL DEFAULT 30,

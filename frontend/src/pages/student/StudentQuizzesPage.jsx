@@ -11,6 +11,7 @@ import courseService from "../../services/courseService";
 import quizService from "../../services/quizService";
 import { getErrorMessage } from "../../services/api";
 import { applyTimestampControls } from "../../utils/contentTimestamps";
+import { formatContentDifficulty } from "../../utils/contentDifficulty";
 
 export default function StudentQuizzesPage({ embedded = false }) {
   const [quizzes, setQuizzes] = useState([]);
@@ -173,7 +174,7 @@ export default function StudentQuizzesPage({ embedded = false }) {
                   description={quiz.courseTitle || quiz.description}
                   icon={<QuizIcon />}
                   accent="purple"
-                  difficulty={quiz.difficulty || "Challenge"}
+                  difficulty={formatContentDifficulty(quiz.difficulty) || "Average"}
                   xpReward={quiz.xp_reward}
                   estimatedTime={quiz.time_limit_minutes}
                   status={status}

@@ -17,6 +17,7 @@ import courseService from '../../services/courseService';
 import aiReviewService from '../../services/aiReviewService';
 import { getErrorMessage } from '../../services/api';
 import { useTeacherFilters } from '../../contexts/TeacherFiltersContext';
+import ContentDifficultyField from '../../components/common/ContentDifficultyField';
 
 const STEPS = ['Configure', 'AI Generation', 'Review & Edit', 'Save / Publish'];
 
@@ -28,7 +29,7 @@ export default function TeacherAiQuizPage() {
     courseId: '',
     lessonId: '',
     topic: '',
-    difficulty: 'medium',
+    difficulty: 'average',
     questionCount: 5,
     questionType: 'multiple_choice',
   });
@@ -191,16 +192,10 @@ export default function TeacherAiQuizPage() {
             <MenuItem value="true_false">True or False</MenuItem>
             <MenuItem value="identification">Identification</MenuItem>
           </TextField>
-          <TextField
-            select
-            label="Difficulty"
+          <ContentDifficultyField
             value={form.difficulty}
             onChange={(e) => setForm((p) => ({ ...p, difficulty: e.target.value }))}
-          >
-            <MenuItem value="easy">Easy</MenuItem>
-            <MenuItem value="medium">Medium</MenuItem>
-            <MenuItem value="hard">Hard</MenuItem>
-          </TextField>
+          />
           <TextField
             label="Question count"
             type="number"

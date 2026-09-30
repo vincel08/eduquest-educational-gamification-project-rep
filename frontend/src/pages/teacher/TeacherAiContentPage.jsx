@@ -23,6 +23,7 @@ import aiContentService from '../../services/aiContentService';
 import aiReviewService from '../../services/aiReviewService';
 import { getErrorMessage } from '../../services/api';
 import { useTeacherFilters } from '../../contexts/TeacherFiltersContext';
+import ContentDifficultyField from '../../components/common/ContentDifficultyField';
 import {
   clampGameItemCountInput,
   getMaxItemsForGameType,
@@ -58,7 +59,7 @@ export default function TeacherAiContentPage() {
     courseId: '',
     lessonId: '',
     gameType: 'auto',
-    difficulty: 'medium',
+    difficulty: 'average',
     questionCount: 5,
     itemCount: 6,
   });
@@ -356,19 +357,16 @@ export default function TeacherAiContentPage() {
             </RadioGroup>
           </FormControl>
 
+          {contentType === 'quiz' || contentType === 'game' || contentType === 'all' ? (
+            <ContentDifficultyField
+              value={form.difficulty}
+              onChange={(e) => setForm((p) => ({ ...p, difficulty: e.target.value }))}
+              sx={{ maxWidth: 240 }}
+            />
+          ) : null}
+
           {contentType === 'quiz' || contentType === 'all' ? (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                select
-                label="Difficulty"
-                value={form.difficulty}
-                onChange={(e) => setForm((p) => ({ ...p, difficulty: e.target.value }))}
-                sx={{ minWidth: 160 }}
-              >
-                <MenuItem value="easy">Easy</MenuItem>
-                <MenuItem value="medium">Medium</MenuItem>
-                <MenuItem value="hard">Hard</MenuItem>
-              </TextField>
               <TextField
                 label="Question Count"
                 type="number"

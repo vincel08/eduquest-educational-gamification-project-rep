@@ -14,18 +14,19 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import AddIcon from '@mui/icons-material/Add';
+import ContentDifficultyField from '../common/ContentDifficultyField';
 
 function newId(prefix) {
   return `${prefix}_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
 }
 
-function blankQuestion() {
+function blankQuestion(difficulty = 'average') {
   return {
     id: newId('q'),
     questionText: '',
     questionType: 'multiple_choice',
     points: 1,
-    difficulty: 'medium',
+    difficulty: difficulty || 'average',
     explanation: '',
     textAnswer: '',
     options: [
@@ -104,17 +105,11 @@ export default function QuizEditor({
           value={quiz.title || ''}
           onChange={(e) => updateQuiz({ title: e.target.value })}
         />
-        <TextField
-          select
-          label="Difficulty"
-          value={quiz.difficulty || 'medium'}
+        <ContentDifficultyField
+          value={quiz.difficulty}
           onChange={(e) => updateQuiz({ difficulty: e.target.value })}
           sx={{ minWidth: 160 }}
-        >
-          <MenuItem value="easy">Easy</MenuItem>
-          <MenuItem value="medium">Medium</MenuItem>
-          <MenuItem value="hard">Hard</MenuItem>
-        </TextField>
+        />
       </Stack>
       <TextField
         label="Description"
@@ -156,7 +151,7 @@ export default function QuizEditor({
           startIcon={<AddIcon />}
           variant="outlined"
           onClick={() => updateQuiz({
-            questions: [...(quiz.questions || []), blankQuestion()],
+            questions: [...(quiz.questions || []), blankQuestion(quiz.difficulty)],
           })}
         >
           Add question
@@ -226,17 +221,11 @@ export default function QuizEditor({
                   helperText="Grading weight"
                   inputProps={{ min: 1 }}
                 />
-                <TextField
-                  select
-                  label="Difficulty"
-                  value={question.difficulty || quiz.difficulty || 'medium'}
+                <ContentDifficultyField
+                  value={question.difficulty || quiz.difficulty}
                   onChange={(e) => updateQuestion(index, { difficulty: e.target.value })}
                   sx={{ minWidth: 140 }}
-                >
-                  <MenuItem value="easy">Easy</MenuItem>
-                  <MenuItem value="medium">Medium</MenuItem>
-                  <MenuItem value="hard">Hard</MenuItem>
-                </TextField>
+                />
               </Stack>
 
               {question.questionType === 'identification' ? (

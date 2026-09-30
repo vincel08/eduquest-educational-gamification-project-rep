@@ -22,6 +22,7 @@ import { getErrorMessage } from "../../services/api";
 import { useAdminFilters } from "../../contexts/AdminFiltersContext";
 import useRefreshOnFocus from "../../hooks/useRefreshOnFocus";
 import { formatGameTypeLabel } from "../../utils/gameTypes";
+import { formatContentDifficulty } from "../../utils/contentDifficulty";
 import { defaultSchoolYearValue } from "../../utils/schoolYears";
 
 function teacherLabel(row) {
@@ -241,9 +242,7 @@ export default function AdminGamesPage() {
                           ? ` · ~${game.estimated_time} min`
                           : ""}
                         {game.difficulty
-                          ? ` · ${String(game.difficulty).replace(/^\w/, (c) =>
-                              c.toUpperCase(),
-                            )}`
+                          ? ` · ${formatContentDifficulty(game.difficulty)}`
                           : ""}
                       </Typography>
                     </TableCell>

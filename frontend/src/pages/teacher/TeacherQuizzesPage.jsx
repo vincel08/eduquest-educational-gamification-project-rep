@@ -32,6 +32,7 @@ import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 import { useSchoolYear } from "../../contexts/SchoolYearContext";
 import { listSchoolYearOptions } from "../../utils/schoolYears";
+import { formatContentDifficulty } from "../../utils/contentDifficulty";
 
 function subjectKey(value) {
   return String(value || "")
@@ -236,9 +237,7 @@ export default function TeacherQuizzesPage() {
                           ? ` · ${quiz.time_limit_minutes} min`
                           : ""}
                         {quiz.difficulty
-                          ? ` · ${String(quiz.difficulty).replace(/^\w/, (c) =>
-                              c.toUpperCase(),
-                            )}`
+                          ? ` · ${formatContentDifficulty(quiz.difficulty)}`
                           : ""}
                       </Typography>
                     </TableCell>

@@ -103,7 +103,7 @@ async function seedModule(
   await connection.execute(
     `INSERT INTO educational_games
      (course_id, lesson_id, title, description, game_type, difficulty, estimated_time, game_data, xp_reward, is_published, created_by)
-     VALUES (?, ?, ?, ?, ?, 'medium', 10, ?, 40, 1, ?)`,
+     VALUES (?, ?, ?, ?, ?, 'average', 10, ?, 40, 1, ?)`,
     [
       courseId,
       lessonIds[0],

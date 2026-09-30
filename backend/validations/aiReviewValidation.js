@@ -23,7 +23,7 @@ export const createFromQuizReviewValidation = [
   body('courseId').isInt({ min: 1 }).withMessage('courseId is required'),
   body('lessonId').isInt({ min: 1 }).withMessage('Link to lesson is required'),
   body('topic').trim().notEmpty().withMessage('Topic is required'),
-  body('difficulty').optional().isIn(['easy', 'medium', 'hard', 'Easy', 'Medium', 'Hard']),
+  body('difficulty').optional().isIn(['easy', 'average', 'difficult', 'medium', 'hard', 'Easy', 'Average', 'Difficult', 'Medium', 'Hard']),
   body('questionCount')
     .optional()
     .isInt({ min: 1, max: 100 })

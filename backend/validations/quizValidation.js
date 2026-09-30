@@ -21,6 +21,9 @@ export const createQuizValidation = [
     .isISO8601()
     .withMessage("dueAt must be a valid date"),
   body("isPublished").optional().isBoolean(),
+  body("difficulty")
+    .optional()
+    .isIn(["easy", "average", "difficult", "medium", "hard"]),
   body("questions").optional().isArray(),
 ];
 
@@ -54,13 +57,18 @@ export const updateQuizValidation = [
     )
     .withMessage("dueAt must be a valid date or null"),
   body("isPublished").optional().isBoolean(),
+  body("difficulty")
+    .optional()
+    .isIn(["easy", "average", "difficult", "medium", "hard"]),
   body("questions").optional().isArray(),
 ];
 
 export const generateQuizValidation = [
   body("courseId").isInt({ min: 1 }).withMessage("courseId is required"),
   body("topic").trim().notEmpty().withMessage("Topic is required"),
-  body("difficulty").optional().isIn(["easy", "medium", "hard"]),
+  body("difficulty")
+    .optional()
+    .isIn(["easy", "average", "difficult", "medium", "hard"]),
   body("questionCount")
     .optional()
     .isInt({ min: 1, max: 100 })

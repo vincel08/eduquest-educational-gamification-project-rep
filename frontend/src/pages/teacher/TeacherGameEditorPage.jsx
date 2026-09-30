@@ -35,7 +35,7 @@ function toEditorGame(data) {
     description: data.description || "",
     instructions: data.description || "",
     gameType: data.game_type,
-    difficulty: data.difficulty || "medium",
+    difficulty: data.difficulty || "average",
     estimatedTime: Number(data.estimated_time) || 10,
     xpReward: Number(data.xp_reward) || 30,
     gameData: data.game_data || { items: [] },
@@ -50,7 +50,7 @@ export default function TeacherGameEditorPage() {
   const [form, setForm] = useState({
     title: "",
     description: "",
-    difficulty: "medium",
+    difficulty: "average",
     estimatedTime: 10,
     xpReward: 30,
     isPublished: false,
@@ -79,7 +79,7 @@ export default function TeacherGameEditorPage() {
         setForm({
           title: data.title || "",
           description: data.description || "",
-          difficulty: data.difficulty || "medium",
+          difficulty: data.difficulty || "average",
           estimatedTime: Number(data.estimated_time) || 10,
           xpReward: Number(data.xp_reward) || 30,
           isPublished: Boolean(data.is_published),

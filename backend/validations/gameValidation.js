@@ -20,7 +20,7 @@ export const createGameValidation = [
     }),
   body('gameData').isObject().withMessage('gameData is required'),
   body('lessonId').optional({ nullable: true }).isInt({ min: 1 }),
-  body('difficulty').optional().isIn(['easy', 'medium', 'hard']),
+  body('difficulty').optional().isIn(['easy', 'average', 'difficult', 'medium', 'hard']),
   body('estimatedTime').optional().isInt({ min: 1, max: 120 }),
   body('xpReward').optional().isInt({ min: 1 }),
   body('isPublished').optional().isBoolean(),
@@ -47,6 +47,7 @@ export const generateGameValidation = [
     })
     .withMessage('Invalid game type'),
   body('gradeLevel').optional().isString(),
+  body('difficulty').optional().isIn(['easy', 'average', 'difficult', 'medium', 'hard']),
   body('itemCount')
     .optional()
     .isInt({ min: 1, max: 50 })

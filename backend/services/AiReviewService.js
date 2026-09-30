@@ -8,6 +8,7 @@ import GameService from './GameService.js';
 import AiUsageService from './AiUsageService.js';
 import AppError from '../utils/AppError.js';
 import { normalizeGameType } from '../utils/gameTypes.js';
+import { normalizeContentDifficulty } from '../utils/contentDifficulty.js';
 import { getMaxItemsForGameType } from '../utils/gameItemLimits.js';
 import { assertGameDataMatchesType } from '../utils/gameDataValidation.js';
 import {
@@ -39,7 +40,7 @@ function tempId(prefix = 'q') {
   return `${prefix}_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
 }
 
-function normalizeQuizQuestion(raw, index = 0) {
+function normalizeQuizQuestion(raw, index = 0, fallbackDifficulty = 'average') {
   const questionType = ['multiple_choice', 'true_false', 'identification'].includes(raw.questionType)
     ? raw.questionType
     : (raw.question_type || 'multiple_choice');
@@ -75,7 +76,11 @@ function normalizeQuizQuestion(raw, index = 0) {
     questionText: raw.questionText || raw.question_text || raw.question || `Question ${index + 1}`,
     questionType,
     points: Number(raw.points) || 1,
-    difficulty: raw.difficulty || 'medium',
+    difficulty: normalizeContentDifficulty(
+      raw.difficulty == null || raw.difficulty === ''
+        ? fallbackDifficulty
+        : raw.difficulty,
+    ),
     explanation: raw.explanation || '',
     options,
     textAnswer: raw.textAnswer || raw.text_answer || raw.answer || '',
@@ -84,14 +89,15 @@ function normalizeQuizQuestion(raw, index = 0) {
 
 function normalizeQuiz(raw) {
   if (!raw) return null;
+  const difficulty = normalizeContentDifficulty(raw.difficulty);
   return {
     title: raw.title || 'Untitled Quiz',
     description: raw.description || '',
-    difficulty: raw.difficulty || 'medium',
+    difficulty,
     timeLimitMinutes: Number(raw.timeLimitMinutes || raw.timeLimit || raw.time_limit || 15),
     passingScore: Number(raw.passingScore || raw.passing_score || 60),
     xpReward: Number(raw.xpReward || raw.xp_reward || 50),
-    questions: (raw.questions || []).map((q, i) => normalizeQuizQuestion(q, i)),
+    questions: (raw.questions || []).map((q, i) => normalizeQuizQuestion(q, i, difficulty)),
   };
 }
 
@@ -125,6 +131,9 @@ function normalizeGame(raw) {
       hint: item.hint || item.explanation || '',
       choices: Array.isArray(item.choices) ? item.choices : item.choices,
       correctIndex: item.correctIndex,
+      difficulty: item.difficulty == null
+        ? item.difficulty
+        : normalizeContentDifficulty(item.difficulty),
       direction: item.direction || undefined,
       row: item.row,
       col: item.col,
@@ -164,6 +173,9 @@ function normalizeGame(raw) {
         correctIndex: item.correctIndex ?? 0,
         explanation: item.explanation || null,
         timeLimitSeconds: item.timeLimitSeconds || 20,
+        ...(item.difficulty == null
+          ? {}
+          : { difficulty: normalizeContentDifficulty(item.difficulty) }),
       }));
       gameData.items = gameData.rounds;
     }
@@ -196,7 +208,7 @@ function normalizeGame(raw) {
     description: raw.description || '',
     instructions: raw.instructions || raw.description || 'Complete the activity to earn XP.',
     gameType,
-    difficulty: raw.difficulty || 'medium',
+    difficulty: normalizeContentDifficulty(raw.difficulty),
     estimatedTime: Number(raw.estimatedTime || 10),
     xpReward: Number(raw.xpReward || 100),
     gameData,
@@ -497,7 +509,7 @@ const AiReviewService = {
       const quiz = normalizeQuiz({
         title: payload.title || generated.title,
         description: payload.description || generated.description,
-        difficulty: payload.difficulty || 'medium',
+        difficulty: normalizeContentDifficulty(payload.difficulty),
         timeLimitMinutes: payload.timeLimitMinutes || 15,
         passingScore: payload.passingScore || 60,
         xpReward: payload.xpReward || 50,
@@ -956,6 +968,7 @@ const AiReviewService = {
         timeLimitMinutes: draft.quiz.timeLimitMinutes,
         passingScore: draft.quiz.passingScore,
         xpReward: draft.quiz.xpReward,
+        difficulty: draft.quiz.difficulty,
         isAiGenerated: true,
         isPublished: true,
         questions: quizToPersistable(draft.quiz),
@@ -1039,7 +1052,7 @@ const AiReviewService = {
         const generated = await AiService.generateContentQuiz({
           topic: draft.quiz?.title || course.title,
           lessonContent: sourceText || draft.quiz?.title || course.title,
-          difficulty: draft.quiz?.difficulty || 'medium',
+          difficulty: normalizeContentDifficulty(draft.quiz?.difficulty),
           questionCount,
           gradeLevel: course.grade_level || "junior high school",
         });
@@ -1061,12 +1074,16 @@ const AiReviewService = {
       const generated = await AiService.generateContentQuiz({
         topic: draft.quiz.title,
         lessonContent: sourceText || draft.quiz.title,
-        difficulty: draft.quiz.difficulty || 'medium',
+        difficulty: normalizeContentDifficulty(draft.quiz.difficulty),
         questionCount: 1,
         gradeLevel: course.grade_level || "junior high school",
       });
       const nextQuestions = [...draft.quiz.questions];
-      nextQuestions[index] = normalizeQuizQuestion(generated.questions?.[0] || {}, index);
+      nextQuestions[index] = normalizeQuizQuestion(
+        generated.questions?.[0] || {},
+        index,
+        draft.quiz.difficulty,
+      );
       updates.quiz = { ...draft.quiz, questions: nextQuestions };
     }
 
@@ -1077,6 +1094,7 @@ const AiReviewService = {
           gameType: draft.game?.gameType || 'auto',
           gradeLevel: course.grade_level || "junior high school",
           lessonContent: sourceText || draft.game?.title || course.title,
+          difficulty: normalizeContentDifficulty(draft.game?.difficulty),
         });
         updates.game = normalizeGame({
           ...generated,
@@ -1102,6 +1120,7 @@ const AiReviewService = {
         gameType: current.gameType || 'flashcards',
         gradeLevel: course.grade_level || "junior high school",
         lessonContent: sourceText || draft.game.title,
+        difficulty: normalizeContentDifficulty(draft.game.difficulty),
       });
       const generatedList = getGameItemCollection(
         normalizeGame(generated),
@@ -1136,7 +1155,7 @@ const AiReviewService = {
       const generated = await AiService.generateContentQuiz({
         topic: draft.quiz.title,
         lessonContent: sourceText || draft.quiz.title,
-        difficulty: draft.quiz.difficulty || 'medium',
+        difficulty: normalizeContentDifficulty(draft.quiz.difficulty),
         questionCount: addCount,
         gradeLevel: course.grade_level || "junior high school",
       });
@@ -1182,6 +1201,7 @@ const AiReviewService = {
         gradeLevel: course.grade_level || "junior high school",
         lessonContent: sourceText || draft.game.title,
         itemCount: addCount,
+        difficulty: normalizeContentDifficulty(draft.game.difficulty),
       });
       const extra = getGameItemCollection(normalizeGame(generated)).items
         .slice(0, addCount)
