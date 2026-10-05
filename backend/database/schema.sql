@@ -13,10 +13,16 @@ CREATE TABLE IF NOT EXISTS users (
   role ENUM('student', 'teacher', 'administrator') NOT NULL,
   avatar_url VARCHAR(500) NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
+  approval_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'approved',
+  approval_reviewed_at DATETIME NULL,
+  approval_reviewed_by INT UNSIGNED NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_users_role (role),
-  INDEX idx_users_active (is_active)
+  INDEX idx_users_active (is_active),
+  INDEX idx_users_approval_status (approval_status),
+  CONSTRAINT fk_users_approval_reviewer
+    FOREIGN KEY (approval_reviewed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS student_profiles (

@@ -5,7 +5,12 @@ const AuthController = {
   async register(req, res, next) {
     try {
       const data = await AuthService.register(req.body);
-      return successResponse(res, 'Registration successful', data, 201);
+      return successResponse(
+        res,
+        'Registration submitted. An administrator must approve this account before you can sign in.',
+        data,
+        201,
+      );
     } catch (error) {
       return next(error);
     }

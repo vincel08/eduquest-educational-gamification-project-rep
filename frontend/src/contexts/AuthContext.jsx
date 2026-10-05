@@ -139,6 +139,9 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (payload) => {
     const response = await authService.register(payload);
     const data = response.data.data;
+    if (data?.pendingApproval || !data?.token) {
+      return data;
+    }
     applyAuth(data);
     return data;
   }, [applyAuth]);

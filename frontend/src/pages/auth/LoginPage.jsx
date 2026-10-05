@@ -61,7 +61,8 @@ export default function LoginPage() {
           <BrandLogo size="auth" to="/" />
         </Box>
         <Typography color="text.secondary" sx={{ mb: 3, textAlign: "center" }}>
-          Login to continue your learning adventure.
+          Login to continue your learning adventure. New learner accounts can
+          sign in after an administrator approves them.
         </Typography>
 
         {error ? (

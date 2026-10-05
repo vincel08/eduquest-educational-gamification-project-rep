@@ -14,8 +14,7 @@ import {
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
+import { Link as RouterLink } from "react-router-dom";
 import { getErrorMessage } from "../../services/api";
 import authService from "../../services/authService";
 import BrandLogo from "../../components/common/BrandLogo";
@@ -50,8 +49,6 @@ function fieldErrorFromMessage(message) {
 }
 
 export default function RegisterPage() {
-  const { register } = useAuth();
-  const navigate = useNavigate();
   const sectionsRevision = useClassSectionsRevision();
   const schoolYearOptions = listSchoolYearOptions({ includeAll: false });
   const [form, setForm] = useState({
@@ -70,6 +67,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -162,8 +160,8 @@ export default function RegisterPage() {
 
     try {
       await authService.validateRegistration(payload);
-      await register(payload);
-      navigate("/student/dashboard");
+      await authService.register(payload);
+      setSubmitted(true);
     } catch (err) {
       const message = getErrorMessage(err, "Unable to register");
       setError(message);
@@ -182,20 +180,42 @@ export default function RegisterPage() {
             <Box sx={{ display: "flex", justifyContent: "center", mb: 1.5 }}>
               <BrandLogo size="auth" to="/" />
             </Box>
-            <Typography variant="h5" fontWeight={800} gutterBottom sx={{ textAlign: "center" }}>
-              Join EduWow
-            </Typography>
-            <Typography color="text.secondary" sx={{ mb: 3, textAlign: "center" }}>
-              Create your learner account with a username or email. If you
-              forget your password later, ask a school administrator.
-            </Typography>
+            {submitted ? null : (
+              <>
+                <Typography variant="h5" fontWeight={800} gutterBottom sx={{ textAlign: "center" }}>
+                  Join EduWow
+                </Typography>
+                <Typography color="text.secondary" sx={{ mb: 3, textAlign: "center" }}>
+                  Create your learner account with a username or email. An
+                  administrator approves it before you can sign in.
+                </Typography>
+              </>
+            )}
 
-            {error ? (
+            {submitted ? (
+              <Stack spacing={2}>
+                <Alert severity="success">
+                  Your account was submitted. You can sign in after an
+                  administrator approves it.
+                </Alert>
+                <Button
+                  component={RouterLink}
+                  to="/login"
+                  variant="contained"
+                  fullWidth
+                >
+                  Back to sign in
+                </Button>
+              </Stack>
+            ) : null}
+
+            {error && !submitted ? (
               <Alert severity="error" sx={{ mb: 2 }}>
                 {error}
               </Alert>
             ) : null}
 
+            {submitted ? null : (
             <Stack
               component="form"
               spacing={2}
@@ -374,13 +394,16 @@ export default function RegisterPage() {
                 {loading ? "Creating account..." : "Register"}
               </Button>
             </Stack>
+            )}
 
+            {submitted ? null : (
             <Typography sx={{ mt: 3 }} variant="body2">
               Already have an account?{" "}
               <Link component={RouterLink} to="/login">
                 Login
               </Link>
             </Typography>
+            )}
           </CardContent>
     </AuthLiquidShell>
   );

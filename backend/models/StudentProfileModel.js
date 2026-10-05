@@ -71,7 +71,11 @@ const StudentProfileModel = {
 
     // Overall: cumulative profile XP, scoped to students enrolled in the SY.
     if (normalized === "overall") {
-      const filters = ["u.is_active = 1", "sp.xp > 0"];
+      const filters = [
+        "u.is_active = 1",
+        "u.approval_status = 'approved'",
+        "sp.xp > 0",
+      ];
       const params = { limit: Number(limit) };
       appendStudentRosterFilters(filters, params, roster, "sp");
 
@@ -90,7 +94,7 @@ const StudentProfileModel = {
 
     // Weekly / monthly: XP earned in the period, still scoped by roster SY.
     const params = { limit: Number(limit) };
-    const filters = ["u.is_active = 1"];
+    const filters = ["u.is_active = 1", "u.approval_status = 'approved'"];
 
     if (normalized === "weekly") {
       filters.push("xt.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
@@ -122,6 +126,7 @@ const StudentProfileModel = {
       "TRIM(sp.section) <> ''",
       "u.is_active = 1",
       "u.role = 'student'",
+      "u.approval_status = 'approved'",
     ];
     const params = {};
     appendStudentRosterFilters(
@@ -155,6 +160,7 @@ const StudentProfileModel = {
          FROM student_profiles sp
          INNER JOIN users u ON u.id = sp.user_id
          WHERE u.is_active = 1
+           AND u.approval_status = 'approved'
            AND sp.xp > 0
        ) ranked
        WHERE ranked.user_id = :userId`,

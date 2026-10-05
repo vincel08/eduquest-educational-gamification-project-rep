@@ -7,6 +7,8 @@ import StudentProfileModel from "../models/StudentProfileModel.js";
 import PasswordResetTokenModel from "../models/PasswordResetTokenModel.js";
 import RefreshTokenModel from "../models/RefreshTokenModel.js";
 import EmailService from "./EmailService.js";
+import ActivityLogService from "./ActivityLogService.js";
+import NotificationModel from "../models/NotificationModel.js";
 import AppError from "../utils/AppError.js";
 import { query } from "../config/db.js";
 import { validateNewPassword } from "../utils/passwordPolicy.js";
@@ -60,6 +62,12 @@ const INVALID_RESET_TOKEN_MESSAGE =
 
 const INVALID_LOGIN_MESSAGE = "Invalid username/email or password";
 
+const PENDING_APPROVAL_MESSAGE =
+  "Your account is waiting for an administrator to approve it. You can sign in after it is approved.";
+
+const REJECTED_APPROVAL_MESSAGE =
+  "Your registration was not approved. Ask a school administrator if you need an account.";
+
 const INVALID_REFRESH_MESSAGE = "Session expired. Please sign in again.";
 
 function hashOpaqueToken(rawToken) {
@@ -100,8 +108,46 @@ function sanitizeUser(user) {
     role: user.role,
     avatarUrl: user.avatar_url ? avatarFileApiPath(user.id) : null,
     isActive: Boolean(user.is_active),
+    approvalStatus: user.approval_status || "approved",
     createdAt: user.created_at,
   };
+}
+
+function assertAccountCanSignIn(user) {
+  const status = user.approval_status || "approved";
+  if (status === "pending") {
+    throw new AppError(PENDING_APPROVAL_MESSAGE, 403);
+  }
+  if (status === "rejected") {
+    throw new AppError(REJECTED_APPROVAL_MESSAGE, 403);
+  }
+  if (!user.is_active) {
+    throw new AppError(INVALID_LOGIN_MESSAGE, 401);
+  }
+}
+
+async function notifyAdminsOfStudentRegistration(user, student) {
+  try {
+    const admins = await UserModel.findActiveIdsByRole("administrator");
+    const name = `${user.first_name} ${user.last_name}`.trim() || user.username;
+    const message = `${name} (${user.username}) requested a learner account for ${student.gradeLevel}, section ${student.section}, SY ${student.schoolYear}.`;
+    await Promise.all(
+      admins.map((admin) =>
+        NotificationModel.create({
+          userId: admin.id,
+          title: "Student registration waiting",
+          message,
+          type: "system",
+          link: "/admin/users",
+        }),
+      ),
+    );
+  } catch (error) {
+    console.error(
+      "Admin registration notice failed:",
+      error?.message || error,
+    );
+  }
 }
 
 function signAccessToken(user) {
@@ -149,13 +195,20 @@ async function buildAuthPayload(user, extras = {}) {
   };
 }
 
+function registrationConflictMessage(existing) {
+  if (existing?.role === "student" && existing.approval_status === "pending") {
+    return "This account is already waiting for an administrator to approve it. Sign in after it is approved.";
+  }
+  if (existing?.role === "student" && existing.approval_status === "rejected") {
+    return "This registration was not approved. Ask a school administrator if you still need an account.";
+  }
+  return "Unable to create account. If you already have an account, please sign in.";
+}
+
 async function assertUsernameAvailable(username, excludeUserId = null) {
   const existing = await UserModel.findByUsername(username);
   if (existing && existing.id !== excludeUserId) {
-    throw new AppError(
-      "Unable to create account. If you already have an account, please sign in.",
-      409,
-    );
+    throw new AppError(registrationConflictMessage(existing), 409);
   }
 }
 
@@ -163,10 +216,7 @@ async function assertEmailAvailable(email, excludeUserId = null) {
   if (!email) return;
   const existing = await UserModel.findByEmail(email);
   if (existing && existing.id !== excludeUserId) {
-    throw new AppError(
-      "Unable to create account. If you already have an account, please sign in.",
-      409,
-    );
+    throw new AppError(registrationConflictMessage(existing), 409);
   }
 }
 
@@ -293,23 +343,60 @@ const AuthService = {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const user = await UserModel.create({
-      username: student.username,
-      email: student.email,
-      passwordHash,
-      firstName: student.firstName,
-      lastName: student.lastName,
-      role: "student",
+    let user = null;
+    let profile = null;
+    try {
+      user = await UserModel.create({
+        username: student.username,
+        email: student.email,
+        passwordHash,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        role: "student",
+        approvalStatus: "pending",
+      });
+
+      profile = await StudentProfileModel.create(user.id, {
+        gradeLevel: student.gradeLevel,
+        schoolName: schoolName || null,
+        section: student.section,
+        schoolYear: student.schoolYear,
+      });
+    } catch (error) {
+      if (user?.id) {
+        try {
+          await UserModel.delete(user.id);
+        } catch (cleanupError) {
+          console.error(
+            "Failed to roll back an incomplete student registration:",
+            cleanupError?.message || cleanupError,
+          );
+        }
+      }
+      throw error;
+    }
+
+    await ActivityLogService.log({
+      actorId: user.id,
+      action: "student.registration_requested",
+      entityType: "user",
+      entityId: user.id,
+      summary: `${user.first_name} ${user.last_name} requested a learner account`,
+      metadata: {
+        username: user.username,
+        gradeLevel: student.gradeLevel,
+        section: student.section,
+        schoolYear: student.schoolYear,
+      },
     });
 
-    await StudentProfileModel.create(user.id, {
-      gradeLevel: student.gradeLevel,
-      schoolName: schoolName || null,
-      section: student.section,
-      schoolYear: student.schoolYear,
-    });
+    await notifyAdminsOfStudentRegistration(user, student);
 
-    return buildAuthPayload(user);
+    return {
+      pendingApproval: true,
+      user: sanitizeUser(user),
+      profile,
+    };
   },
 
   async login({ login, email, username, password }) {
@@ -320,7 +407,7 @@ const AuthService = {
 
     const user = await UserModel.findByLoginIdentifier(identifier);
 
-    if (!user || !user.is_active || !user.password_hash) {
+    if (!user || !user.password_hash) {
       throw new AppError(INVALID_LOGIN_MESSAGE, 401);
     }
 
@@ -328,6 +415,8 @@ const AuthService = {
     if (!isMatch) {
       throw new AppError(INVALID_LOGIN_MESSAGE, 401);
     }
+
+    assertAccountCanSignIn(user);
 
     return buildAuthPayload(user);
   },
@@ -538,7 +627,12 @@ const AuthService = {
     await RefreshTokenModel.revoke(record.id);
 
     const user = await UserModel.findById(record.user_id);
-    if (!user || !user.is_active) {
+    if (!user) {
+      throw new AppError(INVALID_REFRESH_MESSAGE, 401);
+    }
+    try {
+      assertAccountCanSignIn(user);
+    } catch {
       throw new AppError(INVALID_REFRESH_MESSAGE, 401);
     }
 

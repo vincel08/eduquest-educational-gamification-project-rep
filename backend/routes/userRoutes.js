@@ -3,11 +3,18 @@ import UserController from '../controllers/UserController.js';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { validate } from '../middleware/validateMiddleware.js';
 import { setStudentPasswordValidation } from '../validations/authValidation.js';
+import { reviewRegistrationValidation } from '../validations/userValidation.js';
 
 const router = Router();
 
 router.use(authenticate, authorize('administrator'));
 
+router.post(
+  '/:id/registration-review',
+  reviewRegistrationValidation,
+  validate,
+  UserController.reviewRegistration,
+);
 router.post(
   '/:id/set-password',
   setStudentPasswordValidation,

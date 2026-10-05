@@ -20,7 +20,13 @@ async function authenticateWithToken(req, res, next, token) {
     const decoded = jwt.verify(token, env.jwt.secret, { algorithms: ['HS256'] });
     const user = await UserModel.findById(decoded.id);
 
-    if (!user || !user.is_active) {
+    const approvalStatus = user?.approval_status || 'approved';
+    if (
+      !user ||
+      !user.is_active ||
+      approvalStatus === 'pending' ||
+      approvalStatus === 'rejected'
+    ) {
       return errorResponse(res, 'Invalid or inactive account', 401);
     }
 

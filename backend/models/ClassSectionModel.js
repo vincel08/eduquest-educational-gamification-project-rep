@@ -180,6 +180,7 @@ const ClassSectionModel = {
       "sp.section = :name",
       "u.role = 'student'",
       "u.is_active = 1",
+      "u.approval_status IN ('pending', 'approved')",
     ];
     const params = { name: normalizeSection(name) };
     appendStudentRosterFilters(

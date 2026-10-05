@@ -5,7 +5,7 @@ import {
   normalizeRosterFilterValue,
 } from '../utils/rosterFilters.js';
 
-const USER_SELECT = `id, username, email, password_hash, recovery_code_hash, google_id, first_name, last_name, role, avatar_url, is_active, created_at, updated_at`;
+const USER_SELECT = `id, username, email, password_hash, recovery_code_hash, google_id, first_name, last_name, role, avatar_url, is_active, approval_status, approval_reviewed_at, approval_reviewed_by, created_at, updated_at`;
 
 const UserModel = {
   async create({
@@ -18,12 +18,13 @@ const UserModel = {
     googleId = null,
     avatarUrl = null,
     recoveryCodeHash = null,
+    approvalStatus = 'approved',
   }) {
     const result = await query(
       `INSERT INTO users (
-         username, email, password_hash, recovery_code_hash, google_id, first_name, last_name, role, avatar_url
+         username, email, password_hash, recovery_code_hash, google_id, first_name, last_name, role, avatar_url, approval_status
        ) VALUES (
-         :username, :email, :passwordHash, :recoveryCodeHash, :googleId, :firstName, :lastName, :role, :avatarUrl
+         :username, :email, :passwordHash, :recoveryCodeHash, :googleId, :firstName, :lastName, :role, :avatarUrl, :approvalStatus
        )`,
       {
         username: username ? normalizeUsername(username) : null,
@@ -35,6 +36,7 @@ const UserModel = {
         lastName,
         role,
         avatarUrl,
+        approvalStatus: approvalStatus || 'approved',
       }
     );
     return this.findById(result.insertId);
@@ -90,6 +92,7 @@ const UserModel = {
     schoolYear,
     gradeLevel,
     section,
+    approvalStatus,
   }) {
     const offset = (page - 1) * limit;
     const filters = [];
@@ -121,6 +124,11 @@ const UserModel = {
         "(u.first_name LIKE :search OR u.last_name LIKE :search OR u.email LIKE :search OR u.username LIKE :search)",
       );
       params.search = `%${search}%`;
+    }
+
+    if (['pending', 'approved', 'rejected'].includes(approvalStatus)) {
+      filters.push('u.approval_status = :approvalStatus');
+      params.approvalStatus = approvalStatus;
     }
 
     const adviserExistsSql = (() => {
@@ -180,7 +188,8 @@ const UserModel = {
     const joinSql = "LEFT JOIN student_profiles sp ON sp.user_id = u.id";
 
     const rows = await query(
-      `SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.role, u.avatar_url, u.is_active, u.created_at, u.updated_at,
+      `SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.role, u.avatar_url, u.is_active,
+              u.approval_status, u.approval_reviewed_at, u.created_at, u.updated_at,
               sp.grade_level, sp.section, sp.school_year
        FROM users u
        ${joinSql}
@@ -217,6 +226,9 @@ const UserModel = {
       'last_name',
       'avatar_url',
       'is_active',
+      'approval_status',
+      'approval_reviewed_at',
+      'approval_reviewed_by',
       'role',
       'password_hash',
       'recovery_code_hash',
@@ -243,6 +255,15 @@ const UserModel = {
   async delete(id) {
     await query('DELETE FROM users WHERE id = :id', { id });
     return true;
+  },
+
+  async findActiveIdsByRole(role) {
+    return query(
+      `SELECT id
+       FROM users
+       WHERE role = :role AND is_active = 1 AND approval_status = 'approved'`,
+      { role },
+    );
   },
 
   async countByRole() {

@@ -32,6 +32,7 @@ import {
 import ClassSectionService from './ClassSectionService.js';
 import ClassSectionModel from '../models/ClassSectionModel.js';
 import ActivityLogService from './ActivityLogService.js';
+import NotificationModel from '../models/NotificationModel.js';
 import { query } from '../config/db.js';
 function displayUserLabel(user) {
   if (!user) return 'Unknown user';
@@ -69,6 +70,7 @@ function sanitizeUser(user) {
     role: user.role,
     avatarUrl: user.avatar_url ? avatarFileApiPath(user.id) : null,
     isActive: Boolean(user.is_active),
+    approvalStatus: user.approval_status || 'approved',
     createdAt: user.created_at,
     updatedAt: user.updated_at,
   };
@@ -248,6 +250,95 @@ const UserService = {
       metadata: { role: created.role },
     });
     return created;
+  },
+
+  async reviewStudentRegistration(id, decision, actor) {
+    if (actor?.role !== 'administrator') {
+      throw new AppError('Only administrators can review registrations', 403);
+    }
+    if (decision !== 'approve' && decision !== 'reject') {
+      throw new AppError('Choose approve or reject', 400);
+    }
+
+    const user = await UserModel.findById(id);
+    if (!user || user.role !== 'student') {
+      throw new AppError('Student account not found', 404);
+    }
+
+    const nextStatus = decision === 'approve' ? 'approved' : 'rejected';
+    if (user.approval_status === nextStatus) {
+      return sanitizeUser(user);
+    }
+    if (user.approval_status === 'approved' && decision === 'reject') {
+      throw new AppError(
+        'This account is already approved. Deactivate it instead of declining the registration.',
+        400,
+      );
+    }
+
+    if (decision === 'approve') {
+      const profile = await StudentProfileModel.findByUserId(id);
+      if (!profile?.grade_level || !profile?.school_year || !profile?.section) {
+        throw new AppError(
+          'This registration has no class placement. Update the grade, section, and school year before approving.',
+          400,
+        );
+      }
+      try {
+        await ClassSectionService.assertSectionInCatalog(
+          profile.school_year,
+          profile.grade_level,
+          profile.section,
+        );
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw new AppError(
+            'Update this student’s grade, section, or school year before approving. That class section is no longer available.',
+            400,
+          );
+        }
+        throw error;
+      }
+    }
+
+    const updated = await UserModel.update(id, {
+      approval_status: nextStatus,
+      approval_reviewed_at: new Date(),
+      approval_reviewed_by: actor.id,
+      ...(decision === 'approve' ? { is_active: 1 } : {}),
+    });
+
+    const label = displayUserLabel(sanitizeUser(updated));
+    await ActivityLogService.log({
+      actorId: actor.id,
+      action: decision === 'approve'
+        ? 'student.registration_approved'
+        : 'student.registration_rejected',
+      entityType: 'user',
+      entityId: updated.id,
+      summary: decision === 'approve'
+        ? `Approved learner account for ${label}`
+        : `Declined learner registration for ${label}`,
+    });
+
+    if (decision === 'approve') {
+      try {
+        await NotificationModel.create({
+          userId: updated.id,
+          title: 'Account approved',
+          message: 'An administrator approved your learner account. You can sign in now.',
+          type: 'system',
+          link: '/login',
+        });
+      } catch (error) {
+        console.error(
+          'Student registration notice failed:',
+          error?.message || error,
+        );
+      }
+    }
+
+    return sanitizeUser(updated);
   },
 
   async updateUser(id, data, actor = null) {

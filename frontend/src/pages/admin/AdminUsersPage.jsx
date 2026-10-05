@@ -201,6 +201,9 @@ export default function AdminUsersPage() {
   );
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [reviewingId, setReviewingId] = useState(null);
+  const [declineTarget, setDeclineTarget] = useState(null);
 
   useEffect(() => {
     setRoleFilter(roleFromSearchParams(searchParams));
@@ -302,11 +305,18 @@ export default function AdminUsersPage() {
     if (search) {
       params.search = search;
     }
-    userService
-      .list(params)
-      .then((response) => {
+    Promise.all([
+      userService.list(params),
+      userService.list({
+        role: "student",
+        approvalStatus: "pending",
+        limit: 100,
+      }),
+    ])
+      .then(([response, pendingResponse]) => {
         if (!active) return;
         setUsers(response.data.data.users || []);
+        setPendingUsers(pendingResponse.data.data.users || []);
         setError("");
       })
       .catch((err) => {
@@ -333,8 +343,16 @@ export default function AdminUsersPage() {
       if (search) {
         params.search = search;
       }
-      const response = await userService.list(params);
+      const [response, pendingResponse] = await Promise.all([
+        userService.list(params),
+        userService.list({
+          role: "student",
+          approvalStatus: "pending",
+          limit: 100,
+        }),
+      ]);
       setUsers(response.data.data.users || []);
+      setPendingUsers(pendingResponse.data.data.users || []);
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -357,6 +375,43 @@ export default function AdminUsersPage() {
     } catch (err) {
       setError(getErrorMessage(err));
     }
+  }
+
+  async function reviewRegistration(user, decision) {
+    setReviewingId(user.id);
+    setError("");
+    setMessage("");
+    try {
+      await userService.reviewRegistration(user.id, decision);
+      setDeclineTarget(null);
+      setMessage(
+        decision === "approve"
+          ? `${user.firstName} ${user.lastName} can sign in now.`
+          : `Declined registration for ${user.firstName} ${user.lastName}.`,
+      );
+      await reloadUsers();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setReviewingId(null);
+    }
+  }
+
+  function accountStatusLabel(user) {
+    if (user.role === "student" && user.approvalStatus === "pending") {
+      return "Pending approval";
+    }
+    if (user.role === "student" && user.approvalStatus === "rejected") {
+      return "Declined";
+    }
+    return user.isActive ? "Active" : "Inactive";
+  }
+
+  function registrationNeedsReview(user) {
+    return (
+      user.role === "student" &&
+      (user.approvalStatus === "pending" || user.approvalStatus === "rejected")
+    );
   }
 
   async function toggleActive(user) {
@@ -461,9 +516,36 @@ export default function AdminUsersPage() {
     return groups.filter((group) => group.users.length > 0);
   }, [users]);
 
-  function renderUserActions(user) {
+  function renderReviewActions(user) {
     return (
-      <Stack direction="row" spacing={0.25} justifyContent="flex-end">
+      <>
+        <Button
+          size="small"
+          variant="contained"
+          disabled={reviewingId === user.id}
+          onClick={() => reviewRegistration(user, "approve")}
+        >
+          Approve
+        </Button>
+        {user.approvalStatus === "rejected" ? null : (
+          <Button
+            size="small"
+            color="error"
+            disabled={reviewingId === user.id}
+            onClick={() => setDeclineTarget(user)}
+          >
+            Decline
+          </Button>
+        )}
+      </>
+    );
+  }
+
+  function renderUserActions(user) {
+    const needsReview = registrationNeedsReview(user);
+    return (
+      <Stack direction="row" spacing={0.25} justifyContent="flex-end" alignItems="center">
+        {needsReview ? renderReviewActions(user) : (
         <Tooltip title={user.isActive ? "Deactivate" : "Activate"}>
           <IconButton
             size="small"
@@ -481,6 +563,7 @@ export default function AdminUsersPage() {
             )}
           </IconButton>
         </Tooltip>
+        )}
         {user.role === "student" ? (
           <Tooltip title="Edit grade / section">
             <IconButton
@@ -574,6 +657,57 @@ export default function AdminUsersPage() {
         </TextField>
       </Stack>
 
+      {pendingUsers.length ? (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1 }}>
+            Waiting for approval ({pendingUsers.length})
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            These learner accounts cannot sign in until you approve them.
+          </Typography>
+          <TableContainer sx={{ overflowX: "auto" }}>
+            <Table size="small" sx={{ minWidth: 760 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Username</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Grade</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Section</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>School Year</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="right">
+                    Actions
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pendingUsers.map((user) => (
+                  <TableRow key={user.id} hover>
+                    <TableCell>
+                      {user.firstName} {user.lastName}
+                    </TableCell>
+                    <TableCell>{user.username || "—"}</TableCell>
+                    <TableCell>{user.gradeLevel || "—"}</TableCell>
+                    <TableCell>{user.section || "—"}</TableCell>
+                    <TableCell>
+                      {user.schoolYear ? `SY ${user.schoolYear}` : "—"}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        justifyContent="flex-end"
+                      >
+                        {renderReviewActions(user)}
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      ) : null}
+
       {!users.length ? (
         <Paper sx={{ p: 2 }}>
           <Typography color="text.secondary">
@@ -633,9 +767,7 @@ export default function AdminUsersPage() {
                           <TableCell>
                             <AdvisedSectionsCell user={user} />
                           </TableCell>
-                          <TableCell>
-                            {user.isActive ? "Active" : "Inactive"}
-                          </TableCell>
+                          <TableCell>{accountStatusLabel(user)}</TableCell>
                           <TableCell align="right">
                             {renderUserActions(user)}
                           </TableCell>
@@ -686,9 +818,7 @@ export default function AdminUsersPage() {
                           <TableCell>
                             {user.schoolYear ? `SY ${user.schoolYear}` : "—"}
                           </TableCell>
-                          <TableCell>
-                            {user.isActive ? "Active" : "Inactive"}
-                          </TableCell>
+                          <TableCell>{accountStatusLabel(user)}</TableCell>
                           <TableCell align="right">
                             {renderUserActions(user)}
                           </TableCell>
@@ -725,9 +855,7 @@ export default function AdminUsersPage() {
                           </TableCell>
                           <TableCell>{user.username || "—"}</TableCell>
                           <TableCell>{user.email || "—"}</TableCell>
-                          <TableCell>
-                            {user.isActive ? "Active" : "Inactive"}
-                          </TableCell>
+                          <TableCell>{accountStatusLabel(user)}</TableCell>
                           <TableCell align="right">
                             {renderUserActions(user)}
                           </TableCell>
@@ -1014,6 +1142,29 @@ export default function AdminUsersPage() {
         loadingLabel="Deleting…"
         onClose={() => setUserToDelete(null)}
         onConfirm={handleDeleteUser}
+      />
+
+      <ConfirmDialog
+        open={Boolean(declineTarget)}
+        title="Decline this registration?"
+        description={
+          <>
+            <strong>
+              {declineTarget
+                ? `${declineTarget.firstName} ${declineTarget.lastName}`
+                : "This learner"}
+            </strong>{" "}
+            will not be able to sign in.
+          </>
+        }
+        details="You can approve the same account later if this was a mistake."
+        cancelLabel="Keep waiting"
+        confirmLabel="Decline registration"
+        confirmColor="error"
+        loading={Boolean(reviewingId)}
+        loadingLabel="Declining…"
+        onClose={() => setDeclineTarget(null)}
+        onConfirm={() => reviewRegistration(declineTarget, "reject")}
       />
 
       <Dialog

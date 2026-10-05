@@ -133,7 +133,10 @@ const AnalyticsService = {
     const gradeLevel = normalizeRosterFilterValue(filters.gradeLevel);
     const schoolYear = normalizeRosterFilterValue(filters.schoolYear);
 
-    const studentFilters = ["u.role = 'student'"];
+    const studentFilters = [
+      "u.role = 'student'",
+      "u.approval_status = 'approved'",
+    ];
     const studentParams = {};
     if (rosterActive) {
       appendStudentRosterFilters(studentFilters, studentParams, filters, "sp");
@@ -169,11 +172,17 @@ const AnalyticsService = {
         // when staff exist but no students match the selected SY/grade/section.
         if (!rosterActive) {
           return query(
-            `SELECT role, COUNT(*) AS count FROM users GROUP BY role`,
+            `SELECT role, COUNT(*) AS count
+             FROM users
+             WHERE role <> 'student' OR approval_status = 'approved'
+             GROUP BY role`,
           );
         }
 
-        const studentClauses = ["u.role = 'student'"];
+        const studentClauses = [
+          "u.role = 'student'",
+          "u.approval_status = 'approved'",
+        ];
         const studentCountParams = {};
         appendStudentRosterFilters(
           studentClauses,
@@ -284,7 +293,10 @@ const AnalyticsService = {
       engagementParams,
     );
 
-    const topStudentFilters = ["u.is_active = 1"];
+    const topStudentFilters = [
+      "u.is_active = 1",
+      "u.approval_status = 'approved'",
+    ];
     const topStudentParams = {};
     if (rosterActive) {
       appendStudentRosterFilters(

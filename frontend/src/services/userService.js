@@ -16,6 +16,9 @@ const userService = {
   update(id, payload) {
     return api.put(`/users/${id}`, payload);
   },
+  reviewRegistration(id, decision) {
+    return api.post(`/users/${id}/registration-review`, { decision });
+  },
   setPassword(id, payload) {
     return api.post(`/users/${id}/set-password`, payload);
   },

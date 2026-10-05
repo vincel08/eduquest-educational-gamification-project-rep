@@ -59,6 +59,22 @@ const UserController = {
     }
   },
 
+  async reviewRegistration(req, res, next) {
+    try {
+      const data = await UserService.reviewStudentRegistration(
+        Number(req.params.id),
+        req.body.decision,
+        req.user,
+      );
+      const message = req.body.decision === 'approve'
+        ? 'Student account approved'
+        : 'Student registration declined';
+      return successResponse(res, message, data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async setPassword(req, res, next) {
     try {
       const data = await UserService.setStudentPassword(

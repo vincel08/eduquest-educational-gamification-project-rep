@@ -51,6 +51,7 @@ const MIGRATION_FILES = [
   "036_school_year_closures.sql",
   "037_subject_join_codes.sql",
   "038_content_difficulty_levels.sql",
+  "039_student_registration_approval.sql",
 ];
 
 async function main() {
