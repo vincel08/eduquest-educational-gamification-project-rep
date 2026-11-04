@@ -31,7 +31,7 @@ import {
   defaultSchoolYearValue,
   listSchoolYearOptions,
 } from "../../utils/schoolYears";
-import { SECTION_PLACEHOLDER } from "../../utils/classSections";
+import { SECTION_PLACEHOLDER, findSectionByName, normalizeSectionOptions } from "../../utils/classSections";
 import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
 
 function fieldErrorFromMessage(message) {
@@ -80,14 +80,18 @@ export default function RegisterPage() {
       .options({ schoolYear: form.schoolYear, gradeLevel: form.gradeLevel })
       .then((response) => {
         if (!active) return;
-        const options = response.data.data || [];
+        const options = normalizeSectionOptions(
+          response.data.data || [],
+          form.gradeLevel,
+        );
         setSectionOptions(options);
         setError("");
-        setForm((prev) =>
-          prev.section && !options.includes(prev.section)
-            ? { ...prev, section: "" }
-            : prev,
-        );
+        setForm((prev) => {
+          const match = findSectionByName(options, prev.section);
+          if (prev.section && !match) return { ...prev, section: "" };
+          if (match && match.name !== prev.section) return { ...prev, section: match.name };
+          return prev;
+        });
       })
       .catch(() => {
         if (!active) return;
@@ -143,7 +147,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if (form.section && sectionOptions.length && !sectionOptions.includes(form.section)) {
+    if (form.section && sectionOptions.length && !findSectionByName(sectionOptions, form.section)) {
       setFieldErrors({ section: "Select a section from the list for this grade and school year." });
       setError("Select a section from the list for this grade and school year.");
       return;
@@ -367,7 +371,8 @@ export default function RegisterPage() {
                   displayEmpty: true,
                   renderValue: (selected) => {
                     if (!selected) return SECTION_PLACEHOLDER;
-                    return selected;
+                    const match = findSectionByName(sectionOptions, selected);
+                    return match?.label || selected;
                   },
                 }}
               >
@@ -375,10 +380,13 @@ export default function RegisterPage() {
                   {SECTION_PLACEHOLDER}
                 </MenuItem>
                 {sectionOptions.map((section) => (
-                  <MenuItem key={section} value={section}>
-                    {section}
+                  <MenuItem key={`${section.gradeLevel}-${section.name}`} value={section.name}>
+                    {section.label}
                   </MenuItem>
                 ))}
+                {form.section && !findSectionByName(sectionOptions, form.section) ? (
+                  <MenuItem value={form.section}>{form.section}</MenuItem>
+                ) : null}
               </TextField>
               <TextField
                 label="School name"

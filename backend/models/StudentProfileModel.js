@@ -137,14 +137,14 @@ const StudentProfileModel = {
     );
 
     const rows = await query(
-      `SELECT DISTINCT sp.section AS section
+      `SELECT DISTINCT sp.grade_level AS gradeLevel, sp.section AS name
        FROM student_profiles sp
        INNER JOIN users u ON u.id = sp.user_id
        WHERE ${filters.join(" AND ")}
-       ORDER BY sp.section ASC`,
+       ORDER BY sp.grade_level ASC, sp.section ASC`,
       params,
     );
-    return rows.map((row) => row.section).filter(Boolean);
+    return rows.filter((row) => row.name);
   },
 
   async getStudentRank(userId) {

@@ -36,7 +36,10 @@ import {
   SECTION_LOCKED_MESSAGE,
   SECTION_PLACEHOLDER,
   SCHOOL_YEAR_LOCKED_MESSAGE,
+  findSectionByName,
+  formatSectionWithGrade,
   isValidSection,
+  normalizeSectionOptions,
 } from "../../utils/classSections";
 import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
 
@@ -80,26 +83,22 @@ export default function StudentProfilePage() {
       .options({ schoolYear: form.schoolYear, gradeLevel: form.gradeLevel })
       .then((response) => {
         if (!active) return;
-        const options = response.data.data || [];
+        const options = normalizeSectionOptions(
+          response.data.data || [],
+          form.gradeLevel,
+        );
         setSectionOptions(options);
         setForm((prev) => {
           if (!prev.section) return prev;
-          // Never wipe a locked/saved section just because catalog options changed.
+          const matched = findSectionByName(options, prev.section);
           if (isValidSection(prev.section)) {
-            const matched = options.find(
-              (item) =>
-                item.toLowerCase() === String(prev.section).toLowerCase(),
-            );
-            if (matched && matched !== prev.section) {
-              return { ...prev, section: matched };
+            if (matched && matched.name !== prev.section) {
+              return { ...prev, section: matched.name };
             }
             return prev;
           }
-          const matched = options.find(
-            (item) => item.toLowerCase() === String(prev.section).toLowerCase(),
-          );
           if (matched) {
-            return matched === prev.section ? prev : { ...prev, section: matched };
+            return matched.name === prev.section ? prev : { ...prev, section: matched.name };
           }
           return { ...prev, section: "" };
         });
@@ -473,7 +472,8 @@ export default function StudentProfilePage() {
                   displayEmpty: true,
                   renderValue: (selected) => {
                     if (!selected) return SECTION_PLACEHOLDER;
-                    return selected;
+                    const match = findSectionByName(sectionOptions, selected);
+                    return match?.label || formatSectionWithGrade(selected, form.gradeLevel);
                   },
                 }}
               >
@@ -481,10 +481,15 @@ export default function StudentProfilePage() {
                   {SECTION_PLACEHOLDER}
                 </MenuItem>
                 {sectionOptions.map((section) => (
-                  <MenuItem key={section} value={section}>
-                    {section}
+                  <MenuItem key={`${section.gradeLevel}-${section.name}`} value={section.name}>
+                    {section.label}
                   </MenuItem>
                 ))}
+                {form.section && !findSectionByName(sectionOptions, form.section) ? (
+                  <MenuItem value={form.section}>
+                    {formatSectionWithGrade(form.section, form.gradeLevel)}
+                  </MenuItem>
+                ) : null}
               </TextField>
               <TextField
                 label="School"

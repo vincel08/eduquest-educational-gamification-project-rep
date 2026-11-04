@@ -23,6 +23,7 @@ import {
 } from '../utils/gradeLevels.js';
 import {
   SCHOOL_YEAR_INVALID_MESSAGE,
+  formatSectionWithGrade,
 } from '../utils/classSections.js';
 import {
   currentSchoolYearStartYear,
@@ -86,7 +87,7 @@ function formatAdvisedSectionLabel(row) {
   const grade = String(row.grade_level || '').trim();
   const name = String(row.name || '').trim();
   if (!grade || !name) return null;
-  return `${grade}-${name}`;
+  return formatSectionWithGrade(name, grade);
 }
 
 function attachTeacherAdvisedSections(users, sectionRows) {

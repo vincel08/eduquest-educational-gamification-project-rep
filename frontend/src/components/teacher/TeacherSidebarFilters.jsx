@@ -10,6 +10,14 @@ import {
 import { useLocation } from "react-router-dom";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 import courseService from "../../services/courseService";
+import {
+  formatSectionWithGrade,
+  normalizeSectionOptions,
+  parseSectionOptionValue,
+  reconcileSectionFilter,
+  sectionOptionValue,
+  sectionSelectValue,
+} from "../../utils/classSections";
 import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
 
 /** Subjects / Quizzes / Games / AI tools are not section-scoped. */
@@ -34,6 +42,7 @@ export default function TeacherSidebarFilters() {
     section,
     setSchoolYear,
     setGradeLevel,
+    setGradeAndSection,
     setSection,
     schoolYearOptions,
     gradeOptions,
@@ -56,11 +65,15 @@ export default function TeacherSidebarFilters() {
       .teacherSections(params)
       .then((response) => {
         if (!active) return;
-        const next = response.data.data || [];
+        const next = normalizeSectionOptions(response.data.data || []);
         setSections(next);
-        setSection((current) =>
-          current !== "all" && !next.includes(current) ? "all" : current,
-        );
+        const reconciled = reconcileSectionFilter(next, gradeLevel, section);
+        if (!reconciled) return;
+        if (reconciled.gradeLevel !== gradeLevel) {
+          setGradeAndSection(reconciled.gradeLevel, reconciled.section);
+          return;
+        }
+        setSection(reconciled.section);
       })
       .catch(() => {
         if (!active) return;
@@ -76,8 +89,15 @@ export default function TeacherSidebarFilters() {
     gradeLevel,
     toQueryParams,
     sectionsRevision,
+    section,
+    setGradeAndSection,
     setSection,
   ]);
+
+  const selectedSection = sectionSelectValue(sections, gradeLevel, section);
+  const selectedSectionListed = sections.some(
+    (item) => sectionOptionValue(item.gradeLevel, item.name) === selectedSection,
+  );
 
   return (
     <Box sx={{ px: 1.5, pb: 1.5 }}>
@@ -130,16 +150,31 @@ export default function TeacherSidebarFilters() {
             select
             size="small"
             label="Section"
-            value={section}
-            onChange={(event) => setSection(event.target.value)}
+            value={selectedSection}
+            onChange={(event) => {
+              const parsed = parseSectionOptionValue(event.target.value);
+              if (!parsed) {
+                setSection("all");
+                return;
+              }
+              setGradeAndSection(parsed.gradeLevel, parsed.name);
+            }}
             fullWidth
           >
             <MenuItem value="all">All sections</MenuItem>
             {sections.map((item) => (
-              <MenuItem key={item} value={item}>
-                {item}
+              <MenuItem
+                key={`${item.gradeLevel}-${item.name}`}
+                value={sectionOptionValue(item.gradeLevel, item.name)}
+              >
+                {item.label}
               </MenuItem>
             ))}
+            {selectedSection !== "all" && !selectedSectionListed ? (
+              <MenuItem value={selectedSection}>
+                {formatSectionWithGrade(section, gradeLevel)}
+              </MenuItem>
+            ) : null}
           </TextField>
         ) : null}
       </Stack>

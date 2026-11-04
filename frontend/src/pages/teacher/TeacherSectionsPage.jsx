@@ -28,7 +28,7 @@ export default function TeacherSectionsPage() {
     schoolYear,
     gradeLevel,
     section: sectionFilter,
-    setSection,
+    setGradeAndSection,
   } = useTeacherFilters();
 
   const [sections, setSections] = useState([]);
@@ -67,8 +67,8 @@ export default function TeacherSectionsPage() {
       .finally(() => setLoading(false));
   }, [load, schoolYear, gradeLevel, sectionFilter]);
 
-  function openStudentsForSection(sectionName) {
-    setSection(sectionName);
+  function openStudentsForSection(sectionRow) {
+    setGradeAndSection(sectionRow.gradeLevel, sectionRow.name);
     navigate("/teacher/students");
   }
 
@@ -119,7 +119,7 @@ export default function TeacherSectionsPage() {
                         <Button
                           size="small"
                           variant="outlined"
-                          onClick={() => openStudentsForSection(section.name)}
+                          onClick={() => openStudentsForSection(section)}
                         >
                           View students
                         </Button>

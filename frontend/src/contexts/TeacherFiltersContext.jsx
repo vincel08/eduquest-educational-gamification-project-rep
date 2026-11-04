@@ -79,6 +79,16 @@ export function TeacherFiltersProvider({ children }) {
     setFilters((prev) => ({ ...prev, gradeLevel, section: "all" }));
   }, []);
 
+  const setGradeAndSection = useCallback((nextGrade, nextSection) => {
+    const gradeLevel = String(nextGrade || "").trim();
+    const sectionName = String(nextSection || "").trim();
+    if (!gradeLevel || !sectionName) return;
+    setFilters((prev) => {
+      if (prev.gradeLevel === gradeLevel && prev.section === sectionName) return prev;
+      return { ...prev, gradeLevel, section: sectionName };
+    });
+  }, []);
+
   const setSection = useCallback((sectionOrUpdater) => {
     setFilters((prev) => {
       const next =
@@ -116,6 +126,7 @@ export function TeacherFiltersProvider({ children }) {
       section: filters.section,
       setSchoolYear,
       setGradeLevel,
+      setGradeAndSection,
       setSection,
       toQueryParams,
       schoolYearOptions,
@@ -125,6 +136,7 @@ export function TeacherFiltersProvider({ children }) {
       filters,
       setSchoolYear,
       setGradeLevel,
+      setGradeAndSection,
       setSection,
       toQueryParams,
       schoolYearOptions,

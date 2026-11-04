@@ -254,16 +254,16 @@ const CourseModel = {
     );
 
     const rows = await query(
-      `SELECT DISTINCT sp.section AS section
+      `SELECT DISTINCT sp.grade_level AS gradeLevel, sp.section AS name
        FROM course_enrollments ce
        INNER JOIN courses c ON c.id = ce.course_id
        INNER JOIN student_profiles sp ON sp.user_id = ce.student_id
        INNER JOIN users u ON u.id = ce.student_id
        WHERE ${filters.join(" AND ")}
-       ORDER BY sp.section ASC`,
+       ORDER BY sp.grade_level ASC, sp.section ASC`,
       params,
     );
-    return rows.map((row) => row.section).filter(Boolean);
+    return rows.filter((row) => row.name);
   },
 
   async getStudentCourses(

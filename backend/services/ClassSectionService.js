@@ -6,6 +6,7 @@ import {
   SECTION_INVALID_MESSAGE,
   SECTION_REQUIRED_MESSAGE,
   SCHOOL_YEAR_INVALID_MESSAGE,
+  formatSectionWithGrade,
   isValidSection,
   normalizeSection,
 } from "../utils/classSections.js";
@@ -220,12 +221,20 @@ const ClassSectionService = {
       schoolYear,
       gradeLevel,
     });
-    if (catalog.length) {
-      return catalog;
-    }
-    return StudentProfileModel.listDistinctSections({
-      schoolYear,
-      gradeLevel,
+    const rows = catalog.length
+      ? catalog
+      : await StudentProfileModel.listDistinctSections({
+          schoolYear,
+          gradeLevel,
+        });
+    return rows.map((row) => {
+      const name = row.name || row.section;
+      const level = row.gradeLevel || row.grade_level || null;
+      return {
+        name,
+        gradeLevel: level,
+        label: formatSectionWithGrade(name, level),
+      };
     });
   },
 

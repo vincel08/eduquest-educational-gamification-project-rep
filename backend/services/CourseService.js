@@ -23,6 +23,9 @@ import {
   SCHOOL_YEAR_MISMATCH_MESSAGE,
   SCHOOL_YEAR_REQUIRED_FOR_ACCESS_MESSAGE,
 } from "../utils/schoolYears.js";
+import {
+  formatSectionWithGrade,
+} from "../utils/classSections.js";
 import ClassSectionService from "./ClassSectionService.js";
 import ActivityLogService from "./ActivityLogService.js";
 
@@ -694,7 +697,12 @@ const CourseService = {
       // before any students are assigned to them.
       return catalog;
     }
-    return CourseModel.listTeacherSections(teacherId, filters);
+    const rows = await CourseModel.listTeacherSections(teacherId, filters);
+    return rows.map((row) => ({
+      name: row.name,
+      gradeLevel: row.gradeLevel || null,
+      label: formatSectionWithGrade(row.name, row.gradeLevel),
+    }));
   },
 };
 

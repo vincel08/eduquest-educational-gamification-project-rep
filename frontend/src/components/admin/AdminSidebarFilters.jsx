@@ -10,6 +10,14 @@ import {
 import { useLocation } from "react-router-dom";
 import { useAdminFilters } from "../../contexts/AdminFiltersContext";
 import userService from "../../services/userService";
+import {
+  formatSectionWithGrade,
+  normalizeSectionOptions,
+  parseSectionOptionValue,
+  reconcileSectionFilter,
+  sectionOptionValue,
+  sectionSelectValue,
+} from "../../utils/classSections";
 import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
 
 /** Badges & Medals are global system unlockables — not roster-scoped. */
@@ -32,6 +40,7 @@ export default function AdminSidebarFilters() {
     section,
     setSchoolYear,
     setGradeLevel,
+    setGradeAndSection,
     setSection,
     schoolYearOptions,
     gradeOptions,
@@ -55,11 +64,15 @@ export default function AdminSidebarFilters() {
       .listSections(params)
       .then((response) => {
         if (!active) return;
-        const next = response.data.data || [];
+        const next = normalizeSectionOptions(response.data.data || []);
         setSections(next);
-        setSection((current) =>
-          current !== "all" && !next.includes(current) ? "all" : current,
-        );
+        const reconciled = reconcileSectionFilter(next, gradeLevel, section);
+        if (!reconciled) return;
+        if (reconciled.gradeLevel !== gradeLevel) {
+          setGradeAndSection(reconciled.gradeLevel, reconciled.section);
+          return;
+        }
+        setSection(reconciled.section);
       })
       .catch(() => {
         if (!active) return;
@@ -76,8 +89,15 @@ export default function AdminSidebarFilters() {
     gradeLevel,
     toQueryParams,
     sectionsRevision,
+    section,
+    setGradeAndSection,
     setSection,
   ]);
+
+  const selectedSection = sectionSelectValue(sections, gradeLevel, section);
+  const selectedSectionListed = sections.some(
+    (item) => sectionOptionValue(item.gradeLevel, item.name) === selectedSection,
+  );
 
   if (hideFilters) return null;
 
@@ -132,16 +152,31 @@ export default function AdminSidebarFilters() {
             select
             size="small"
             label="Section"
-            value={section}
-            onChange={(event) => setSection(event.target.value)}
+            value={selectedSection}
+            onChange={(event) => {
+              const parsed = parseSectionOptionValue(event.target.value);
+              if (!parsed) {
+                setSection("all");
+                return;
+              }
+              setGradeAndSection(parsed.gradeLevel, parsed.name);
+            }}
             fullWidth
           >
             <MenuItem value="all">All sections</MenuItem>
             {sections.map((item) => (
-              <MenuItem key={item} value={item}>
-                {item}
+              <MenuItem
+                key={`${item.gradeLevel}-${item.name}`}
+                value={sectionOptionValue(item.gradeLevel, item.name)}
+              >
+                {item.label}
               </MenuItem>
             ))}
+            {selectedSection !== "all" && !selectedSectionListed ? (
+              <MenuItem value={selectedSection}>
+                {formatSectionWithGrade(section, gradeLevel)}
+              </MenuItem>
+            ) : null}
           </TextField>
         )}
       </Stack>

@@ -103,13 +103,13 @@ const ClassSectionModel = {
     }
     const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
     const rows = await query(
-      `SELECT DISTINCT name
+      `SELECT DISTINCT grade_level AS gradeLevel, name
        FROM class_sections
        ${where}
-       ORDER BY name ASC`,
+       ORDER BY grade_level ASC, name ASC`,
       params,
     );
-    return rows.map((row) => row.name).filter(Boolean);
+    return rows.filter((row) => row.name);
   },
 
   async listByAdviserIds(adviserIds = []) {

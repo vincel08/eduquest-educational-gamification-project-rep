@@ -79,6 +79,16 @@ export function AdminFiltersProvider({ children }) {
     setFilters((prev) => ({ ...prev, gradeLevel, section: "all" }));
   }, []);
 
+  const setGradeAndSection = useCallback((nextGrade, nextSection) => {
+    const gradeLevel = String(nextGrade || "").trim();
+    const sectionName = String(nextSection || "").trim();
+    if (!gradeLevel || !sectionName) return;
+    setFilters((prev) => {
+      if (prev.gradeLevel === gradeLevel && prev.section === sectionName) return prev;
+      return { ...prev, gradeLevel, section: sectionName };
+    });
+  }, []);
+
   const setSection = useCallback((sectionOrUpdater) => {
     setFilters((prev) => {
       const next =
@@ -115,6 +125,7 @@ export function AdminFiltersProvider({ children }) {
       section: filters.section,
       setSchoolYear,
       setGradeLevel,
+      setGradeAndSection,
       setSection,
       toQueryParams,
       schoolYearOptions,
@@ -124,6 +135,7 @@ export function AdminFiltersProvider({ children }) {
       filters,
       setSchoolYear,
       setGradeLevel,
+      setGradeAndSection,
       setSection,
       toQueryParams,
       schoolYearOptions,

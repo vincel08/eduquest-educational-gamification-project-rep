@@ -46,7 +46,7 @@ import {
   defaultSchoolYearValue,
   listSchoolYearOptions,
 } from "../../utils/schoolYears";
-import { SECTION_PLACEHOLDER } from "../../utils/classSections";
+import { SECTION_PLACEHOLDER, findSectionByName, normalizeSectionOptions } from "../../utils/classSections";
 import { useSearchParams } from "react-router-dom";
 
 function createEmptyForm() {
@@ -240,13 +240,17 @@ export default function AdminUsersPage() {
       .options({ schoolYear: form.schoolYear, gradeLevel: form.gradeLevel })
       .then((response) => {
         if (!active) return;
-        const options = response.data.data || [];
-        setSectionOptions(options);
-        setForm((prev) =>
-          prev.section && !options.includes(prev.section)
-            ? { ...prev, section: "" }
-            : prev,
+        const options = normalizeSectionOptions(
+          response.data.data || [],
+          form.gradeLevel,
         );
+        setSectionOptions(options);
+        setForm((prev) => {
+          const match = findSectionByName(options, prev.section);
+          if (prev.section && !match) return { ...prev, section: "" };
+          if (match && match.name !== prev.section) return { ...prev, section: match.name };
+          return prev;
+        });
       })
       .catch(() => {
         if (!active) return;
@@ -270,13 +274,17 @@ export default function AdminUsersPage() {
       })
       .then((response) => {
         if (!active) return;
-        const options = response.data.data || [];
-        setGradeSectionOptions(options);
-        setGradeForm((prev) =>
-          prev.section && !options.includes(prev.section)
-            ? { ...prev, section: "" }
-            : prev,
+        const options = normalizeSectionOptions(
+          response.data.data || [],
+          gradeForm.gradeLevel,
         );
+        setGradeSectionOptions(options);
+        setGradeForm((prev) => {
+          const match = findSectionByName(options, prev.section);
+          if (prev.section && !match) return { ...prev, section: "" };
+          if (match && match.name !== prev.section) return { ...prev, section: match.name };
+          return prev;
+        });
       })
       .catch(() => {
         if (!active) return;
@@ -961,10 +969,13 @@ export default function AdminUsersPage() {
                   disabled={!sectionOptions.length}
                 >
                   {sectionOptions.map((item) => (
-                    <MenuItem key={item} value={item}>
-                      {item}
+                    <MenuItem key={`${item.gradeLevel}-${item.name}`} value={item.name}>
+                      {item.label}
                     </MenuItem>
                   ))}
+                  {form.section && !findSectionByName(sectionOptions, form.section) ? (
+                    <MenuItem value={form.section}>{form.section}</MenuItem>
+                  ) : null}
                 </TextField>
                 <TextField
                   label="School name"
@@ -1090,10 +1101,13 @@ export default function AdminUsersPage() {
               disabled={!gradeSectionOptions.length}
             >
               {gradeSectionOptions.map((item) => (
-                <MenuItem key={item} value={item}>
-                  {item}
+                <MenuItem key={`${item.gradeLevel}-${item.name}`} value={item.name}>
+                  {item.label}
                 </MenuItem>
               ))}
+              {gradeForm.section && !findSectionByName(gradeSectionOptions, gradeForm.section) ? (
+                <MenuItem value={gradeForm.section}>{gradeForm.section}</MenuItem>
+              ) : null}
             </TextField>
           </Stack>
         </DialogContent>
