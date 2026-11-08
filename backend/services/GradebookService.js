@@ -1,6 +1,8 @@
 import { query } from "../config/db.js";
 import CourseModel from "../models/CourseModel.js";
 import AppError from "../utils/AppError.js";
+import { normalizeRosterFilterValue } from "../utils/rosterFilters.js";
+import { buildClassGradeSummaries } from "./gradeSummary.js";
 
 async function assertCourseAccess(courseId, user) {
   const course = await CourseModel.findById(courseId);
@@ -425,6 +427,124 @@ const GradebookService = {
     }
 
     return this.getCourseGradebook(courseId, user);
+  },
+
+  async getClassGradeSummary(user, filters = {}) {
+    if (!user || user.role !== "teacher") {
+      throw new AppError("Access denied", 403);
+    }
+
+    const teacherId = Number(user.id);
+    const schoolYear = normalizeRosterFilterValue(filters.schoolYear);
+    const gradeLevel = normalizeRosterFilterValue(filters.gradeLevel);
+    const section = normalizeRosterFilterValue(filters.section);
+    const courseFilters = ["c.teacher_id = :teacherId"];
+    const courseParams = { teacherId };
+    if (schoolYear) {
+      courseFilters.push("c.school_year = :courseSchoolYear");
+      courseParams.courseSchoolYear = schoolYear;
+    }
+    if (gradeLevel) {
+      courseFilters.push("c.grade_level = :courseGradeLevel");
+      courseParams.courseGradeLevel = gradeLevel;
+    }
+    const courseWhere = courseFilters.join(" AND ");
+
+    const rosterParams = { ...courseParams };
+    const rosterFilters = [
+      "u.is_active = 1",
+      "u.role = 'student'",
+      "u.approval_status = 'approved'",
+    ];
+    if (schoolYear) {
+      rosterFilters.push("sp.school_year = :profileSchoolYear");
+      rosterParams.profileSchoolYear = schoolYear;
+    }
+    if (gradeLevel) {
+      rosterFilters.push("sp.grade_level = :profileGradeLevel");
+      rosterParams.profileGradeLevel = gradeLevel;
+    }
+    if (section) {
+      rosterFilters.push("sp.section = :profileSection");
+      rosterParams.profileSection = section;
+    }
+    const rosterWhere = rosterFilters.join(" AND ");
+
+    const [courseRows, enrollmentRows, quizRows, gameRows] = await Promise.all([
+      query(
+        `SELECT c.id, c.title, c.subject, c.grade_level AS gradeLevel, c.school_year AS schoolYear
+         FROM courses c
+         WHERE ${courseWhere}
+         ORDER BY c.subject ASC, c.title ASC, c.id ASC`,
+        courseParams,
+      ),
+      query(
+        `SELECT
+           ce.course_id AS courseId,
+           ce.student_id AS studentId,
+           u.first_name AS firstName,
+           u.last_name AS lastName,
+           u.email,
+           sp.grade_level AS gradeLevel,
+           sp.section,
+           sp.school_year AS schoolYear
+         FROM course_enrollments ce
+         INNER JOIN courses c ON c.id = ce.course_id
+         INNER JOIN users u ON u.id = ce.student_id
+         INNER JOIN student_profiles sp ON sp.user_id = u.id
+         WHERE ${courseWhere}
+           AND ${rosterWhere}
+         ORDER BY u.last_name ASC, u.first_name ASC, ce.student_id ASC`,
+        rosterParams,
+      ),
+      query(
+        `SELECT
+           q.course_id AS courseId,
+           qa.student_id AS studentId,
+           q.id AS assessmentId,
+           q.title AS title,
+           MAX(qa.score) AS score
+         FROM quiz_attempts qa
+         INNER JOIN quizzes q ON q.id = qa.quiz_id
+         INNER JOIN courses c ON c.id = q.course_id
+         WHERE ${courseWhere}
+           AND qa.completed_at IS NOT NULL
+           AND qa.released_to_gradebook = 1
+           AND qa.score IS NOT NULL
+         GROUP BY q.course_id, qa.student_id, q.id, q.title`,
+        courseParams,
+      ),
+      query(
+        `SELECT
+           g.course_id AS courseId,
+           gs.student_id AS studentId,
+           g.id AS assessmentId,
+           g.title AS title,
+           MAX(gs.score) AS score
+         FROM game_scores gs
+         INNER JOIN educational_games g ON g.id = gs.game_id
+         INNER JOIN courses c ON c.id = g.course_id
+         WHERE ${courseWhere}
+           AND gs.released_to_gradebook = 1
+           AND gs.score IS NOT NULL
+         GROUP BY g.course_id, gs.student_id, g.id, g.title`,
+        courseParams,
+      ),
+    ]);
+
+    const teacherName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+    const classes = buildClassGradeSummaries({
+      teacherName,
+      courses: courseRows,
+      enrollments: enrollmentRows,
+      quizScores: quizRows,
+      gameScores: gameRows,
+    });
+
+    return {
+      teacherName,
+      classes,
+    };
   },
 };
 

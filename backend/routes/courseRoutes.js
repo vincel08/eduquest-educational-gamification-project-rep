@@ -29,6 +29,11 @@ router.get(
   authorize("teacher", "administrator"),
   CourseController.teacherSections,
 );
+router.get(
+  "/teacher/grade-summary",
+  authorize("teacher"),
+  CourseController.classGradeSummary,
+);
 router.get("/", CourseController.list);
 router.get("/:id", CourseController.getById);
 router.post(

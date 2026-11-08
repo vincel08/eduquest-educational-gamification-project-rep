@@ -43,6 +43,9 @@ const courseService = {
   gradebook(id, params) {
     return api.get(`/courses/${id}/gradebook`, { params });
   },
+  gradeSummary(params) {
+    return api.get("/courses/teacher/grade-summary", { params });
+  },
   teacherSections(params) {
     return api.get("/courses/teacher/sections", { params });
   },

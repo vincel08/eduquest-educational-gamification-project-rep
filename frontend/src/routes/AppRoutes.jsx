@@ -31,6 +31,7 @@ import TeacherGamesPage from "../pages/teacher/TeacherGamesPage";
 import TeacherGameEditorPage from "../pages/teacher/TeacherGameEditorPage";
 import TeacherProfilePage from "../pages/teacher/TeacherProfilePage";
 import TeacherStudentsPage from "../pages/teacher/TeacherStudentsPage";
+import TeacherGradeReportPage from "../pages/teacher/TeacherGradeReportPage";
 import TeacherSectionsPage from "../pages/teacher/TeacherSectionsPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
@@ -98,6 +99,7 @@ export default function AppRoutes() {
         <Route path="/teacher" element={<TeacherLayout />}>
           <Route path="dashboard" element={<TeacherDashboard />} />
           <Route path="students" element={<TeacherStudentsPage />} />
+          <Route path="grades" element={<TeacherGradeReportPage />} />
           <Route path="sections" element={<TeacherSectionsPage />} />
           <Route path="courses" element={<TeacherCoursesPage />} />
           <Route

@@ -138,6 +138,15 @@ export default function TeacherStudentsPage() {
     <PageContainer>
       <PageHeader
         title="My Students"
+        action={
+          <Button
+            component={RouterLink}
+            to="/teacher/grades"
+            variant="outlined"
+          >
+            Summary of Grades
+          </Button>
+        }
         subtitle={`Grouped by subject · ${studentCount} student${studentCount === 1 ? "" : "s"} · ${filterHint}`}
       />
 

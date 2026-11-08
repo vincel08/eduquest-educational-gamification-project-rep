@@ -195,6 +195,19 @@ const CourseController = {
     }
   },
 
+  async classGradeSummary(req, res, next) {
+    try {
+      const data = await GradebookService.getClassGradeSummary(req.user, {
+        schoolYear: req.query.schoolYear,
+        gradeLevel: req.query.gradeLevel,
+        section: req.query.section,
+      });
+      return successResponse(res, "Grade summary retrieved", data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async gradebook(req, res, next) {
     try {
       const data = await GradebookService.getCourseGradebook(
