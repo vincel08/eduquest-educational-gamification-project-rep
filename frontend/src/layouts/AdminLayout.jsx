@@ -13,7 +13,7 @@ import AdminSidebarFilters from "../components/admin/AdminSidebarFilters";
 const navItems = [
   { label: "Dashboard", path: "/admin/dashboard", icon: <DashboardIcon /> },
   { label: "Sections", path: "/admin/sections", icon: <GroupsIcon /> },
-  { label: "School Year", path: "/admin/school-year", icon: <CalendarMonthIcon /> },
+  { label: "School Years", path: "/admin/school-year", icon: <CalendarMonthIcon /> },
   { label: "Subjects", path: "/admin/courses", icon: <MenuBookIcon /> },
   { label: "Badges & Medals", path: "/admin/badges", icon: <EmojiEventsIcon /> },
   {

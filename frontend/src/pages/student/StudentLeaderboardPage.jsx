@@ -5,18 +5,35 @@ import LoadingScreen from "../../components/common/LoadingScreen";
 import LeaderboardCard from "../../components/gamification/LeaderboardCard";
 import gamificationService from "../../services/gamificationService";
 import { getErrorMessage } from "../../services/api";
-import { listSchoolYearOptions } from "../../utils/schoolYears";
+import {
+  listSchoolYearOptions,
+  schoolYearChoiceMissing,
+} from "../../utils/schoolYears";
 import { useSchoolYear } from "../../contexts/SchoolYearContext";
 
 export default function StudentLeaderboardPage() {
-  const { schoolYear: currentSchoolYear } = useSchoolYear();
+  const { schoolYear: currentSchoolYear, options: managedYears } = useSchoolYear();
   const schoolYearOptions = useMemo(
-    () => listSchoolYearOptions({ includeAll: false }),
-    [currentSchoolYear],
+    () =>
+      managedYears.length
+        ? managedYears
+        : listSchoolYearOptions({ includeAll: false }),
+    [managedYears, currentSchoolYear],
   );
   const [entries, setEntries] = useState([]);
   const [period, setPeriod] = useState("overall");
   const [schoolYear, setSchoolYear] = useState(currentSchoolYear);
+
+  useEffect(() => {
+    if (!schoolYearOptions.length) return;
+    if (schoolYearOptions.some((option) => option.value === schoolYear)) return;
+    const nextYear = schoolYearOptions.some(
+      (option) => option.value === currentSchoolYear,
+    )
+      ? currentSchoolYear
+      : schoolYearOptions[0].value;
+    if (nextYear !== schoolYear) setSchoolYear(nextYear);
+  }, [schoolYearOptions, schoolYear, currentSchoolYear]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -63,6 +80,9 @@ export default function StudentLeaderboardPage() {
           fullWidth
           sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 200 } }}
         >
+          {schoolYearChoiceMissing(schoolYearOptions, schoolYear) ? (
+            <MenuItem value={schoolYear}>SY {schoolYear}</MenuItem>
+          ) : null}
           {schoolYearOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}

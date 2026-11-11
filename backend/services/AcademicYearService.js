@@ -9,7 +9,10 @@ import {
   isValidSchoolYearLabel,
   listCalendarSchoolYearOptions,
   listSchoolYearOptions,
+  managedSchoolYearError,
+  normalizeManagedSchoolYear,
   parseSchoolYearLabel,
+  schoolYearTiming,
   setCurrentSchoolYearOverride,
 } from "../utils/schoolYears.js";
 
@@ -42,10 +45,12 @@ async function readStoredLabel() {
   }
 }
 
-function snapshotFromLabel(schoolYear, configured) {
+function snapshotFromLabel(schoolYear, configured, catalogOptions = null) {
   const bounds = getSchoolYearBounds(schoolYear);
   const calendarStart = calendarSchoolYearStartYear();
-  const options = listSchoolYearOptions({ includeAll: false });
+  const options = catalogOptions?.length
+    ? catalogOptions
+    : listSchoolYearOptions({ includeAll: false });
   const settableYears = listCalendarSchoolYearOptions();
 
   return {
@@ -263,17 +268,135 @@ async function reopenYearContent(connection, schoolYear) {
   };
 }
 
+const CATALOG_UNAVAILABLE_MESSAGE =
+  "School year management is unavailable until database migrations are applied.";
+
+let catalogReady = false;
+
+function catalogUnavailable(error) {
+  return error?.code === "ER_NO_SUCH_TABLE";
+}
+
+async function ensureCatalog() {
+  if (catalogReady) return true;
+  const labels = new Set();
+  const calendarStart = calendarSchoolYearStartYear();
+  for (let startYear = FIRST_SCHOOL_YEAR_START; startYear <= calendarStart; startYear += 1) {
+    labels.add(formatSchoolYearLabel(startYear));
+  }
+
+  try {
+    const used = await query(
+      `SELECT DISTINCT school_year AS label
+       FROM courses
+       WHERE school_year IS NOT NULL AND TRIM(school_year) <> ''
+       UNION
+       SELECT DISTINCT school_year
+       FROM student_profiles
+       WHERE school_year IS NOT NULL AND TRIM(school_year) <> ''
+       UNION
+       SELECT DISTINCT school_year
+       FROM class_sections
+       WHERE school_year IS NOT NULL AND TRIM(school_year) <> ''
+       UNION
+       SELECT DISTINCT school_year
+       FROM course_enrollments
+       WHERE school_year IS NOT NULL AND TRIM(school_year) <> ''`,
+    );
+    for (const row of used) {
+      const label = normalizeManagedSchoolYear(row.label);
+      // Keep every year already stored on a record, even outside the add range.
+      if (isValidSchoolYearLabel(label)) labels.add(label);
+    }
+
+    for (const label of labels) {
+      await query(
+        `INSERT IGNORE INTO school_years (label, start_year)
+         VALUES (:label, :startYear)`,
+        { label, startYear: parseSchoolYearLabel(label) },
+      );
+    }
+    catalogReady = true;
+    return true;
+  } catch (error) {
+    if (catalogUnavailable(error)) return false;
+    throw error;
+  }
+}
+
+async function catalogOptions() {
+  const ready = await ensureCatalog();
+  if (!ready) return null;
+  const rows = await query(
+    `SELECT label
+     FROM school_years
+     ORDER BY start_year ASC, id ASC`,
+  );
+  return rows.map((row) => ({
+    value: row.label,
+    label: `SY ${row.label}`,
+  }));
+}
+
+async function countUsage(label) {
+  const rows = await query(
+    `SELECT COUNT(*) AS used
+     FROM (
+       SELECT school_year FROM courses WHERE school_year = :label
+       UNION ALL
+       SELECT school_year FROM student_profiles WHERE school_year = :label
+       UNION ALL
+       SELECT school_year FROM class_sections WHERE school_year = :label
+       UNION ALL
+       SELECT school_year FROM course_enrollments WHERE school_year = :label
+     ) records`,
+    { label },
+  );
+  return Number(rows[0]?.used) || 0;
+}
+
+function timingLabel(timing) {
+  if (timing === "previous") return "previous";
+  if (timing === "future") return "future";
+  return "current";
+}
+
 const AcademicYearService = {
+  async assertManaged(schoolYear) {
+    const label = normalizeManagedSchoolYear(schoolYear);
+    if (!isValidSchoolYearLabel(label)) {
+      throw new AppError("Choose a valid school year.", 400);
+    }
+    const ready = await ensureCatalog();
+    if (!ready) return label;
+    const rows = await query(
+      `SELECT label
+       FROM school_years
+       WHERE label = :label
+       LIMIT 1`,
+      { label },
+    );
+    if (!rows[0]) {
+      throw new AppError(
+        `Add SY ${label} in School Years before using it.`,
+        400,
+      );
+    }
+    return label;
+  },
+
   async loadCurrent() {
+    const options = await catalogOptions();
     const stored = await readStoredLabel();
     if (stored) {
       setCurrentSchoolYearOverride(parseSchoolYearLabel(stored));
-      return snapshotFromLabel(stored, true);
+      return snapshotFromLabel(stored, true, options);
     }
     setCurrentSchoolYearOverride(null);
     return snapshotFromLabel(
       formatSchoolYearLabel(calendarSchoolYearStartYear()),
       false,
+      options,
     );
   },
 
@@ -425,7 +548,7 @@ const AcademicYearService = {
     }
 
     setCurrentSchoolYearOverride(nextStart);
-    const next = snapshotFromLabel(label, true);
+    const next = snapshotFromLabel(label, true, await catalogOptions());
     const message = describeChange(label, refresh);
 
     await ActivityLogService.log({
@@ -438,6 +561,178 @@ const AcademicYearService = {
     });
 
     return { ...next, refresh, message };
+  },
+
+  async listManaged() {
+    const ready = await ensureCatalog();
+    if (!ready) {
+      throw new AppError(CATALOG_UNAVAILABLE_MESSAGE, 503);
+    }
+    const current = await this.loadCurrent();
+    const rows = await query(
+      `SELECT label, start_year AS startYear
+       FROM school_years
+       ORDER BY start_year ASC, id ASC`,
+    );
+    const usageRows = await query(
+      `SELECT school_year AS label, COUNT(*) AS used
+       FROM (
+         SELECT school_year FROM courses WHERE school_year IS NOT NULL
+         UNION ALL
+         SELECT school_year FROM student_profiles WHERE school_year IS NOT NULL
+         UNION ALL
+         SELECT school_year FROM class_sections WHERE school_year IS NOT NULL
+         UNION ALL
+         SELECT school_year FROM course_enrollments WHERE school_year IS NOT NULL
+       ) records
+       GROUP BY school_year`,
+    );
+    const usage = new Map(
+      usageRows.map((row) => [String(row.label), Number(row.used) || 0]),
+    );
+    const calendarStart = calendarSchoolYearStartYear();
+
+    return rows.map((row) => {
+      const startYear = Number(row.startYear);
+      const used = usage.get(row.label) || 0;
+      const extra = startYear < FIRST_SCHOOL_YEAR_START || startYear > calendarStart;
+      return {
+        schoolYear: row.label,
+        startYear,
+        timing: schoolYearTiming(row.label),
+        isCurrentSetting: row.label === current.schoolYear,
+        used,
+        canRemove: extra && used === 0 && row.label !== current.schoolYear,
+      };
+    });
+  },
+
+  async addSchoolYear(schoolYear, actor = null) {
+    const label = normalizeManagedSchoolYear(schoolYear);
+    const rangeError = managedSchoolYearError(label);
+    if (rangeError) throw new AppError(rangeError, 400);
+
+    const ready = await ensureCatalog();
+    if (!ready) throw new AppError(CATALOG_UNAVAILABLE_MESSAGE, 503);
+
+    const before = await this.loadCurrent();
+    try {
+      await query(
+        `INSERT INTO school_years (label, start_year, created_by)
+         VALUES (:label, :startYear, :createdBy)`,
+        {
+          label,
+          startYear: parseSchoolYearLabel(label),
+          createdBy: actor?.id || null,
+        },
+      );
+    } catch (error) {
+      if (error?.code === "ER_DUP_ENTRY") {
+        throw new AppError(`SY ${label} is already available.`, 409);
+      }
+      throw error;
+    }
+
+    const timing = schoolYearTiming(label);
+    const snapshot = await this.loadCurrent();
+    const message = `Added SY ${label} as a ${timingLabel(timing)} school year. The current school year is still SY ${snapshot.schoolYear}.`;
+
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: "school_year.added",
+      entityType: "school_year",
+      entityId: null,
+      summary: message,
+      metadata: {
+        schoolYear: label,
+        timing,
+        currentSchoolYear: snapshot.schoolYear,
+      },
+    });
+
+    return {
+      ...snapshot,
+      added: { schoolYear: label, timing },
+      message,
+      previousSchoolYear: before.schoolYear,
+    };
+  },
+
+  async removeSchoolYear(startYear, actor = null) {
+    const year = Number(startYear);
+    if (!Number.isInteger(year)) {
+      throw new AppError("Choose a school year.", 400);
+    }
+    const label = formatSchoolYearLabel(year);
+    const ready = await ensureCatalog();
+    if (!ready) throw new AppError(CATALOG_UNAVAILABLE_MESSAGE, 503);
+
+    const current = await this.loadCurrent();
+    if (label === current.schoolYear) {
+      throw new AppError("The current school year setting cannot be removed.", 400);
+    }
+    const calendarStart = calendarSchoolYearStartYear();
+    if (year >= FIRST_SCHOOL_YEAR_START && year <= calendarStart) {
+      throw new AppError(
+        "This school year stays available because it is inside the system range.",
+        400,
+      );
+    }
+
+    const existing = await query(
+      `SELECT id FROM school_years WHERE label = :label LIMIT 1`,
+      { label },
+    );
+    if (!existing[0]) throw new AppError("School year not found.", 404);
+
+    const used = await countUsage(label);
+    if (used > 0) {
+      throw new AppError(
+        "This school year is already used by students, subjects, or sections.",
+        400,
+      );
+    }
+
+    const removed = await query(
+      `DELETE sy FROM school_years sy
+       WHERE sy.label = :label
+         AND NOT EXISTS (SELECT 1 FROM courses c WHERE c.school_year = sy.label)
+         AND NOT EXISTS (
+           SELECT 1 FROM student_profiles sp WHERE sp.school_year = sy.label
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM class_sections cs WHERE cs.school_year = sy.label
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM course_enrollments ce WHERE ce.school_year = sy.label
+         )`,
+      { label },
+    );
+    if (!removed?.affectedRows) {
+      const stillThere = await query(
+        `SELECT id FROM school_years WHERE label = :label LIMIT 1`,
+        { label },
+      );
+      throw new AppError(
+        stillThere[0]
+          ? "This school year is already used by students, subjects, or sections."
+          : "School year not found.",
+        stillThere[0] ? 400 : 404,
+      );
+    }
+    const snapshot = await this.loadCurrent();
+    const message = `Removed SY ${label}. The current school year is still SY ${snapshot.schoolYear}.`;
+
+    await ActivityLogService.log({
+      actorId: actor?.id || null,
+      action: "school_year.removed",
+      entityType: "school_year",
+      entityId: null,
+      summary: message,
+      metadata: { schoolYear: label, currentSchoolYear: snapshot.schoolYear },
+    });
+
+    return { ...snapshot, message };
   },
 };
 

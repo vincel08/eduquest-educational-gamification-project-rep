@@ -30,6 +30,7 @@ import {
   formatSchoolYearLabel,
   isValidSchoolYearLabel,
 } from '../utils/schoolYears.js';
+import AcademicYearService from './AcademicYearService.js';
 import ClassSectionService from './ClassSectionService.js';
 import ClassSectionModel from '../models/ClassSectionModel.js';
 import ActivityLogService from './ActivityLogService.js';
@@ -226,6 +227,7 @@ const UserService = {
       if (!isValidSchoolYearLabel(resolvedSchoolYear)) {
         throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
       }
+      await AcademicYearService.assertManaged(resolvedSchoolYear);
 
       const catalogSection = await ClassSectionService.assertSectionInCatalog(
         resolvedSchoolYear,
@@ -404,7 +406,7 @@ const UserService = {
           if (!value || !isValidSchoolYearLabel(value)) {
             throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
           }
-          nextSchoolYear = value;
+          nextSchoolYear = await AcademicYearService.assertManaged(value);
         }
 
         const effectiveSy =

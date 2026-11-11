@@ -45,6 +45,7 @@ import { GRADE_LEVELS } from "../../utils/gradeLevels";
 import {
   defaultSchoolYearValue,
   listSchoolYearOptions,
+  schoolYearChoiceMissing,
 } from "../../utils/schoolYears";
 import { SECTION_PLACEHOLDER, findSectionByName, normalizeSectionOptions } from "../../utils/classSections";
 import { useSearchParams } from "react-router-dom";
@@ -946,6 +947,9 @@ export default function AdminUsersPage() {
                     setForm((p) => ({ ...p, schoolYear: e.target.value }))
                   }
                 >
+                  {schoolYearChoiceMissing(schoolYearOptions, form.schoolYear) ? (
+                    <MenuItem value={form.schoolYear}>SY {form.schoolYear}</MenuItem>
+                  ) : null}
                   {schoolYearOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
                       {option.label}
@@ -1079,6 +1083,11 @@ export default function AdminUsersPage() {
                 }))
               }
             >
+              {schoolYearChoiceMissing(schoolYearOptions, gradeForm.schoolYear) ? (
+                <MenuItem value={gradeForm.schoolYear}>
+                  SY {gradeForm.schoolYear}
+                </MenuItem>
+              ) : null}
               {schoolYearOptions.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}

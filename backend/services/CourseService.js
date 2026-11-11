@@ -26,6 +26,7 @@ import {
 import {
   formatSectionWithGrade,
 } from "../utils/classSections.js";
+import AcademicYearService from "./AcademicYearService.js";
 import ClassSectionService from "./ClassSectionService.js";
 import ActivityLogService from "./ActivityLogService.js";
 
@@ -85,6 +86,7 @@ const CourseService = {
     const subject = String(data.subject || "").trim();
     const title = String(data.title || subject).trim() || subject;
     const schedule = resolveScheduleFields(data);
+    schedule.schoolYear = await AcademicYearService.assertManaged(schedule.schoolYear);
     const course = await CourseModel.create({
       ...data,
       ...schedule,
@@ -387,7 +389,7 @@ const CourseService = {
           data.schoolYear !== undefined ? data.schoolYear : course.school_year,
         endsAt: data.endsAt !== undefined ? data.endsAt : course.ends_at,
       });
-      patch.schoolYear = schedule.schoolYear;
+      patch.schoolYear = await AcademicYearService.assertManaged(schedule.schoolYear);
       patch.endsAt = schedule.endsAt;
     }
 

@@ -24,7 +24,10 @@ import classSectionService from "../../services/classSectionService";
 import userService from "../../services/userService";
 import { getErrorMessage } from "../../services/api";
 import { GRADE_LEVELS } from "../../utils/gradeLevels";
-import { listSchoolYearOptions } from "../../utils/schoolYears";
+import {
+  listSchoolYearOptions,
+  schoolYearChoiceMissing,
+} from "../../utils/schoolYears";
 import { notifyClassSectionsChanged } from "../../utils/classSectionsEvents";
 import { useAdminFilters } from "../../contexts/AdminFiltersContext";
 import { useSchoolYear } from "../../contexts/SchoolYearContext";
@@ -40,10 +43,13 @@ export default function AdminSectionsPage() {
     setSection,
   } = useAdminFilters();
 
-  const { schoolYear: currentSchoolYear } = useSchoolYear();
+  const { schoolYear: currentSchoolYear, options: managedYears } = useSchoolYear();
   const schoolYearOptions = useMemo(
-    () => listSchoolYearOptions({ includeAll: false }),
-    [currentSchoolYear],
+    () =>
+      managedYears.length
+        ? managedYears
+        : listSchoolYearOptions({ includeAll: false }),
+    [managedYears, currentSchoolYear],
   );
 
   const defaultForm = useCallback(
@@ -230,6 +236,9 @@ export default function AdminSectionsPage() {
               }
               fullWidth
             >
+              {schoolYearChoiceMissing(schoolYearOptions, form.schoolYear) ? (
+                <MenuItem value={form.schoolYear}>SY {form.schoolYear}</MenuItem>
+              ) : null}
               {schoolYearOptions.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}

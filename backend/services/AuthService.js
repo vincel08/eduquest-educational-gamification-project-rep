@@ -31,6 +31,7 @@ import {
   currentSchoolYearStartYear,
   isValidSchoolYearLabel,
 } from "../utils/schoolYears.js";
+import AcademicYearService from "./AcademicYearService.js";
 import ClassSectionService from "./ClassSectionService.js";
 import {
   getPersonNameError,
@@ -284,6 +285,7 @@ const AuthService = {
     if (!isValidSchoolYearLabel(resolvedSchoolYear)) {
       throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
     }
+    await AcademicYearService.assertManaged(resolvedSchoolYear);
 
     const catalogSection = await ClassSectionService.assertSectionInCatalog(
       resolvedSchoolYear,
@@ -481,7 +483,7 @@ const AuthService = {
             throw new AppError(SCHOOL_YEAR_LOCKED_MESSAGE, 403);
           }
         } else {
-          schoolYearToPersist = value;
+          schoolYearToPersist = await AcademicYearService.assertManaged(value);
         }
       }
 

@@ -10,6 +10,15 @@
 /** First school-year start year shipped with EduWow. */
 export const FIRST_SCHOOL_YEAR_START = 2026;
 
+/** Earliest school year an administrator may add for older records. */
+export const MANAGED_SCHOOL_YEAR_MIN = 2000;
+
+/** How many school years past the system year an administrator may add. */
+export const MANAGED_FUTURE_YEARS = 15;
+
+/** Labels from the server catalog. Null keeps the generated launch-through-current list. */
+let catalogLabels = null;
+
 /** Label set by the server. Null uses the calendar rollover. */
 let configuredLabel = null;
 
@@ -22,6 +31,22 @@ export function calendarSchoolYearStartYear(now = new Date()) {
 
 export function applyConfiguredSchoolYear(label) {
   configuredLabel = isValidSchoolYearLabel(label) ? String(label).trim() : null;
+}
+
+/** Store the managed school-year list from the server. Does not change the current setting. */
+export function applySchoolYearCatalog(options) {
+  const seen = new Set();
+  const labels = [];
+  for (const option of options || []) {
+    const value = String(
+      typeof option === "string" ? option : option?.value || "",
+    ).trim();
+    if (!isValidSchoolYearLabel(value) || seen.has(value)) continue;
+    seen.add(value);
+    labels.push(value);
+  }
+  labels.sort((left, right) => parseSchoolYearLabel(left) - parseSchoolYearLabel(right));
+  catalogLabels = labels.length ? labels : null;
 }
 
 export function currentSchoolYearStartYear(now = new Date()) {
@@ -37,6 +62,32 @@ export function formatSchoolYearLabel(startYear) {
 
 export function isValidSchoolYearLabel(label) {
   return Boolean(parseSchoolYearLabel(label));
+}
+
+export function schoolYearTiming(label, now = new Date()) {
+  const startYear = parseSchoolYearLabel(label);
+  if (!startYear) return null;
+  const calendarStart = calendarSchoolYearStartYear(now);
+  if (startYear < calendarStart) return "previous";
+  if (startYear > calendarStart) return "future";
+  return "current";
+}
+
+export function normalizeManagedSchoolYear(value) {
+  const raw = String(value || "").trim();
+  if (isValidSchoolYearLabel(raw)) return raw;
+  if (/^\d{4}$/.test(raw)) return formatSchoolYearLabel(Number(raw));
+  return raw;
+}
+
+export function managedSchoolYearError(label, now = new Date()) {
+  const startYear = parseSchoolYearLabel(label);
+  if (!startYear) return "Use a school year like 2026-2027.";
+  const latest = calendarSchoolYearStartYear(now) + MANAGED_FUTURE_YEARS;
+  if (startYear < MANAGED_SCHOOL_YEAR_MIN || startYear > latest) {
+    return `Enter a school year from SY ${formatSchoolYearLabel(MANAGED_SCHOOL_YEAR_MIN)} through SY ${formatSchoolYearLabel(latest)}.`;
+  }
+  return "";
 }
 
 export function parseSchoolYearLabel(label) {
@@ -72,19 +123,24 @@ export function listSchoolYearOptions({
   now = new Date(),
   firstStartYear = FIRST_SCHOOL_YEAR_START,
 } = {}) {
-  const currentStart = currentSchoolYearStartYear(now);
-  const launch = Number.isInteger(Number(firstStartYear))
-    ? Number(firstStartYear)
-    : FIRST_SCHOOL_YEAR_START;
-  const from = Math.min(launch, currentStart);
-  const to = currentStart;
-
   const years = [];
-  for (let startYear = from; startYear <= to; startYear += 1) {
-    years.push({
-      value: formatSchoolYearLabel(startYear),
-      label: `SY ${formatSchoolYearLabel(startYear)}`,
-    });
+  if (catalogLabels) {
+    for (const value of catalogLabels) {
+      years.push({ value, label: `SY ${value}` });
+    }
+  } else {
+    const currentStart = currentSchoolYearStartYear(now);
+    const launch = Number.isInteger(Number(firstStartYear))
+      ? Number(firstStartYear)
+      : FIRST_SCHOOL_YEAR_START;
+    const from = Math.min(launch, currentStart);
+    const to = currentStart;
+    for (let startYear = from; startYear <= to; startYear += 1) {
+      years.push({
+        value: formatSchoolYearLabel(startYear),
+        label: `SY ${formatSchoolYearLabel(startYear)}`,
+      });
+    }
   }
 
   if (includeAll) {
@@ -95,4 +151,11 @@ export function listSchoolYearOptions({
 
 export function defaultSchoolYearValue(now = new Date()) {
   return formatSchoolYearLabel(currentSchoolYearStartYear(now));
+}
+
+/** True when a select value is not in the loaded school-year menu. */
+export function schoolYearChoiceMissing(options, value) {
+  const selected = String(value || "").trim();
+  if (!selected) return false;
+  return !(options || []).some((option) => option.value === selected);
 }

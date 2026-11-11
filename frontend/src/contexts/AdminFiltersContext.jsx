@@ -46,7 +46,7 @@ function readStoredFilters() {
 }
 
 export function AdminFiltersProvider({ children }) {
-  const { schoolYear: currentSchoolYear } = useSchoolYear();
+  const { schoolYear: currentSchoolYear, options: managedYears } = useSchoolYear();
   const [filters, setFilters] = useState(
     () =>
       readStoredFilters() || {
@@ -114,9 +114,28 @@ export function AdminFiltersProvider({ children }) {
   }, [filters]);
 
   const schoolYearOptions = useMemo(
-    () => listSchoolYearOptions({ includeAll: false }),
-    [currentSchoolYear],
+    () =>
+      managedYears.length
+        ? managedYears
+        : listSchoolYearOptions({ includeAll: false }),
+    [managedYears, currentSchoolYear],
   );
+
+  useEffect(() => {
+    if (!schoolYearOptions.length) return;
+    if (schoolYearOptions.some((option) => option.value === filters.schoolYear)) {
+      return;
+    }
+    const nextYear = schoolYearOptions.some(
+      (option) => option.value === currentSchoolYear,
+    )
+      ? currentSchoolYear
+      : schoolYearOptions[0].value;
+    setFilters((prev) => {
+      if (prev.schoolYear === nextYear) return prev;
+      return { ...prev, schoolYear: nextYear, section: "all" };
+    });
+  }, [schoolYearOptions, filters.schoolYear, currentSchoolYear]);
 
   const value = useMemo(
     () => ({

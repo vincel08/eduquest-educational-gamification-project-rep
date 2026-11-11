@@ -19,6 +19,7 @@ import {
   sectionSelectValue,
 } from "../../utils/classSections";
 import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
+import { schoolYearChoiceMissing } from "../../utils/schoolYears";
 
 /** Badges & Medals are global system unlockables — not roster-scoped. */
 function hideFiltersForPath(pathname) {
@@ -126,6 +127,9 @@ export default function AdminSidebarFilters() {
           onChange={(event) => setSchoolYear(event.target.value)}
           fullWidth
         >
+          {schoolYearChoiceMissing(schoolYearOptions, schoolYear) ? (
+            <MenuItem value={schoolYear}>SY {schoolYear}</MenuItem>
+          ) : null}
           {schoolYearOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}

@@ -10,6 +10,7 @@ import schoolYearService from "../services/schoolYearService";
 import LoadingScreen from "../components/common/LoadingScreen";
 import {
   applyConfiguredSchoolYear,
+  applySchoolYearCatalog,
   defaultSchoolYearValue,
   formatSchoolYearLabel,
   calendarSchoolYearStartYear,
@@ -24,6 +25,7 @@ const SchoolYearContext = createContext(null);
 function fallbackSnapshot() {
   const schoolYear = formatSchoolYearLabel(calendarSchoolYearStartYear());
   applyConfiguredSchoolYear(null);
+  applySchoolYearCatalog(null);
   return {
     schoolYear,
     calendarSchoolYear: schoolYear,
@@ -40,6 +42,7 @@ export function SchoolYearProvider({ children }) {
 
   const applySnapshot = useCallback((data, { notify = false } = {}) => {
     applyConfiguredSchoolYear(data?.schoolYear);
+    applySchoolYearCatalog(data?.options);
     const next = {
       schoolYear: data.schoolYear || defaultSchoolYearValue(),
       calendarSchoolYear: data.calendarSchoolYear || data.schoolYear,

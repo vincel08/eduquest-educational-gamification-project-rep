@@ -31,7 +31,10 @@ import courseService from "../../services/courseService";
 import { getErrorMessage } from "../../services/api";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 import { useSchoolYear } from "../../contexts/SchoolYearContext";
-import { listSchoolYearOptions } from "../../utils/schoolYears";
+import {
+  listSchoolYearOptions,
+  schoolYearChoiceMissing,
+} from "../../utils/schoolYears";
 import { formatContentDifficulty } from "../../utils/contentDifficulty";
 
 function subjectKey(value) {
@@ -67,11 +70,18 @@ export default function TeacherQuizzesPage() {
   const [deleteItem, setDeleteItem] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const { schoolYear: currentSchoolYear } = useSchoolYear();
-  const bankYearOptions = useMemo(
-    () => listSchoolYearOptions({ includeAll: true }),
-    [currentSchoolYear],
-  );
+  const { schoolYear: currentSchoolYear, options: managedYears } = useSchoolYear();
+  const bankYearOptions = useMemo(() => {
+    const years = managedYears.length
+      ? managedYears
+      : listSchoolYearOptions({ includeAll: false });
+    return [{ value: "all", label: "All school years" }, ...years];
+  }, [managedYears, currentSchoolYear]);
+
+  useEffect(() => {
+    if (bankYearOptions.some((option) => option.value === bankSchoolYear)) return;
+    setBankSchoolYear("all");
+  }, [bankYearOptions, bankSchoolYear]);
 
   useEffect(() => {
     setLoading(true);
@@ -181,6 +191,9 @@ export default function TeacherQuizzesPage() {
           onChange={(event) => setBankSchoolYear(event.target.value)}
           sx={{ minWidth: 220 }}
         >
+          {schoolYearChoiceMissing(bankYearOptions, bankSchoolYear) ? (
+            <MenuItem value={bankSchoolYear}>SY {bankSchoolYear}</MenuItem>
+          ) : null}
           {bankYearOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}

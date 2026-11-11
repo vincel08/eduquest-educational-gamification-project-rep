@@ -31,6 +31,7 @@ import {
 import {
   isValidSchoolYearLabel,
   listSchoolYearOptions,
+  schoolYearChoiceMissing,
 } from "../../utils/schoolYears";
 import {
   SECTION_LOCKED_MESSAGE,
@@ -438,6 +439,9 @@ export default function StudentProfilePage() {
                 <MenuItem value="" disabled={schoolYearLocked}>
                   Select school year
                 </MenuItem>
+                {schoolYearChoiceMissing(schoolYearOptions, form.schoolYear) ? (
+                  <MenuItem value={form.schoolYear}>SY {form.schoolYear}</MenuItem>
+                ) : null}
                 {schoolYearOptions.map((option) => (
                   <MenuItem key={option.value} value={option.value}>
                     {option.label}

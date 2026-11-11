@@ -7,6 +7,26 @@ import { updateSchoolYearValidation } from "../validations/academicYearValidatio
 const router = Router();
 
 router.get("/", AcademicYearController.current);
+router.get(
+  "/years",
+  authenticate,
+  authorize("administrator"),
+  AcademicYearController.list,
+);
+router.post(
+  "/years",
+  authenticate,
+  authorize("administrator"),
+  updateSchoolYearValidation,
+  validate,
+  AcademicYearController.add,
+);
+router.delete(
+  "/years/:startYear",
+  authenticate,
+  authorize("administrator"),
+  AcademicYearController.remove,
+);
 router.put(
   "/",
   authenticate,

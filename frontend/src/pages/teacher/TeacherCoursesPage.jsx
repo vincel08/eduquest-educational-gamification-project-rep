@@ -39,6 +39,7 @@ import { GRADE_LEVELS } from "../../utils/gradeLevels";
 import {
   defaultSchoolYearValue,
   listSchoolYearOptions,
+  schoolYearChoiceMissing,
 } from "../../utils/schoolYears";
 import { useTeacherFilters } from "../../contexts/TeacherFiltersContext";
 
@@ -384,6 +385,9 @@ export default function TeacherCoursesPage() {
               }
               helperText="Subject auto-deactivates when this school year ends (May 1)"
             >
+              {schoolYearChoiceMissing(schoolYearOptions, form.schoolYear) ? (
+                <MenuItem value={form.schoolYear}>SY {form.schoolYear}</MenuItem>
+              ) : null}
               {schoolYearOptions.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}

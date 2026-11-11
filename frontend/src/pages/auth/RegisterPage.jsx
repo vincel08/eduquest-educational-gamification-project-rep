@@ -30,6 +30,7 @@ import { GRADE_LEVELS, GRADE_LEVEL_PLACEHOLDER } from "../../utils/gradeLevels";
 import {
   defaultSchoolYearValue,
   listSchoolYearOptions,
+  schoolYearChoiceMissing,
 } from "../../utils/schoolYears";
 import { SECTION_PLACEHOLDER, findSectionByName, normalizeSectionOptions } from "../../utils/classSections";
 import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
@@ -344,6 +345,9 @@ export default function RegisterPage() {
                 error={Boolean(fieldErrors.schoolYear)}
                 helperText={fieldErrors.schoolYear}
               >
+                {schoolYearChoiceMissing(schoolYearOptions, form.schoolYear) ? (
+                  <MenuItem value={form.schoolYear}>SY {form.schoolYear}</MenuItem>
+                ) : null}
                 {schoolYearOptions.map((option) => (
                   <MenuItem key={option.value} value={option.value}>
                     {option.label}

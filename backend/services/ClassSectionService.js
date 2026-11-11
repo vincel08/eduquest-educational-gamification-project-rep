@@ -5,7 +5,6 @@ import AppError from "../utils/AppError.js";
 import {
   SECTION_INVALID_MESSAGE,
   SECTION_REQUIRED_MESSAGE,
-  SCHOOL_YEAR_INVALID_MESSAGE,
   formatSectionWithGrade,
   isValidSection,
   normalizeSection,
@@ -16,6 +15,7 @@ import {
   normalizeGradeLevel,
 } from "../utils/gradeLevels.js";
 import { isValidSchoolYearLabel } from "../utils/schoolYears.js";
+import AcademicYearService from "./AcademicYearService.js";
 import ActivityLogService from "./ActivityLogService.js";
 
 export const SECTION_NOT_IN_CATALOG_MESSAGE =
@@ -72,10 +72,7 @@ const ClassSectionService = {
   },
 
   async create(data, actor = null) {
-    const schoolYear = String(data.schoolYear || "").trim();
-    if (!isValidSchoolYearLabel(schoolYear)) {
-      throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
-    }
+    const schoolYear = await AcademicYearService.assertManaged(data.schoolYear);
 
     const gradeLevel = normalizeGradeLevel(data.gradeLevel);
     if (!gradeLevel || !isValidGradeLevel(gradeLevel)) {
@@ -126,11 +123,8 @@ const ClassSectionService = {
 
     const schoolYear =
       data.schoolYear !== undefined
-        ? String(data.schoolYear || "").trim()
+        ? await AcademicYearService.assertManaged(data.schoolYear)
         : current.school_year;
-    if (!isValidSchoolYearLabel(schoolYear)) {
-      throw new AppError(SCHOOL_YEAR_INVALID_MESSAGE, 400);
-    }
 
     const gradeLevel =
       data.gradeLevel !== undefined

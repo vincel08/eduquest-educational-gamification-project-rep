@@ -22,6 +22,39 @@ const AcademicYearController = {
       return next(error);
     }
   },
+
+  async list(req, res, next) {
+    try {
+      const years = await AcademicYearService.listManaged();
+      return successResponse(res, "School years retrieved", { years });
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async add(req, res, next) {
+    try {
+      const data = await AcademicYearService.addSchoolYear(
+        req.body.schoolYear,
+        req.user,
+      );
+      return successResponse(res, data.message, data);
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async remove(req, res, next) {
+    try {
+      const data = await AcademicYearService.removeSchoolYear(
+        req.params.startYear,
+        req.user,
+      );
+      return successResponse(res, data.message, data);
+    } catch (error) {
+      return next(error);
+    }
+  },
 };
 
 export default AcademicYearController;

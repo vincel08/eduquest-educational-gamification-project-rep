@@ -19,6 +19,7 @@ import {
   sectionSelectValue,
 } from "../../utils/classSections";
 import { useClassSectionsRevision } from "../../utils/classSectionsEvents";
+import { schoolYearChoiceMissing } from "../../utils/schoolYears";
 
 /** Subjects / Quizzes / Games / AI tools are not section-scoped. */
 function hideSectionFilterForPath(pathname) {
@@ -124,6 +125,9 @@ export default function TeacherSidebarFilters() {
           onChange={(event) => setSchoolYear(event.target.value)}
           fullWidth
         >
+          {schoolYearChoiceMissing(schoolYearOptions, schoolYear) ? (
+            <MenuItem value={schoolYear}>SY {schoolYear}</MenuItem>
+          ) : null}
           {schoolYearOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}

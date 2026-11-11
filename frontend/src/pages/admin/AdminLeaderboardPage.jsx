@@ -18,6 +18,7 @@ import ResponsiveTableContainer from "../../components/common/ResponsiveTableCon
 import gamificationService from "../../services/gamificationService";
 import { getErrorMessage } from "../../services/api";
 import { useAdminFilters } from "../../contexts/AdminFiltersContext";
+import { schoolYearChoiceMissing } from "../../utils/schoolYears";
 
 export default function AdminLeaderboardPage() {
   const {
@@ -68,6 +69,9 @@ export default function AdminLeaderboardPage() {
           fullWidth
           sx={{ width: { xs: "100%", sm: "auto" }, minWidth: { sm: 200 } }}
         >
+          {schoolYearChoiceMissing(schoolYearOptions, schoolYear) ? (
+            <MenuItem value={schoolYear}>SY {schoolYear}</MenuItem>
+          ) : null}
           {schoolYearOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}

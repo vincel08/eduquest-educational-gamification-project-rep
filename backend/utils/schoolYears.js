@@ -11,6 +11,12 @@
 /** First school-year start year shipped with EduWow. */
 export const FIRST_SCHOOL_YEAR_START = 2026;
 
+/** Earliest school year an administrator may add for older records. */
+export const MANAGED_SCHOOL_YEAR_MIN = 2000;
+
+/** How many school years past the system year an administrator may add. */
+export const MANAGED_FUTURE_YEARS = 15;
+
 /** Administrator-selected start year. Null uses the calendar rollover. */
 let overrideStartYear = null;
 
@@ -56,6 +62,38 @@ export function schoolYearsMatch(studentSchoolYear, courseSchoolYear) {
   const b = String(courseSchoolYear || "").trim();
   if (!a || !b) return false;
   return a === b;
+}
+
+/**
+ * Previous, current, or future compared with the system school year (June 1 rollover).
+ * This does not look at the administrator's current-year setting.
+ */
+export function schoolYearTiming(label, now = new Date()) {
+  const startYear = parseSchoolYearLabel(label);
+  if (!startYear) return null;
+  const calendarStart = calendarSchoolYearStartYear(now);
+  if (startYear < calendarStart) return "previous";
+  if (startYear > calendarStart) return "future";
+  return "current";
+}
+
+/** Accept "2027-2028" or a start year "2027". */
+export function normalizeManagedSchoolYear(value) {
+  const raw = String(value || "").trim();
+  if (isValidSchoolYearLabel(raw)) return raw;
+  if (/^\d{4}$/.test(raw)) return formatSchoolYearLabel(Number(raw));
+  return raw;
+}
+
+/** Empty string when the label can be added. Does not change the current setting. */
+export function managedSchoolYearError(label, now = new Date()) {
+  const startYear = parseSchoolYearLabel(label);
+  if (!startYear) return "Use a school year like 2026-2027.";
+  const latest = calendarSchoolYearStartYear(now) + MANAGED_FUTURE_YEARS;
+  if (startYear < MANAGED_SCHOOL_YEAR_MIN || startYear > latest) {
+    return `Enter a school year from SY ${formatSchoolYearLabel(MANAGED_SCHOOL_YEAR_MIN)} through SY ${formatSchoolYearLabel(latest)}.`;
+  }
+  return "";
 }
 
 export function parseSchoolYearLabel(label) {

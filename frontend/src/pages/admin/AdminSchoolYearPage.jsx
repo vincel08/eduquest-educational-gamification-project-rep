@@ -1,18 +1,38 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Button,
+  Chip,
   MenuItem,
   Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
 import PageHeader from "../../components/common/PageHeader";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import ResponsiveTableContainer from "../../components/common/ResponsiveTableContainer";
 import schoolYearService from "../../services/schoolYearService";
 import { getErrorMessage } from "../../services/api";
 import { useSchoolYear } from "../../contexts/SchoolYearContext";
+import {
+  managedSchoolYearError,
+  normalizeManagedSchoolYear,
+  parseSchoolYearLabel,
+  schoolYearChoiceMissing,
+  schoolYearTiming,
+} from "../../utils/schoolYears";
+
+const TIMING_LABEL = {
+  previous: "Previous",
+  current: "Current",
+  future: "Future",
+};
 
 function formatDate(value) {
   const parsed =
@@ -35,6 +55,10 @@ function inclusiveEnd(value) {
   return formatDate(parsed);
 }
 
+function yearSpan(startYear) {
+  return `June 1, ${startYear} – April 30, ${startYear + 1}`;
+}
+
 export default function AdminSchoolYearPage() {
   const {
     schoolYear,
@@ -50,9 +74,39 @@ export default function AdminSchoolYearPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [years, setYears] = useState([]);
+  const [yearsError, setYearsError] = useState("");
+  const [yearsLoading, setYearsLoading] = useState(true);
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [addMessage, setAddMessage] = useState("");
+  const [removeTarget, setRemoveTarget] = useState(null);
+  const [removing, setRemoving] = useState(false);
+  const listRequest = useRef(0);
 
   useEffect(() => {
     setSelected(schoolYear);
+  }, [schoolYear]);
+
+  async function loadYears() {
+    const requestId = listRequest.current + 1;
+    listRequest.current = requestId;
+    setYearsError("");
+    try {
+      const response = await schoolYearService.listYears();
+      if (listRequest.current !== requestId) return;
+      setYears(response.data.data?.years || []);
+    } catch (err) {
+      if (listRequest.current !== requestId) return;
+      setYearsError(getErrorMessage(err, "Unable to load school years"));
+    } finally {
+      if (listRequest.current === requestId) setYearsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadYears();
   }, [schoolYear]);
 
   const choices = settableYears.length
@@ -61,6 +115,38 @@ export default function AdminSchoolYearPage() {
   const advancing = selected && schoolYear && selected > schoolYear;
   const reverting = selected && schoolYear && selected < schoolYear;
   const unchanged = selected === schoolYear;
+  const normalizedDraft = normalizeManagedSchoolYear(draft);
+  const draftError = draft.trim() ? managedSchoolYearError(normalizedDraft) : "";
+  const draftTiming = schoolYearTiming(normalizedDraft);
+  const knownYears = useMemo(
+    () => new Set(years.map((year) => year.schoolYear)),
+    [years],
+  );
+
+  const suggestions = useMemo(() => {
+    const starts = years
+      .map((year) => Number(year.startYear))
+      .filter((year) => Number.isInteger(year));
+    const calendarStart = parseSchoolYearLabel(calendarSchoolYear);
+    const earliest = starts.length ? Math.min(...starts) : calendarStart;
+    const latest = starts.length ? Math.max(...starts) : calendarStart;
+    const rows = [
+      { kind: "previous", startYear: earliest != null ? earliest - 1 : null },
+      { kind: "current", startYear: calendarStart },
+      { kind: "future", startYear: latest != null ? latest + 1 : null },
+    ];
+    return rows.map((row) => {
+      const label =
+        row.startYear != null
+          ? `${row.startYear}-${row.startYear + 1}`
+          : "";
+      return {
+        ...row,
+        label,
+        disabled: !label || Boolean(managedSchoolYearError(label)) || knownYears.has(label),
+      };
+    });
+  }, [years, calendarSchoolYear, knownYears]);
 
   async function saveSchoolYear() {
     setSaving(true);
@@ -91,16 +177,68 @@ export default function AdminSchoolYearPage() {
     saveSchoolYear();
   }
 
+  async function addSchoolYear(event) {
+    event.preventDefault();
+    setAddError("");
+    setAddMessage("");
+    if (!normalizedDraft || draftError) {
+      setAddError(draftError || "Use a school year like 2026-2027.");
+      return;
+    }
+    setAdding(true);
+    try {
+      const response = await schoolYearService.addYear(normalizedDraft);
+      const data = response.data.data || {};
+      applySnapshot(data, { notify: false });
+      setDraft("");
+      setAddMessage(
+        response.data.message ||
+          `Added SY ${normalizedDraft}. The current school year is still SY ${data.schoolYear || schoolYear}.`,
+      );
+      await loadYears();
+    } catch (err) {
+      setAddError(getErrorMessage(err, "Unable to add the school year"));
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function confirmRemove() {
+    if (!removeTarget) return;
+    setRemoving(true);
+    setAddError("");
+    setAddMessage("");
+    try {
+      const response = await schoolYearService.removeYear(removeTarget.startYear);
+      const data = response.data.data || {};
+      applySnapshot(data, { notify: false });
+      setAddMessage(
+        response.data.message ||
+          `Removed SY ${removeTarget.schoolYear}. The current school year is still SY ${data.schoolYear || schoolYear}.`,
+      );
+      setRemoveTarget(null);
+      await loadYears();
+    } catch (err) {
+      setAddError(getErrorMessage(err, "Unable to remove the school year"));
+      setRemoveTarget(null);
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   return (
     <Stack spacing={2.5}>
       <PageHeader
-        title="School Year"
-        subtitle="Set the school year used for registration, subjects, and class sections."
+        title="School Years"
+        subtitle="Add previous, current, and future school years. The current school year setting stays until you change it."
       />
       {error ? <Alert severity="error">{error}</Alert> : null}
       {message ? <Alert severity="success">{message}</Alert> : null}
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack component="form" spacing={2} onSubmit={handleSubmit}>
+          <Typography variant="h6" fontWeight={800}>
+            Current school year
+          </Typography>
           <Typography>
             Current school year is <strong>SY {schoolYear}</strong>
             {start && endExclusive
@@ -133,6 +271,9 @@ export default function AdminSchoolYearPage() {
             }}
             fullWidth
           >
+            {schoolYearChoiceMissing(choices, selected) ? (
+              <MenuItem value={selected}>SY {selected}</MenuItem>
+            ) : null}
             {choices.map((option) => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
@@ -150,6 +291,133 @@ export default function AdminSchoolYearPage() {
           </Button>
         </Stack>
       </Paper>
+
+      <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+        <Stack component="form" spacing={2} onSubmit={addSchoolYear}>
+          <Typography variant="h6" fontWeight={800}>
+            Add a school year
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Previous years keep older records. The current year matches the
+            system school year. Future years can be used for subjects and
+            sections before June 1. Adding a year does not move students or
+            change the current school year.
+          </Typography>
+          {addError ? <Alert severity="error">{addError}</Alert> : null}
+          {addMessage ? <Alert severity="success">{addMessage}</Alert> : null}
+          {yearsError ? <Alert severity="error">{yearsError}</Alert> : null}
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+            {suggestions.map((suggestion) => (
+              <Button
+                key={suggestion.kind}
+                type="button"
+                variant="outlined"
+                disabled={yearsLoading || suggestion.disabled || adding}
+                onClick={() => {
+                  setDraft(suggestion.label);
+                  setAddError("");
+                  setAddMessage("");
+                }}
+              >
+                {TIMING_LABEL[suggestion.kind]}
+                {suggestion.label ? ` · SY ${suggestion.label}` : ""}
+              </Button>
+            ))}
+          </Stack>
+          <TextField
+            label="School year"
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setAddError("");
+              setAddMessage("");
+            }}
+            placeholder="2027-2028"
+            helperText={
+              draftError ||
+              (draftTiming
+                ? `${TIMING_LABEL[draftTiming]} school year. The current setting stays SY ${schoolYear}.`
+                : "Use a label like 2025-2026, or the starting year 2025.")
+            }
+            error={Boolean(draftError)}
+            fullWidth
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={adding || !draft.trim() || Boolean(draftError)}
+            sx={{ alignSelf: { sm: "flex-start" } }}
+          >
+            {adding ? "Adding school year..." : "Add school year"}
+          </Button>
+        </Stack>
+
+        <ResponsiveTableContainer sx={{ mt: 2 }}>
+          <Table size="small" sx={{ minWidth: 640 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 800 }}>School year</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Dates</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Timing</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Records</TableCell>
+                <TableCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {yearsLoading && !years.length ? (
+                <TableRow>
+                  <TableCell colSpan={5}>Loading school years...</TableCell>
+                </TableRow>
+              ) : null}
+              {!yearsLoading && !years.length ? (
+                <TableRow>
+                  <TableCell colSpan={5}>No school years yet.</TableCell>
+                </TableRow>
+              ) : null}
+              {years.map((year) => (
+                    <TableRow key={year.schoolYear} hover>
+                      <TableCell>
+                        <Typography fontWeight={700}>SY {year.schoolYear}</Typography>
+                        {year.isCurrentSetting ? (
+                          <Typography variant="caption" color="text.secondary">
+                            Current setting
+                          </Typography>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>{yearSpan(year.startYear)}</TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={TIMING_LABEL[year.timing] || "School year"}
+                          color={
+                            year.timing === "future"
+                              ? "info"
+                              : year.timing === "previous"
+                                ? "default"
+                                : "primary"
+                          }
+                          variant={year.timing === "previous" ? "outlined" : "filled"}
+                        />
+                      </TableCell>
+                      <TableCell>{year.used || 0}</TableCell>
+                      <TableCell align="right">
+                        {year.canRemove ? (
+                          <Button
+                            size="small"
+                            color="error"
+                            onClick={() => setRemoveTarget(year)}
+                          >
+                            Remove
+                          </Button>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+            </TableBody>
+          </Table>
+        </ResponsiveTableContainer>
+      </Paper>
+
       <ConfirmDialog
         open={confirmOpen}
         title={
@@ -169,6 +437,19 @@ export default function AdminSchoolYearPage() {
           if (!saving) setConfirmOpen(false);
         }}
         onConfirm={saveSchoolYear}
+      />
+      <ConfirmDialog
+        open={Boolean(removeTarget)}
+        title={removeTarget ? `Remove SY ${removeTarget.schoolYear}?` : "Remove school year?"}
+        description="This only removes an unused school year from the list. The current school year setting stays the same."
+        confirmLabel="Remove school year"
+        confirmColor="error"
+        loading={removing}
+        loadingLabel="Removing..."
+        onClose={() => {
+          if (!removing) setRemoveTarget(null);
+        }}
+        onConfirm={confirmRemove}
       />
     </Stack>
   );
